@@ -1,0 +1,5 @@
+aomi.egg-info
+dist
+.ci-env
+*.pyc
+*.pyo

@@ -1,0 +1,315 @@
+#!/usr/bin/env python
+
+from __future__ import print_function
+import os
+import sys
+from optparse import OptionParser
+import hvac
+import yaml
+from jinja2 import Template
+
+# need to override those SSL warnings
+import requests
+from requests.packages.urllib3.exceptions import InsecureRequestWarning
+requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
+
+
+def usage():
+    """Real Time Help"""
+    print('aomi extract_file <vault path> <file path>')
+    print('aomi environment')
+    print('aomi aws_environment <vault path>')
+    print('aomi seed [--secretfile ./Secretfile]'
+          ' [--secrets ./secrets] [--policies ./vault]')
+    print('aomi template <template> <destination> <path>')
+
+
+def problems(msg):
+    """Simple give-up and error out function."""
+    print("Problem: %s" % msg,
+          file=sys.stderr)
+    exit(1)
+
+
+def vault_client():
+    """Return a vault client"""
+    if 'VAULT_ADDR' not in os.environ:
+        problems('VAULT_ADDR must be defined')
+
+    ssl_verify = True
+    if 'VAULT_SKIP_VERIFY' in os.environ:
+        if os.environ['VAULT_SKIP_VERIFY'] == '1':
+            ssl_verify = False
+
+    token_file = "%s/.vault-token" % os.environ['HOME']
+    client = hvac.Client(os.environ['VAULT_ADDR'], verify=ssl_verify)
+    if 'VAULT_TOKEN' in os.environ:
+        client.token = os.environ['VAULT_TOKEN']
+    elif 'VAULT_USER_ID' in os.environ and 'VAULT_APP_ID' in os.environ:
+        resp = client.auth_app_id(os.environ['VAULT_APP_ID'],
+                                  os.environ['VAULT_USER_ID'])
+
+        if 'auth' in resp and 'client_token' in resp['auth']:
+            client.token = resp['auth']['client_token']
+        else:
+            problems('Unable to retrieve app token')
+
+        return client
+    elif os.path.exists(token_file):
+        client.token = open(token_file, 'r').read()
+    else:
+        problems('Unable to determine vault authentication method')
+
+    if not client.is_authenticated():
+        problems("Unable to authenticate with vault")
+
+    return client
+
+
+def write_template(src, dest, vault_path):
+    """Writes a template using variables from a vault path"""
+    client = vault_client()
+    template = Template(open(src, 'r').read())
+    secrets = client.read(vault_path)
+    if not secrets:
+        problems("Unable to retrieve %s" % vault_path)
+    obj = {}
+    for k, v in secrets['data'].items():
+        norm_path = [x for x in vault_path.split('/') if x]
+        v_name = ("%s_%s" % ('_'.join(norm_path), k)).lower()
+        obj[v_name] = v
+    output = template.render(**obj)
+    open(dest, 'w').write(output)
+
+
+def write_file(src, dest):
+    """Write the contents of a vault path/key to a file"""
+    client = vault_client()
+    path_bits = src.split('/')
+    path = '/'.join(path_bits[0:len(path_bits) - 1])
+    key = path_bits[len(path_bits) - 1]
+    resp = client.read(path)
+    if not resp:
+        problems("Unable to retrieve %s" % path)
+    else:
+        if 'data' in resp and key in resp['data']:
+            secret = resp['data'][key]
+            open(dest, 'w').write(secret)
+        else:
+            problems("Key %s not found in %s" % (key, path))
+
+
+def render_env(path, opt):
+    """Renders a shell snippet based on paths in a Secretfile"""
+    client = vault_client()
+    secrets = client.read(path)
+    if secrets and 'data' in secrets:
+        for s_key, s_val in secrets['data'].items():
+            if opt.prefix:
+                env_name = "%s_%s" % (opt.prefix.upper(), s_key.upper())
+            else:
+                env_bits = path.split('/')
+                env_bits.append(s_key)
+                env_name = '_'.join(env_bits).upper()
+            print("%s=\"%s\"" % (env_name, s_val))
+
+
+def render_aws(path):
+    """Renders a shell environment snippet with AWS information"""
+    client = vault_client()
+    creds = client.read(path)
+    if creds and 'data' in creds:
+        print("AWS_ACCESS_KEY_ID=\"%s\"" % creds['data']['access_key'])
+        print("AWS_SECRET_ACCESS_KEY=\"%s\"" % creds['data']['secret_key'])
+    else:
+        problems("Unable to generate AWS credentials from %s" % path)
+
+
+def is_mounted(mount, backends, style):
+    """Determine whether a backend of a certain type is mounted"""
+    for m, v in backends.items():
+        b_norm = '/'.join([x for x in m.split('/') if x])
+        m_norm = '/'.join([x for x in mount.split('/') if x])
+        if (m_norm == b_norm) and v['type'] == style:
+            return True
+    return False
+
+
+def seed_vars(client, secret, opt):
+    """Seed a var_file into Vault"""
+    path = "%s/%s" % (secret['mount'], secret['path'])
+    var_file = "%s/%s" % (opt.secrets, secret['var_file'])
+    varz = yaml.load(open(var_file).read())
+    if 'var_file' not in secret \
+       or 'mount' not in secret \
+       or 'path' not in secret:
+        problems("Invalid generic secret definition %s" % secret)
+
+    backends = client.list_secret_backends()
+    if not is_mounted(secret['mount'], backends, 'generic'):
+        client.enable_secret_backend('generic', mount_point=secret['mount'])
+    client.write(path, **varz)
+
+
+def seed_aws(client, secret, opt):
+    """Seed an aws_file into Vault"""
+    if 'aws_file' not in secret or 'mount' not in secret:
+        problems("Invalid aws secret definition" % secret)
+    aws_file = "%s/%s" % (opt.secrets, secret['aws_file'])
+    aws = yaml.load(open(aws_file).read())
+    if 'access_key_id' not in aws \
+       or 'secret_access_key' not in aws \
+       or 'region' not in aws \
+       or 'roles' not in aws:
+        problems("Invalid AWS secrets" % aws)
+    backends = client.list_secret_backends()
+    if not is_mounted(secret['mount'], backends, 'aws'):
+        client.enable_secret_backend('aws', mount_point=secret['mount'])
+    aws_path = "%s/config/root" % secret['mount']
+    obj = {
+        'access_key': aws['access_key_id'],
+        'secret_key': aws['secret_access_key'],
+        'region': aws['region']
+    }
+    client.write(aws_path, **obj)
+    for role in aws['roles']:
+        if 'policy' not in role or 'name' not in role:
+            problems("Invalid role definition %s" % role)
+        data = open("%s/%s" % (opt.policies, role['policy']), 'r').read()
+        role_path = "%s/roles/%s" % (secret['mount'], role['name'])
+        client.write(role_path, policy=data)
+
+
+def seed_app(client, app, opt):
+    """Seed an app file into Vault"""
+    if 'app_file' not in app:
+        problems("Invalid app definition %" % app)
+    name = None
+    if 'name' in app:
+        name = app['name']
+    else:
+        name = os.path.splitext(os.path.basename(app['app_file']))[0]
+    app_file = "%s/%s" % (opt.secrets, app['app_file'])
+    data = yaml.load(open(app_file).read())
+    if 'app_id' not in data \
+       or 'policy' not in data:
+        problems("Invalid app file %s" % app_file)
+    policy_name = None
+    if 'policy_name' in data:
+        policy_name = data['policy_name']
+    else:
+        policy_name = name
+    policy_file = "%s/%s" % (opt.policies, data['policy'])
+    policy = open(policy_file, 'r').read()
+    client.set_policy(name, policy)
+    app_path = "auth/app-id/map/app-id/%s" % data['app_id']
+    app_obj = {'value': policy_name, 'display_name': name}
+    client.write(app_path, **app_obj)
+    for user in data.get('users', []):
+        if 'id' not in user:
+            problems("Invalid user definition %s" % user)
+        user_path = "auth/app-id/map/user-id/%s" % user['id']
+        user_obj = {'value': data['app_id']}
+        if 'cidr' in user:
+            user_obj['cidr_block'] = user['cidr']
+        client.write(user_path, **user_obj)
+
+
+def seed_files(client, secret, opt):
+    """Seed files into Vault"""
+    if 'mount' not in secret or 'path' not in secret:
+        problems("Invalid files specification %s" % secret)
+    obj = {}
+    for f in secret.get('files', []):
+        if 'source' not in f or 'name' not in f:
+            problems("Invalid file specification %s" % f)
+        file_path = "%s/%s" % (opt.secrets, f['source'])
+        data = open(file_path, 'r').read()
+        obj[f['name']] = data
+
+    backends = client.list_secret_backends()
+    if not is_mounted(secret['mount'], backends, 'generic'):
+        client.enable_secret_backend('generic', mount_point=secret['mount'])
+    vault_path = "%s/%s" % (secret['mount'], secret['path'])
+    client.write(vault_path, **obj)
+
+
+def seed_vault(opt):
+    """Will provision vault based on the definition within a Secretfile"""
+    client = vault_client()
+    config = yaml.load(open(opt.secretfile).read())
+    for secret in config.get('secrets', []):
+        if 'var_file' in secret:
+            seed_vars(client, secret, opt)
+        elif 'aws_file' in secret:
+            seed_aws(client, secret, opt)
+        elif 'files' in secret:
+            seed_files(client, secret, opt)
+        else:
+            problems("Invalid secret element %s" % secret)
+    for app in config.get('apps', []):
+        if 'app_file' in app:
+            seed_app(client, app, opt)
+        else:
+            problems("Invalid app element %s" % app)
+
+
+def main():
+    """Entrypoint, sweet Entrypoint"""
+    operation = sys.argv[1]
+    parser = OptionParser()
+    parser.add_option('--secretfile',
+                      dest='secretfile',
+                      help='Secretfile to use',
+                      default="%s/Secretfile" % os.getcwd())
+
+    if operation == 'seed':
+        parser.add_option('--secrets',
+                          dest='secrets',
+                          help='Path where secrets are stored',
+                          default="%s/.secrets" % os.getcwd())
+        parser.add_option('--policies',
+                          dest='policies',
+                          help='Path where policies are stored',
+                          default="%s/vault" % os.getcwd())
+    elif operation == 'environment':
+        parser.add_option('--prefix',
+                          dest='prefix',
+                          help='Specify a prefix to use when '
+                          'generating environment variables')
+
+    (opt, args) = parser.parse_args()
+
+    if operation == 'help':
+        usage()
+        sys.exit(0)
+    elif operation == 'extract_file':
+        if len(args) == 3:
+            write_file(args[1], args[2])
+            sys.exit(0)
+    elif operation == 'environment':
+        if len(args) == 2:
+            render_env(args[1], opt)
+            sys.exit(0)
+    elif operation == 'aws_environment':
+        if len(args) == 2:
+            render_aws(args[1])
+            sys.exit(0)
+    elif operation == 'seed':
+        if len(args) == 1:
+            seed_vault(opt)
+            sys.exit(0)
+    elif operation == 'template':
+        if len(args) == 4:
+            write_template(args[1], args[2], args[3])
+            sys.exit(0)
+
+    usage()
+    sys.exit(1)
+
+if __name__ == "__main__":
+    if len(sys.argv) < 2:
+        usage()
+        sys.exit(1)
+
+    main()
