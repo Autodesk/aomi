@@ -1,0 +1,12 @@
+sudo: false
+language: python
+script: make test
+deploy:
+  provider: pypi
+  user: otakup0pe
+  on:
+    tags: true
+    all_branches: true
+    repo: Autodesk/aomi
+  password:
+    secure: J/90nkueQZgXWeqDp0gryzTtTOQ7P3Max2+AP3x9ukTUL5hQXJGWAHqIW5J9iJ6TH9CEZW3bO4ivFQi5lnebYgxPKHmlqI0+IJL+Q56onn0d3fVcrifZ04NI311jXiKvPxdVxOd5Hm6jXv7NG3TBaeJHmcJdvuCXWVieGIPA0x79H4IYCDONX3vc+GkDEt0gu/F8O8F2426kcLfuuk6xGFRmQMASCIKSM5LOOpNES1P2QJ/HyEoGSMaM+EGVtuorKvt3GnF1c/aEcFwKMVTGWMtWoPh3nKOidJwk6Y0o+e2hqlIMuK5W9zqO938dtGDEoSkeGC1qW5vwfYiSjT00GbcNd4bP2gxDD4hAygoqe/KG7uVHIjeACw0/pA+eSTtWVNMSMn9oVBbc0eyDbs4PrNB/Pn+smUzxqwYlik5ymSSJ1TjQphGCVZCl8jVtuwjNhzRJxDC8mtJg16oxsE/+I0MPV2LH2yil8LlnbRNu46dou5VbRIYdmTOGbpe88V25GyKCzjDTFV16MHf4E9xCD7jQwnMrBy84bE2NfqNArDHtrVo0fFJjrJv7opEzj3Xln2/+v0mQIXR5DXGgnAAgLX4ABvldDqdZk9NVWl2UEe7mP7ls8hl/qwtDMX6PwAlmlbCyH+V0p99S/JBZb8M7/e2Fcq5IOCfOE/eydz8RCm0=
