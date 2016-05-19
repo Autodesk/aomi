@@ -1,3 +1,6 @@
+![Build Status](https://travis-ci.org/Autodesk/aomi.svg?branch=master)[![PyPI](https://img.shields.io/pypi/v/aomi.svg)](https://pypi.python.org/pypi/aomi)[![Maintenance](https://img.shields.io/maintenance/yes/2016.svg)]()
+
+
 Aomi: A Vault Wrapper
 ---------------
 
