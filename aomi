@@ -43,9 +43,12 @@ def vault_client():
 
     token_file = "%s/.vault-token" % os.environ['HOME']
     client = hvac.Client(os.environ['VAULT_ADDR'], verify=ssl_verify)
-    if 'VAULT_TOKEN' in os.environ:
+    if 'VAULT_TOKEN' in os.environ and len(os.environ['VAULT_TOKEN']) > 0:
         client.token = os.environ['VAULT_TOKEN']
-    elif 'VAULT_USER_ID' in os.environ and 'VAULT_APP_ID' in os.environ:
+    elif 'VAULT_USER_ID' in os.environ and \
+         'VAULT_APP_ID' in os.environ and \
+         len(os.environ['VAULT_USER_ID']) > 0 and \
+         len(os.environ['VAULT_APP_ID']) > 0:
         resp = client.auth_app_id(os.environ['VAULT_APP_ID'],
                                   os.environ['VAULT_USER_ID'])
 
@@ -73,13 +76,13 @@ def write_template(src, dest, vault_path):
     secrets = client.read(vault_path)
     if not secrets:
         problems("Unable to retrieve %s" % vault_path)
-    obj = {}
+        obj = {}
     for k, v in secrets['data'].items():
         norm_path = [x for x in vault_path.split('/') if x]
         v_name = ("%s_%s" % ('_'.join(norm_path), k)).lower()
         obj[v_name] = v
-    output = template.render(**obj)
-    open(dest, 'w').write(output)
+        output = template.render(**obj)
+        open(dest, 'w').write(output)
 
 
 def write_file(src, dest):
@@ -111,7 +114,7 @@ def render_env(path, opt):
                 env_bits = path.split('/')
                 env_bits.append(s_key)
                 env_name = '_'.join(env_bits).upper()
-            print("%s=\"%s\"" % (env_name, s_val))
+                print("%s=\"%s\"" % (env_name, s_val))
 
 
 def render_aws(path):
@@ -148,90 +151,90 @@ def seed_vars(client, secret, opt):
     backends = client.list_secret_backends()
     if not is_mounted(secret['mount'], backends, 'generic'):
         client.enable_secret_backend('generic', mount_point=secret['mount'])
-    client.write(path, **varz)
+        client.write(path, **varz)
 
 
 def seed_aws(client, secret, opt):
     """Seed an aws_file into Vault"""
     if 'aws_file' not in secret or 'mount' not in secret:
         problems("Invalid aws secret definition" % secret)
-    aws_file = "%s/%s" % (opt.secrets, secret['aws_file'])
-    aws = yaml.load(open(aws_file).read())
+        aws_file = "%s/%s" % (opt.secrets, secret['aws_file'])
+        aws = yaml.load(open(aws_file).read())
     if 'access_key_id' not in aws \
        or 'secret_access_key' not in aws \
        or 'region' not in aws \
        or 'roles' not in aws:
         problems("Invalid AWS secrets" % aws)
-    backends = client.list_secret_backends()
+        backends = client.list_secret_backends()
     if not is_mounted(secret['mount'], backends, 'aws'):
         client.enable_secret_backend('aws', mount_point=secret['mount'])
-    aws_path = "%s/config/root" % secret['mount']
-    obj = {
-        'access_key': aws['access_key_id'],
-        'secret_key': aws['secret_access_key'],
-        'region': aws['region']
-    }
-    client.write(aws_path, **obj)
+        aws_path = "%s/config/root" % secret['mount']
+        obj = {
+            'access_key': aws['access_key_id'],
+            'secret_key': aws['secret_access_key'],
+            'region': aws['region']
+        }
+        client.write(aws_path, **obj)
     for role in aws['roles']:
         if 'policy' not in role or 'name' not in role:
             problems("Invalid role definition %s" % role)
-        data = open("%s/%s" % (opt.policies, role['policy']), 'r').read()
-        role_path = "%s/roles/%s" % (secret['mount'], role['name'])
-        client.write(role_path, policy=data)
+            data = open("%s/%s" % (opt.policies, role['policy']), 'r').read()
+            role_path = "%s/roles/%s" % (secret['mount'], role['name'])
+            client.write(role_path, policy=data)
 
 
 def seed_app(client, app, opt):
     """Seed an app file into Vault"""
     if 'app_file' not in app:
         problems("Invalid app definition %" % app)
-    name = None
+        name = None
     if 'name' in app:
         name = app['name']
     else:
         name = os.path.splitext(os.path.basename(app['app_file']))[0]
-    app_file = "%s/%s" % (opt.secrets, app['app_file'])
-    data = yaml.load(open(app_file).read())
+        app_file = "%s/%s" % (opt.secrets, app['app_file'])
+        data = yaml.load(open(app_file).read())
     if 'app_id' not in data \
        or 'policy' not in data:
         problems("Invalid app file %s" % app_file)
-    policy_name = None
+        policy_name = None
     if 'policy_name' in data:
         policy_name = data['policy_name']
     else:
         policy_name = name
-    policy_file = "%s/%s" % (opt.policies, data['policy'])
-    policy = open(policy_file, 'r').read()
-    client.set_policy(name, policy)
-    app_path = "auth/app-id/map/app-id/%s" % data['app_id']
-    app_obj = {'value': policy_name, 'display_name': name}
-    client.write(app_path, **app_obj)
+        policy_file = "%s/%s" % (opt.policies, data['policy'])
+        policy = open(policy_file, 'r').read()
+        client.set_policy(name, policy)
+        app_path = "auth/app-id/map/app-id/%s" % data['app_id']
+        app_obj = {'value': policy_name, 'display_name': name}
+        client.write(app_path, **app_obj)
     for user in data.get('users', []):
         if 'id' not in user:
             problems("Invalid user definition %s" % user)
-        user_path = "auth/app-id/map/user-id/%s" % user['id']
-        user_obj = {'value': data['app_id']}
+            user_path = "auth/app-id/map/user-id/%s" % user['id']
+            user_obj = {'value': data['app_id']}
         if 'cidr' in user:
             user_obj['cidr_block'] = user['cidr']
-        client.write(user_path, **user_obj)
+            client.write(user_path, **user_obj)
 
 
 def seed_files(client, secret, opt):
     """Seed files into Vault"""
     if 'mount' not in secret or 'path' not in secret:
         problems("Invalid files specification %s" % secret)
-    obj = {}
+        obj = {}
     for f in secret.get('files', []):
         if 'source' not in f or 'name' not in f:
             problems("Invalid file specification %s" % f)
-        file_path = "%s/%s" % (opt.secrets, f['source'])
-        data = open(file_path, 'r').read()
-        obj[f['name']] = data
+            file_path = "%s/%s" % (opt.secrets, f['source'])
+            data = open(file_path, 'r').read()
+            obj[f['name']] = data
 
     backends = client.list_secret_backends()
     if not is_mounted(secret['mount'], backends, 'generic'):
         client.enable_secret_backend('generic', mount_point=secret['mount'])
-    vault_path = "%s/%s" % (secret['mount'], secret['path'])
-    client.write(vault_path, **obj)
+        vault_path = "%s/%s" % (secret['mount'], secret['path'])
+        client.write(vault_path, **obj)
 
 
 def seed_vault(opt):
