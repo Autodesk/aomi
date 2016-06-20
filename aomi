@@ -76,7 +76,8 @@ def write_template(src, dest, vault_path):
     secrets = client.read(vault_path)
     if not secrets:
         problems("Unable to retrieve %s" % vault_path)
-        obj = {}
+ 
+    obj = {}
     for k, v in secrets['data'].items():
         norm_path = [x for x in vault_path.split('/') if x]
         v_name = ("%s_%s" % ('_'.join(norm_path), k)).lower()
