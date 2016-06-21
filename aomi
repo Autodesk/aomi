@@ -162,32 +162,35 @@ def seed_aws(client, secret, opt):
     """Seed an aws_file into Vault"""
     if 'aws_file' not in secret or 'mount' not in secret:
         problems("Invalid aws secret definition" % secret)
-        aws_file = "%s/%s" % (opt.secrets, secret['aws_file'])
-        aws = yaml.load(open(aws_file).read())
+
+    aws_file = "%s/%s" % (opt.secrets, secret['aws_file'])
+    aws = yaml.load(open(aws_file).read())
 
     if 'access_key_id' not in aws \
        or 'secret_access_key' not in aws \
        or 'region' not in aws \
        or 'roles' not in aws:
         problems("Invalid AWS secrets" % aws)
-        backends = client.list_secret_backends()
 
+    backends = client.list_secret_backends()
     if not is_mounted(secret['mount'], backends, 'aws'):
         client.enable_secret_backend('aws', mount_point=secret['mount'])
-        aws_path = "%s/config/root" % secret['mount']
-        obj = {
-            'access_key': aws['access_key_id'],
-            'secret_key': aws['secret_access_key'],
-            'region': aws['region']
-        }
-        client.write(aws_path, **obj)
+
+    aws_path = "%s/config/root" % secret['mount']
+    obj = {
+        'access_key': aws['access_key_id'],
+        'secret_key': aws['secret_access_key'],
+        'region': aws['region']
+    }
+    client.write(aws_path, **obj)
 
     for role in aws['roles']:
         if 'policy' not in role or 'name' not in role:
             problems("Invalid role definition %s" % role)
-            data = open("%s/%s" % (opt.policies, role['policy']), 'r').read()
-            role_path = "%s/roles/%s" % (secret['mount'], role['name'])
-            client.write(role_path, policy=data)
+
+        data = open("%s/%s" % (opt.policies, role['policy']), 'r').read()
+        role_path = "%s/roles/%s" % (secret['mount'], role['name'])
+        client.write(role_path, policy=data)
 
 
 def seed_app(client, app, opt):
