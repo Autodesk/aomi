@@ -31,6 +31,14 @@ def problems(msg):
     exit(1)
 
 
+def vault_app_token(client, app_id, user_id):
+    resp = client.auth_app_id(app_id, user_id)
+    if 'auth' in resp and 'client_token' in resp['auth']:
+        return resp['auth']['client_token']
+    else:
+        problems('Unable to retrieve app token')
+
+
 def vault_client():
     """Return a vault client"""
     if 'VAULT_ADDR' not in os.environ:
@@ -42,6 +50,8 @@ def vault_client():
             ssl_verify = False
 
     token_file = "%s/.vault-token" % os.environ['HOME']
+    app_file = "%s/.aomi-app-token" % os.environ['HOME']
+
     client = hvac.Client(os.environ['VAULT_ADDR'], verify=ssl_verify)
     if 'VAULT_TOKEN' in os.environ and len(os.environ['VAULT_TOKEN']) > 0:
         client.token = os.environ['VAULT_TOKEN']
@@ -49,14 +59,17 @@ def vault_client():
          'VAULT_APP_ID' in os.environ and \
          len(os.environ['VAULT_USER_ID']) > 0 and \
          len(os.environ['VAULT_APP_ID']) > 0:
-        resp = client.auth_app_id(os.environ['VAULT_APP_ID'],
-                                  os.environ['VAULT_USER_ID'])
+        client.token = vault_app_token(client,
+                                       os.environ['VAULT_APP_ID'],
+                                       os.environ['VAULT_USER_ID'])
 
-        if 'auth' in resp and 'client_token' in resp['auth']:
-            client.token = resp['auth']['client_token']
-        else:
-            problems('Unable to retrieve app token')
-
+        return client
+    elif os.path.exists(app_file):
+        token = yaml.load(open(app_file).read())
+        if 'app_id' in token and 'user_id' in token:
+            client.token = vault_app_token(client,
+                                           token['app_id'],
+                                           token['user_id'])
         return client
     elif os.path.exists(token_file):
         client.token = open(token_file, 'r').read()
