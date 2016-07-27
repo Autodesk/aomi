@@ -5,6 +5,10 @@ setup() {
     cd "$BATS_TMPDIR"
     nohup vault server -dev &
     VAULT_PID=$!
+    if [ -z "$AOMI" ] ; then
+        AOMI="${BATS_TEST_DIRNAME}/../../aomi"
+    fi
+
 }
 
 teardown() {
@@ -15,7 +19,7 @@ teardown() {
 @test "can seed generic" {
     FIXTURE_DIR="${BATS_TEST_DIRNAME}/fixtures/generic"
     cd "$FIXTURE_DIR"
-    run aomi seed
+    run "$AOMI" seed
     [ "$status" -eq 0 ]
     run vault read -field=secret foo/bar/baz
     [ "$output" = "$(cat ${FIXTURE_DIR}/.secrets/secret.txt)" ]
