@@ -3,3 +3,6 @@ dist
 .ci-env
 *.pyc
 *.pyo
+.bats
+.bats-git
+.vault

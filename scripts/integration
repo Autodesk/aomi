@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+
+VAULT_VERSION="0.6.0"
+
+set -e
+
+SCRIPT_DIR=$(cd ${0%/*} && pwd)
+CIDIR=${SCRIPT_DIR%/*}
+BATSGIT="${CIDIR}/.bats-git"
+BATSBIN="${CIDIR}/.bats"
+. "${CIDIR}/.ci-env/bin/activate"
+
+if [ ! -d "$BATSGIT" ] ; then
+    git clone --depth 1 https://github.com/sstephenson/bats.git "$BATSGIT"
+fi
+if [ ! -d "$BATSBIN" ] ; then
+    cd "$BATSGIT"
+    ./install.sh "$BATSBIN"
+fi
+
+if [ ! -d "${CIDIR}/.vault" ] ; then
+    mkdir -p "${CIDIR}/.vault/"
+    OS=$(uname -s)
+    if [ "$OS" == "Darwin" ] ; then
+        URL="https://releases.hashicorp.com/vault/${VAULT_VERSION}/vault_${VAULT_VERSION}_darwin_amd64.zip"
+    elif [ "$OS" == "Linux" ] ; then
+        URL="https://releases.hashicorp.com/vault/${VAULT_VERSION}/vault_${VAULT_VERSION}_linux_amd64.zip"
+    fi
+
+    wget -O  "/tmp/vault.zip"  "$URL"
+    unzip -d "${CIDIR}/.vault" "/tmp/vault.zip"
+    chmod +x "${CIDIR}/.vault/vault"
+    PATH="${PATH}:${CIDIR}/.vault"
+    export PATH
+fi
+
+"${CIDIR}/.bats/bin/bats" "${CIDIR}"/tests/integration/*.bats
