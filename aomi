@@ -17,7 +17,7 @@ requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 def usage():
     """Real Time Help"""
     print('aomi extract_file <vault path> <file path>')
-    print('aomi environment')
+    print('aomi environment <vault path>')
     print('aomi aws_environment <vault path>')
     print('aomi seed [--secretfile ./Secretfile]'
           ' [--secrets ./secrets] [--policies ./vault]')
@@ -32,6 +32,7 @@ def problems(msg):
 
 
 def vault_app_token(client, app_id, user_id):
+    """Returns a vault token based on the app and user id."""
     resp = client.auth_app_id(app_id, user_id)
     if 'auth' in resp and 'client_token' in resp['auth']:
         return resp['auth']['client_token']
@@ -49,8 +50,10 @@ def vault_client():
         if os.environ['VAULT_SKIP_VERIFY'] == '1':
             ssl_verify = False
 
-    token_file = "%s/.vault-token" % os.environ['HOME']
-    app_file = "%s/.aomi-app-token" % os.environ['HOME']
+    token_file = "%s/.vault-token" % os.environ.get('VAULT_TOKEN_FILE',
+                                                    os.environ['HOME'])
+    app_file = "%s/.aomi-app-token" % os.environ.get('AOMI_APP_FILE',
+                                                     os.environ['HOME'])
 
     client = hvac.Client(os.environ['VAULT_ADDR'], verify=ssl_verify)
     if 'VAULT_TOKEN' in os.environ and len(os.environ['VAULT_TOKEN']) > 0:
@@ -338,7 +341,6 @@ def main():
         if len(args) == 4:
             write_template(args[1], args[2], args[3])
             sys.exit(0)
-
     usage()
     sys.exit(1)
 
