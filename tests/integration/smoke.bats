@@ -5,6 +5,7 @@ setup() {
     cd "$BATS_TMPDIR"
     nohup vault server -dev &
     VAULT_PID=$!
+    export VAULT_ADDR='http://127.0.0.1:8200'
     if [ -z "$AOMI" ] ; then
         AOMI="${BATS_TEST_DIRNAME}/../../aomi"
     fi
