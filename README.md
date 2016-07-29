@@ -12,7 +12,7 @@ The important piece of the `Secretfile` is `secrets` as that is where seeds are 
 
 **Files**
 
-You may specify a list of files and their destination Vault secret item. Each `files` section has a list of source files, and the key name they should use in Vault. Each instance of a `files` section must also include a Vault mount point and path. 
+You may specify a list of files and their destination Vault secret item. Each `files` section has a list of source files, and the key name they should use in Vault. Each instance of a `files` section must also include a Vault mount point and path.  The following example would create two secrets (`private` and `public`) based on the two files under the `.secrets` directory and place them in the Vault path `foo/bar/baz`.
 
 ----
 `Secretfile`
@@ -20,19 +20,19 @@ You may specify a list of files and their destination Vault secret item. Each `f
 ```
 secrets:
 - files:
-  - source: 'dev-secrets'
-    name: 'secret'
-  - source: 'dev-validator.pem'
-    name: 'validator'
-  mount: 'paas/abus/dev/secrets'
-  path: 'chef'
+  - source: id_rsa
+    name: private
+  - source: id_rsa.pub
+    name: public
+  mount: foo/bar
+  path: 'baz'
 ```
 
 **AWS**
 
-By specifying an appropriately populated `aws_file` you can seed AWS credentials into Vault. The `aws_file` must point to a valid file, and the base of the AWS credentials will be set by the `path`.
+By specifying an appropriately populated `aws_file` you can create [AWS secret backends](https://www.vaultproject.io/docs/secrets/aws/index.html) in Vault. The `aws_file` must point to a valid file, and the base of the AWS credentials will be set by the `path`.
 
-The AWS file contains the `region`, `access_key_id`, `secret_access_key`, and a list of AWS roles that will be loaded by Vault. The `name` of each role will be used to compute the final path for accessing credentials. The policy files are simply JSON IAM Access representations.
+The AWS file contains the `region`, `access_key_id`, `secret_access_key`, and a list of AWS roles that will be loaded by Vault. The `name` of each role will be used to compute the final path for accessing credentials. The policy files are simply JSON IAM Access representations. The following example would create an AWS Vault secret backend at `foo/bar/baz` based on the account and policy information defined in `.secrets/aws.yml`.
 
 ----
 
@@ -40,13 +40,13 @@ The AWS file contains the `region`, `access_key_id`, `secret_access_key`, and a 
 
 ```
 secrets:
-- aws_file: 'dev-aws.yml'
-  mount: 'paas/abus/dev/aws'
+- aws_file: 'aws.yml'
+  mount: 'foo/bar/baz'
 ```
 
 ----
 
-`dev-aws.yml`
+`aws.yml`
 
 ```
 
@@ -54,11 +54,62 @@ access_key_id: "REDACTED"
 secret_access_key: "REDACTED"
 region: "us-east-1"
 roles:
-- policy: "deploy-policy.json"
-  name: 'deploy'
-- roles:
-  policy: "build-policy.json"
-  name: 'build'
+- policy: "policy.json"
+  name: default
+```
+
+**Variable Files**
+
+You may define a preset list of secrets and associate them with a mountpoint and path. The `var_file` contains a list of YAML key value pairs. The following example would create two secrets (`user` and `password`) at the Vault path `foo/bar/baz`.
+
+----
+
+`Secretfile`
+
+```
+secrets:
+- var_file: 'foo.yml'
+  mount: 'foo/bar'
+  path: 'baz'
+```
+
+`.secrets/foo.yml`
+
+```
+user: 'foo'
+password: 'bar'
+```
+
+**Vault Applications**
+
+One of the authentication types supported by Vault is that of an Application/UserID combination. You may provision these with `aomi` as well. You may specify an Application ID, a series of User ID's, and a [Vault policy](https://www.vaultproject.io/docs/concepts/policies.html) to apply to resulting tokens. The following example would create an application named `foo` with two users (`bar` and `baz`) who read anything under the `foo/bar` Vault path.
+
+----
+
+`Secretfile`
+
+```
+secrets:
+apps:
+- app_file: 'foo.yml'
+```
+
+`.secrets/foo.yml`
+
+```
+app_id: 'foo'
+users:
+- 'bar'
+- 'baz'
+policy: 'foo.hcl'
+```
+
+`vault/foo.hcl`
+
+```
+path "foo/bar/*" {
+  policy = "read"
+}
 ```
 
 Commands
@@ -74,17 +125,40 @@ The `seed` command also takes the `--policies` and '--secrets` options, which ca
 
 This action takes two arguments - the source path and the destination file. The destination file directory must already exist.
 
-`aomi extract_file paas/abus/dev/secrets/chef/secret /etc/chef/secret`
+`aomi extract_file foo/bar/baz/private /home/foo/.ssh/id_rsa`
 
 **aws_environment**
 
 This action takes a single argument - an AWS credentials path in Vault.  In return, it will generate a shell snippet exporting the `AWS_SECRET_ACCESS_KEY` and `AWS_ACCESS_KEY_ID` environment variables. This output is sufficient to be eval'd (don't do this) or piped to a file and sourced in to a shell.
 
-`aomi aws_environment paas/abus/dev/aws/creds/build`
+`aomi aws_environment foo/bar/baz/aws/creds/default`
+
+**environment**
+
+This action takes a single argument - a generic Vault path. In return, it will generate a small snipped exporting the contained secrets as environment variable. This output is sufficient to be eval'd (no really, don't do this) or piped to a file an sourced in to a shell.
+
+```
+aomi environment foo/bar/baz
+FOO_BAR_BAZ_USER="foo"
+FOO_BAR_BAZ_PASSWORD="bar"
+```
+
+You can also specify a prefix which will shorten the resulting environment variable names. Can be useful if you have the same format secrets stored under a variety of Vault paths.
+
+```
+aomi environment foo/bar/baz --prefix foo/bar
+BAZ_USER="foo"
+BAZ_PASSWORD="bar"
+```
 
 **template**
 
-This action takes three arguments - the template source, a destination file, and the Vault path. Secrets will be included as variables in the template as the full path with forward slashes replaced by underscores. As an example, `paas/abus/dev/secrets/chef/secret` would become `paas_abus_dev_secrets_chef_secret`. The template format used is Jinja2.
+This action takes three arguments - the template source, a destination file, and the Vault path. Secrets will be included as variables in the template as the full path with forward slashes replaced by underscores. As an example, `foo/bar/baz/user` would become `foo_bar_baz_user`. The template format used is Jinja2.
+
+About Paths
+===========
+
+By default the `Secretfile` is searched for in the current directory. All Vault and AWS policy files will be searched for in a directory named `vault` adjacent to the `Secretfile`. All files containing secrets referenced from the `Secretfile` will be searched for in an adjacent directory named `.secrets`.
 
 Contribution Guidelines
 -----------------
