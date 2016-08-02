@@ -5,4 +5,4 @@ dist
 *.pyo
 .bats
 .bats-git
-.vault
+.vaultbuild

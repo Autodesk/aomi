@@ -1,5 +1,6 @@
 #!/usr/bin/env python
-import sys, os
+import os
+import sys
 from setuptools import setup
 
 vsn_path = "%s/version" % os.path.dirname(os.path.abspath(__file__))
@@ -15,7 +16,10 @@ setup(name='aomi',
       license='MIT',
       url='https://github.com/autodesk/aomi',
       install_requires=['PyYAML', 'hvac', 'jinja2'],
-      scripts=['aomi'],
       include_package_data=True,
+      packages=['aomi'],
+      entry_points = {
+          'console_scripts': ['aomi = aomi.cli:main']
+      },
       package_data={'aomi':['version']}
 )

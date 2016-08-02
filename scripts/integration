@@ -9,7 +9,10 @@ CIDIR=${SCRIPT_DIR%/*}
 BATSGIT="${CIDIR}/.bats-git"
 BATSBIN="${CIDIR}/.bats"
 . "${CIDIR}/.ci-env/bin/activate"
-
+OWD="$PWD"
+cd "$CIDIR"
+python setup.py install
+cd "$OWD"
 if [ ! -d "$BATSGIT" ] ; then
     git clone --depth 1 https://github.com/sstephenson/bats.git "$BATSGIT"
 fi

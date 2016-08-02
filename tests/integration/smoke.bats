@@ -1,27 +1,37 @@
 #!/usr/bin/env bats
 # -*- mode: Shell-script;bash -*-
 
+VAULT_LOG="${BATS_TMPDIR}/aomi-vault-log"
+
 setup() {
-    cd "$BATS_TMPDIR"
-    nohup vault server -dev &
+    nohup vault server -dev &> "$VAULT_LOG" &
     VAULT_PID=$!
     export VAULT_ADDR='http://127.0.0.1:8200'
-    if [ -z "$AOMI" ] ; then
-        AOMI="${BATS_TEST_DIRNAME}/../../aomi"
-    fi
-
+    VAULT_TOKEN=$(grep -e 'Root Token' "$VAULT_LOG" | cut -f 3 -d ' ')
+    export VAULT_TOKEN
+    FIXTURE_DIR="${BATS_TEST_DIRNAME}/fixtures/generic"
+    cd "$FIXTURE_DIR"
+    echo -n "$RANDOM" > "${FIXTURE_DIR}/.secrets/secret.txt"
+    echo -n "secret: ${RANDOM}" > "${FIXTURE_DIR}/.secrets/secret.yml"
 }
 
 teardown() {
     kill $VAULT_PID
-    rm -f nohup.out
+    rm -f "$VAULT_LOG"
 }
 
-@test "can seed generic" {
-    FIXTURE_DIR="${BATS_TEST_DIRNAME}/fixtures/generic"
-    cd "$FIXTURE_DIR"
-    run "$AOMI" seed
+@test "can seed and extract a file" {
+    run aomi seed
     [ "$status" -eq 0 ]
-    run vault read -field=secret foo/bar/baz
-    [ "$output" = "$(cat ${FIXTURE_DIR}/.secrets/secret.txt)" ]
+    run aomi extract_file foo/bar/baz/secret "${BATS_TMPDIR}/secret.txt"
+    [ "$status" -eq 0 ]
+    [ "$(cat ${BATS_TMPDIR}/secret.txt)" = "$(cat ${FIXTURE_DIR}/.secrets/secret.txt)" ]
+}
+
+@test "can seed and render a var_file" {
+    SECRET=$(shyaml get-value secret < ${FIXTURE_DIR}/.secrets/secret.yml)
+    run aomi seed
+    [ "$status" -eq 0 ]
+    run aomi environment foo/bar/bam
+    [ "$output" = "FOO_BAR_BAM_SECRET=\"${SECRET}\"" ]
 }
