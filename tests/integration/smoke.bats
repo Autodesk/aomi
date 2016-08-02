@@ -9,7 +9,9 @@ setup() {
     export VAULT_ADDR='http://127.0.0.1:8200'
     VAULT_TOKEN=$(grep -e 'Root Token' "$VAULT_LOG" | cut -f 3 -d ' ')
     export VAULT_TOKEN
-    FIXTURE_DIR="${BATS_TEST_DIRNAME}/fixtures/generic"
+    FIXTURE_DIR="${BATS_TMPDIR}/fixtures"
+    mkdir -p "${FIXTURE_DIR}/.secrets"
+    cp -r "${BATS_TEST_DIRNAME}"/fixtures/generic/* "$FIXTURE_DIR"
     cd "$FIXTURE_DIR"
     echo -n "$RANDOM" > "${FIXTURE_DIR}/.secrets/secret.txt"
     echo -n "secret: ${RANDOM}" > "${FIXTURE_DIR}/.secrets/secret.yml"
@@ -18,6 +20,7 @@ setup() {
 teardown() {
     kill $VAULT_PID
     rm -f "$VAULT_LOG"
+    rm -rf "$FIXTURE_DIR"
 }
 
 @test "can seed and extract a file" {
