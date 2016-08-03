@@ -83,6 +83,6 @@ def seed(vault_client, opt):
 
     for app in config.get('apps', []):
         if 'app_file' in app:
-            aomi.seed.app(client, app, opt)
+            aomi.seed.app(vault_client, app, opt)
         else:
             problems("Invalid app element %s" % app)

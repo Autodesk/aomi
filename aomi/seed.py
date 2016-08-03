@@ -76,7 +76,7 @@ def aws(client, secret, opt):
 def app(client, app_obj, opt):
     """Seed an app file into Vault"""
     if 'app_file' not in app_obj:
-        problems("Invalid app definition %" % app_obj)
+        problems("Invalid app definition %s" % app_obj)
 
     name = None
     if 'name' in app_obj:
