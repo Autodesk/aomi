@@ -6,3 +6,4 @@ dist
 .bats
 .bats-git
 .vault
+build
