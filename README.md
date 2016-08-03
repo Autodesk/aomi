@@ -160,6 +160,13 @@ About Paths
 
 By default the `Secretfile` is searched for in the current directory. All Vault and AWS policy files will be searched for in a directory named `vault` adjacent to the `Secretfile`. All files containing secrets referenced from the `Secretfile` will be searched for in an adjacent directory named `.secrets`.
 
+Test
+=====
+
+Run with: `make test`
+
+Unit testing is performed with nosetests, simply add new python modules to the tests directory prefixed with `test_`. Integration testing is done with BATS and involves a standalone vault server. You can find these tests located under `tests/integration`.
+
 Contribution Guidelines
 -----------------
 
@@ -167,5 +174,6 @@ Contribution Guidelines
 * Please use informative commit messages and pull request descriptions.
 * Please remember to update the README if needed
 * Please keep style consistent. This means PEP8 at a minimum.
+* Please add tests
 
 If you have any questions, please feel free to contact Jonathan Freedman <jonathan.freedman@autodesk.com>.
