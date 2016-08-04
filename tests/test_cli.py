@@ -47,3 +47,17 @@ class OpParserTest(unittest.TestCase):
                               'extract_file',
                               'aws_environment',
                               'template'], '--verbose')
+
+    def test_metadata(self):
+        self.enabled_options(['environment',
+                              'seed',
+                              'extract_file',
+                              'aws_environment',
+                              'template'], '--metadata')
+
+    def test_lease(self):
+        self.enabled_options(['environment',
+                              'seed',
+                              'extract_file',
+                              'aws_environment',
+                              'template'], '--lease')
