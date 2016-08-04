@@ -100,9 +100,9 @@ def app(client, app_obj, opt):
     client.set_policy(name, policy)
     app_path = "auth/app-id/map/app-id/%s" % data['app_id']
     app_obj = {'value': policy_name, 'display_name': name}
-    log('creating app %s' % (name), opt)
     client.write(app_path, **app_obj)
-    for user in data.get('users', []):
+    users = data.get('users', [])
+    for user in users:
         if 'id' not in user:
             problems("Invalid user definition %s" % user)
 
@@ -111,8 +111,9 @@ def app(client, app_obj, opt):
         if 'cidr' in user:
             user_obj['cidr_block'] = user['cidr']
 
-        log('creating user %s in %s' % (user, name), opt)
         client.write(user_path, **user_obj)
+
+    log('created %d users in application %s' % (len(users), name), opt)
 
 
 def files(client, secret, opt):
@@ -121,6 +122,7 @@ def files(client, secret, opt):
         problems("Invalid files specification %s" % secret)
 
     obj = {}
+    vault_path = "%s/%s" % (secret['mount'], secret['path'])
     for f in secret.get('files', []):
         if 'source' not in f or 'name' not in f:
             problems("Invalid file specification %s" % f)
@@ -130,12 +132,11 @@ def files(client, secret, opt):
         obj[f['name']] = data
         log('writing file %s into %s/%s' % (
             filename,
-            secret['mount'],
+            vault_path,
             f['name']), opt)
 
     backends = client.list_secret_backends()
     if not is_mounted(secret['mount'], backends, 'generic'):
         client.enable_secret_backend('generic', mount_point=secret['mount'])
 
-    vault_path = "%s/%s" % (secret['mount'], secret['path'])
     client.write(vault_path, **obj)

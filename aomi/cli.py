@@ -26,6 +26,14 @@ def parser_factory(operation):
                       dest='verbose',
                       help='Verbose output',
                       action='store_true')
+    parser.add_option('--metadata',
+                      dest='metadata',
+                      help='A series of key=value pairs for token metadata.',
+                      default='')
+    parser.add_option('--lease',
+                      dest='lease',
+                      help='Lease time for intermediary token.',
+                      default='10s')
 
     if operation == 'seed':
         parser.add_option('--secrets',
@@ -49,16 +57,17 @@ def parser_factory(operation):
     return parser
 
 
-def action_runner(operation, client):
+def action_runner(operation):
     """Run appropriate action, or throw help"""
+
     parser = parser_factory(operation)
-
     (opt, args) = parser.parse_args()
-
     if operation == 'help':
         usage()
         sys.exit(0)
-    elif operation == 'extract_file':
+
+    client = aomi.vault.client(operation, opt)
+    if operation == 'extract_file':
         if len(args) == 3:
             aomi.render.raw_file(client, args[1], args[2])
             sys.exit(0)
@@ -88,5 +97,4 @@ def main():
         usage()
         sys.exit(1)
     operation = sys.argv[1]
-    client = aomi.vault.client()
-    action_runner(operation, client)
+    action_runner(operation)
