@@ -64,6 +64,25 @@ def aws(client, secret, opt):
         aws_file_path,
         aws_path), opt)
 
+    ttl_obj = {}
+    lease_msg = ''
+    if 'lease' in aws_obj:
+        ttl_obj['lease'] = aws_obj['lease']
+        lease_msg = "%s lease:%s" % (lease_msg, ttl_obj['lease'])
+
+    if 'lease_max' in aws_obj:
+        ttl_obj['lease_max'] = aws_obj['lease_max']
+    else:
+        if 'lease' in ttl_obj:
+            ttl_obj['lease_max'] = ttl_obj['lease']
+
+    if 'lease_max' in ttl_obj:
+        lease_msg = "%s lease_max:%s" % (lease_msg, ttl_obj['lease_max'])
+
+    if ttl_obj:
+        client.write("%s/config/lease" % (secret['mount']), **ttl_obj)
+        log("Updated lease for %s %s" % (secret['mount'], lease_msg), opt)
+
     for role in aws_obj['roles']:
         if 'policy' not in role or 'name' not in role:
             problems("Invalid role definition %s" % role)
