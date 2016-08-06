@@ -6,9 +6,16 @@ Aomi: A Vault Wrapper
 
 This wrapper provide a relatively strongly opinionated interface to Hashicorp Vault. It fulfills two core functions : seeding secrets on behalf of an application or service, and retrieving secrets as pre-formatted consumables. Many operations for the wrapper are defined in a `Secretfile` which will generally live at the top level of a repository.
 
+Authentication
+==============
+
+The `aomi` tool will make several attempts at determining appropriate credentials to use with Vault. Upon receiving an initial token, it will request a short lived token for to use for itself. When requesting this token (which has a default TTL of ten seconds) an assortment of metadata is provided. The `USER` environment variable, the system hostname, and the current operation will always be included as token metadata. You may optionally add additional fields with the `--metadata` option in the format of `key1=value1,key2=value2`.
+
+When sourcing a initial token first the `VAULT_TOKEN` environment variable will be searched, followed by the file `~/.vault-token`. This is in-line with the default behaviour of the Vault client itself.  Next `aomi` will check the `VAULT_APP_ID` and `VAULT_USER_ID` environment variables followed by the file `~/.aomi-app-token`. This file is YAML encoded with only the `app_id` and `user_id` attributes. You may override both the Vault token and App/User ID files with the `VAULT_TOKEN_FILE` and `VAULT_APP_FILE` environment variables.
+
 Secretfile
 ==========
-The important piece of the `Secretfile` is `secrets` as that is where seeds are defined. There are different types o seeds which may be created in vault.
+The important piece of the `Secretfile` is `secrets` as that is where seeds are defined. There are different types of secrets which may be seeded into vault.
 
 **Files**
 
@@ -32,7 +39,7 @@ secrets:
 
 By specifying an appropriately populated `aws_file` you can create [AWS secret backends](https://www.vaultproject.io/docs/secrets/aws/index.html) in Vault. The `aws_file` must point to a valid file, and the base of the AWS credentials will be set by the `path`.
 
-The AWS file contains the `region`, `access_key_id`, `secret_access_key`, and a list of AWS roles that will be loaded by Vault. The `name` of each role will be used to compute the final path for accessing credentials. The policy files are simply JSON IAM Access representations. The following example would create an AWS Vault secret backend at `foo/bar/baz` based on the account and policy information defined in `.secrets/aws.yml`.
+The AWS file contains the `region`, `access_key_id`, `secret_access_key`, and a list of AWS roles that will be loaded by Vault. The `name` of each role will be used to compute the final path for accessing credentials. The policy files are simply JSON IAM Access representations. The following example would create an AWS Vault secret backend at `foo/bar/baz` based on the account and policy information defined in `.secrets/aws.yml`. While `lease` and `lease_max` are provided in this example, they are not strictly required.
 
 ----
 
@@ -53,6 +60,8 @@ secrets:
 access_key_id: "REDACTED"
 secret_access_key: "REDACTED"
 region: "us-east-1"
+lease: "1800s"
+lease_max: "86400s"
 roles:
 - policy: "policy.json"
   name: default
@@ -165,7 +174,7 @@ Test
 
 Run with: `make test`
 
-Unit testing is performed with nosetests, simply add new python modules to the tests directory prefixed with `test_`. Integration testing is done with BATS and involves a standalone vault server. You can find these tests located under `tests/integration`.
+Unit testing is performed with nosetests, simply add new python modules to the tests directory prefixed with `test_`. Integration testing is done with BATS and involves a standalone Vault server. You can find these tests located under `tests/integration`.
 
 Contribution Guidelines
 -----------------
