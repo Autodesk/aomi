@@ -44,6 +44,8 @@ def is_tagged(has_tags, required_tags):
     if len(required_tags) == 0:
         return True
     else:
+        if len(has_tags) == 0:
+            return False
         found_tags = []
         for tag in required_tags:
             if tag in has_tags:

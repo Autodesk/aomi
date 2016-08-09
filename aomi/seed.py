@@ -1,5 +1,7 @@
 import os
+import re
 import yaml
+import hvac
 from aomi.helpers import problems, hard_path, log, is_tagged
 
 
@@ -14,6 +16,19 @@ def is_mounted(mount, backends, style):
     return False
 
 
+def ensure_mounted(client, backend, mount):
+    """Will ensure a mountpoint exists, or bail with a polite error"""
+    backends = client.list_secret_backends()
+    if not is_mounted(mount, backends, backend):
+        try:
+            client.enable_secret_backend(backend, mount_point=mount)
+        except hvac.exceptions.InvalidRequest as e:
+            m = re.match('existing mount at (?P<path>.+)', str(e))
+            if m:
+                problems("%s has a mountpoint conflict with %s" %
+                         (mount, m.group('path')))
+
+
 def var_file(client, secret, opt):
     """Seed a var_file into Vault"""
     path = "%s/%s" % (secret['mount'], secret['path'])
@@ -24,14 +39,11 @@ def var_file(client, secret, opt):
        or 'path' not in secret:
         problems("Invalid generic secret definition %s" % secret)
 
-    if 'tags' in secret:
-        if not is_tagged(secret['tags'], opt.tags):
-            log("Skipping %s as it does not have appropriate tags" % path, opt)
-            return
+    if not is_tagged(secret.get('tags', []), opt.tags):
+        log("Skipping %s as it does not have appropriate tags" % path, opt)
+        return
 
-    backends = client.list_secret_backends()
-    if not is_mounted(secret['mount'], backends, 'generic'):
-        client.enable_secret_backend('generic', mount_point=secret['mount'])
+    ensure_mounted(client, 'generic', secret['mount'])
 
     client.write(path, **varz)
     log('wrote var_file %s into %s/%s' % (
@@ -55,15 +67,12 @@ def aws(client, secret, opt):
         problems("Invalid AWS secrets" % aws)
 
     aws_path = "%s/config/root" % secret['mount']
-    if 'tags' in secret:
-        if not is_tagged(secret['tags'], opt.tags):
-            log("Skipping %s as it does not have appropriate tags" %
-                aws_path, opt)
-            return
+    if not is_tagged(secret.get('tags', []), opt.tags):
+        log("Skipping %s as it does not have appropriate tags" %
+            aws_path, opt)
+        return
 
-    backends = client.list_secret_backends()
-    if not is_mounted(secret['mount'], backends, 'aws'):
-        client.enable_secret_backend('aws', mount_point=secret['mount'])
+    ensure_mounted(client, 'aws', secret['mount'])
 
     obj = {
         'access_key': aws_obj['access_key_id'],
@@ -114,10 +123,9 @@ def app(client, app_obj, opt):
     else:
         name = os.path.splitext(os.path.basename(app_obj['app_file']))[0]
 
-    if 'tags' in app_obj:
-        if not is_tagged(app_obj['tags'], opt.tags):
-            log("Skipping %s as it does not have appropriate tags" % name, opt)
-            return
+    if not is_tagged(app_obj.get('tags', []), opt.tags):
+        log("Skipping %s as it does not have appropriate tags" % name, opt)
+        return
 
     app_file = hard_path(app_obj['app_file'], opt.secrets)
     data = yaml.load(open(app_file).read())
@@ -158,11 +166,10 @@ def files(client, secret, opt):
 
     obj = {}
     vault_path = "%s/%s" % (secret['mount'], secret['path'])
-    if 'tags' in secret:
-        if not is_tagged(secret['tags'], opt.tags):
-            log("Skipping %s as it does not have appropriate tags" %
-                vault_path, opt)
-            return
+    if not is_tagged(secret.get('tags', []), opt.tags):
+        log("Skipping %s as it does not have appropriate tags" %
+            vault_path, opt)
+        return
 
     for f in secret.get('files', []):
         if 'source' not in f or 'name' not in f:
@@ -176,8 +183,6 @@ def files(client, secret, opt):
             vault_path,
             f['name']), opt)
 
-    backends = client.list_secret_backends()
-    if not is_mounted(secret['mount'], backends, 'generic'):
-        client.enable_secret_backend('generic', mount_point=secret['mount'])
+    ensure_mounted(client, 'generic', secret['mount'])
 
     client.write(vault_path, **obj)
