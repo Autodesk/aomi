@@ -1,6 +1,6 @@
 import os
 import yaml
-from aomi.helpers import problems, hard_path, log
+from aomi.helpers import problems, hard_path, log, is_tagged
 
 
 def is_mounted(mount, backends, style):
@@ -23,6 +23,11 @@ def var_file(client, secret, opt):
        or 'mount' not in secret \
        or 'path' not in secret:
         problems("Invalid generic secret definition %s" % secret)
+
+    if 'tags' in secret:
+        if not is_tagged(secret['tags'], opt.tags):
+            log("Skipping %s as it does not have appropriate tags" % path, opt)
+            return
 
     backends = client.list_secret_backends()
     if not is_mounted(secret['mount'], backends, 'generic'):
@@ -49,11 +54,17 @@ def aws(client, secret, opt):
        or 'roles' not in aws_obj:
         problems("Invalid AWS secrets" % aws)
 
+    aws_path = "%s/config/root" % secret['mount']
+    if 'tags' in secret:
+        if not is_tagged(secret['tags'], opt.tags):
+            log("Skipping %s as it does not have appropriate tags" %
+                aws_path, opt)
+            return
+
     backends = client.list_secret_backends()
     if not is_mounted(secret['mount'], backends, 'aws'):
         client.enable_secret_backend('aws', mount_point=secret['mount'])
 
-    aws_path = "%s/config/root" % secret['mount']
     obj = {
         'access_key': aws_obj['access_key_id'],
         'secret_key': aws_obj['secret_access_key'],
@@ -103,6 +114,11 @@ def app(client, app_obj, opt):
     else:
         name = os.path.splitext(os.path.basename(app_obj['app_file']))[0]
 
+    if 'tags' in app_obj:
+        if not is_tagged(app_obj['tags'], opt.tags):
+            log("Skipping %s as it does not have appropriate tags" % name, opt)
+            return
+
     app_file = hard_path(app_obj['app_file'], opt.secrets)
     data = yaml.load(open(app_file).read())
     if 'app_id' not in data \
@@ -142,6 +158,12 @@ def files(client, secret, opt):
 
     obj = {}
     vault_path = "%s/%s" % (secret['mount'], secret['path'])
+    if 'tags' in secret:
+        if not is_tagged(secret['tags'], opt.tags):
+            log("Skipping %s as it does not have appropriate tags" %
+                vault_path, opt)
+            return
+
     for f in secret.get('files', []):
         if 'source' not in f or 'name' not in f:
             problems("Invalid file specification %s" % f)
