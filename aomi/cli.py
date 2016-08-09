@@ -6,6 +6,7 @@ import sys
 from optparse import OptionParser
 import aomi.vault
 import aomi.render
+import aomi.validation
 
 
 def usage():
@@ -81,6 +82,7 @@ def action_runner(operation):
             sys.exit(0)
     elif operation == 'seed':
         if len(args) == 1:
+            aomi.validation.gitignore(opt)
             aomi.vault.seed(client, opt)
             sys.exit(0)
     elif operation == 'template':

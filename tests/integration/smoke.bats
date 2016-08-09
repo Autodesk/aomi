@@ -15,6 +15,7 @@ setup() {
     cd "$FIXTURE_DIR"
     echo -n "$RANDOM" > "${FIXTURE_DIR}/.secrets/secret.txt"
     echo -n "secret: ${RANDOM}" > "${FIXTURE_DIR}/.secrets/secret.yml"
+    echo ".secrets" > "${FIXTURE_DIR}/.gitignore"
 }
 
 teardown() {
