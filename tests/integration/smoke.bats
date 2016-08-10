@@ -4,6 +4,9 @@
 VAULT_LOG="${BATS_TMPDIR}/aomi-vault-log"
 
 setup() {
+    if [ -e "${HOME}/.vault-token" ] ; then
+        mv "${HOME}/.vault-token" "${BATS_TMPDIR}/og-token"
+    fi
     nohup vault server -dev &> "$VAULT_LOG" &
     VAULT_PID=$!
     export VAULT_ADDR='http://127.0.0.1:8200'
@@ -15,9 +18,13 @@ setup() {
     cd "$FIXTURE_DIR"
     echo -n "$RANDOM" > "${FIXTURE_DIR}/.secrets/secret.txt"
     echo -n "secret: ${RANDOM}" > "${FIXTURE_DIR}/.secrets/secret.yml"
+    echo ".secrets" > "${FIXTURE_DIR}/.gitignore"
 }
 
 teardown() {
+    if [ -e "${BATS_TMPDIR}/og-token" ] ; then
+        mv "${BATS_TMPDIR}/og-token" "${HOME}/.vault-token"
+    fi
     kill $VAULT_PID
     rm -f "$VAULT_LOG"
     rm -rf "$FIXTURE_DIR"
@@ -37,4 +44,13 @@ teardown() {
     [ "$status" -eq 0 ]
     run aomi environment foo/bar/bam
     [ "$output" = "FOO_BAR_BAM_SECRET=\"${SECRET}\"" ]
+}
+
+@test "respects tags when seeding" {
+    run aomi seed --tags bar
+    [ "$status" -eq 0 ]
+    run vault read foo/bar/bam
+    [ "$status" -eq 1 ]
+    run vault read foo/bar/baz
+    [ "$status" -eq 0 ]
 }

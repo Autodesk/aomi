@@ -37,3 +37,18 @@ def hard_path(path, prefix_dir):
         return relative
 
     return abspath(path)
+
+
+def is_tagged(has_tags, required_tags):
+    """Checks if tags match"""
+    if len(required_tags) == 0:
+        return True
+    else:
+        if len(has_tags) == 0:
+            return False
+        found_tags = []
+        for tag in required_tags:
+            if tag in has_tags:
+                found_tags.append(tag)
+
+        return len(found_tags) == len(required_tags)

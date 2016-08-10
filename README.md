@@ -1,10 +1,16 @@
 ![Build Status](https://travis-ci.org/Autodesk/aomi.svg?branch=master)[![PyPI](https://img.shields.io/pypi/v/aomi.svg)](https://pypi.python.org/pypi/aomi)[![Maintenance](https://img.shields.io/maintenance/yes/2016.svg)]()
 
-
 Aomi: A Vault Wrapper
 ---------------
 
 This wrapper provide a relatively strongly opinionated interface to Hashicorp Vault. It fulfills two core functions : seeding secrets on behalf of an application or service, and retrieving secrets as pre-formatted consumables. Many operations for the wrapper are defined in a `Secretfile` which will generally live at the top level of a repository.
+
+Requirements
+============
+
+The `aomi` tool has several requirements which can (generally) all be sourced from [PyPI](https://pypi.python.org/pypi).
+
+The [PyYAML](http://pyyaml.org/) package, by default, will make use of libyaml. This can be a problem on some systems as you may need to manually install libyaml.
 
 Authentication
 ==============
@@ -128,7 +134,9 @@ Other than the `seed` command, everything else is used to extract secrets from t
 
 **seed**
 
-The `seed` command also takes the `--policies` and '--secrets` options, which can override the default locations to find Vault policies and roles and actually secrets. These default to `vault` and `.secrets` in the current working directory. The seed command will go through the `Secretfile` and appropriately provision Vault. Note that you need to be logged in, and already have appropriate permissions. The seed command _can_ be executed with no arguments, and it will look for everything in the current working directory..
+The `seed` command also takes the `--policies` and '--secrets` options, which can override the default locations to find Vault policies and roles and actually secrets. These default to `vault` and `.secrets` in the current working directory. The seed command will go through the `Secretfile` and appropriately provision Vault. Note that you need to be logged in, and already have appropriate permissions. The seed command _can_ be executed with no arguments, and it will look for everything in the current working directory.
+
+This command will make some sanity checks as it goes. One of these is to check for the presence of the secrets directory within your `.gitignore`. As this directory can contain plaintext secrets, it should never be comitted.
 
 **extract_file**
 
@@ -181,8 +189,8 @@ Contribution Guidelines
 
 * Changes are welcome via pull request!
 * Please use informative commit messages and pull request descriptions.
-* Please remember to update the README if needed
-* Please keep style consistent. This means PEP8 at a minimum.
-* Please add tests
+* Please remember to update the README if needed.
+* Please keep style consistent. This means PEP8 and pylint compliance at a minimum.
+* Please add tests.
 
 If you have any questions, please feel free to contact Jonathan Freedman <jonathan.freedman@autodesk.com>.

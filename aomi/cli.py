@@ -6,6 +6,7 @@ import sys
 from optparse import OptionParser
 import aomi.vault
 import aomi.render
+import aomi.validation
 
 
 def usage():
@@ -48,6 +49,12 @@ def parser_factory(operation):
                           dest='secretfile',
                           help='Secretfile to use',
                           default="%s/Secretfile" % os.getcwd())
+        parser.add_option('--tags',
+                          dest='tags',
+                          help='Tags of things to seed',
+                          default=[],
+                          type=str,
+                          action='append')
     elif operation == 'environment':
         parser.add_option('--prefix',
                           dest='prefix',
@@ -81,6 +88,7 @@ def action_runner(operation):
             sys.exit(0)
     elif operation == 'seed':
         if len(args) == 1:
+            aomi.validation.gitignore(opt)
             aomi.vault.seed(client, opt)
             sys.exit(0)
     elif operation == 'template':
