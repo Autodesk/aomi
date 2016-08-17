@@ -146,13 +146,13 @@ This action takes two arguments - the source path and the destination file. The 
 
 **aws_environment**
 
-This action takes a single argument - an AWS credentials path in Vault.  In return, it will generate a shell snippet exporting the `AWS_SECRET_ACCESS_KEY` and `AWS_ACCESS_KEY_ID` environment variables. This output is sufficient to be eval'd (don't do this) or piped to a file and sourced in to a shell.
+This action takes a single argument - an AWS credentials path in Vault.  In return, it will generate a shell snippet exporting the `AWS_SECRET_ACCESS_KEY` and `AWS_ACCESS_KEY_ID` environment variables. This output is sufficient to be eval'd (don't do this) or piped to a file and sourced in to a shell. You can include export snippets with `--export`. If the AWS Vault path provides a STS token, this will also be used.
 
 `aomi aws_environment foo/bar/baz/aws/creds/default`
 
 **environment**
 
-This action takes a single argument - a generic Vault path. In return, it will generate a small snipped exporting the contained secrets as environment variable. This output is sufficient to be eval'd (no really, don't do this) or piped to a file an sourced in to a shell.
+This action takes a single argument - a generic Vault path. In return, it will generate a small snipped exporting the contained secrets as environment variable. This output is sufficient to be eval'd (no really, don't do this) or piped to a file an sourced in to a shell. You can include export snippets with `--export`.
 
 ```
 aomi environment foo/bar/baz
