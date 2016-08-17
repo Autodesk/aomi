@@ -61,6 +61,12 @@ def parser_factory(operation):
                           help='Specify a prefix to use when '
                           'generating environment variables')
 
+    if operation == 'environment' or operation == 'aws_environment':
+        parser.add_option('--export',
+                          dest='export',
+                          help='Export declared variables',
+                          action='store_true')
+
     return parser
 
 
@@ -84,7 +90,7 @@ def action_runner(operation):
             sys.exit(0)
     elif operation == 'aws_environment':
         if len(args) == 2:
-            aomi.render.aws(client, args[1])
+            aomi.render.aws(client, args[1], opt)
             sys.exit(0)
     elif operation == 'seed':
         if len(args) == 1:

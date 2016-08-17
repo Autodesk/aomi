@@ -3,7 +3,7 @@
 Aomi: A Vault Wrapper
 ---------------
 
-This wrapper provide a relatively strongly opinionated interface to Hashicorp Vault. It fulfills two core functions : seeding secrets on behalf of an application or service, and retrieving secrets as pre-formatted consumables. Many operations for the wrapper are defined in a `Secretfile` which will generally live at the top level of a repository.
+This wrapper aroun vault provides lightly opinionated interface to Hashicorp Vault that provides the ability to enforce strong opinions across organizations. It fulfills two core functions : seeding secrets on behalf of an application or service, and retrieving secrets as pre-formatted consumables. Many operations for the wrapper are defined in a `Secretfile` which will generally live at the top level of a repository.
 
 Requirements
 ============

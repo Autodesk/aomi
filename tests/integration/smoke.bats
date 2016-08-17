@@ -38,12 +38,17 @@ teardown() {
     [ "$(cat ${BATS_TMPDIR}/secret.txt)" = "$(cat ${FIXTURE_DIR}/.secrets/secret.txt)" ]
 }
 
-@test "can seed and render a var_file" {
+@test "can seed and render environment" {
     SECRET=$(shyaml get-value secret < ${FIXTURE_DIR}/.secrets/secret.yml)
     run aomi seed
     [ "$status" -eq 0 ]
     run aomi environment foo/bar/bam
     [ "$output" = "FOO_BAR_BAM_SECRET=\"${SECRET}\"" ]
+    run aomi environment foo/bar/bam --prefix aaa
+    [ "$output" = "AAA_SECRET=\"${SECRET}\"" ]
+    run aomi environment foo/bar/bam --export
+    [ "${lines[0]}" = "FOO_BAR_BAM_SECRET=\"${SECRET}\"" ]
+    [ "${lines[1]}" = "export FOO_BAR_BAM_SECRET" ]
 }
 
 @test "respects tags when seeding" {
