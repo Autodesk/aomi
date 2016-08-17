@@ -60,7 +60,7 @@ def aws(client, path, opt):
     if creds and 'data' in creds:
         print("AWS_ACCESS_KEY_ID=\"%s\"" % creds['data']['access_key'])
         print("AWS_SECRET_ACCESS_KEY=\"%s\"" % creds['data']['secret_key'])
-        if 'security_token' in creds['data']:
+        if 'security_token' in creds['data'] and creds['data']['security_token']:
             token = creds['data']['security_token']
             print("AWS_SECURITY_TOKEN=\"%s\"" % token)
     else:
@@ -69,5 +69,5 @@ def aws(client, path, opt):
     if opt.export:
         print("export AWS_ACCESS_KEY_ID")
         print("export AWS_SECRET_ACCESS_KEY")
-        if 'security_token' in creds['data']:
+        if 'security_token' in creds['data'] and creds['data']['security_token']:
             print("export AWS_SECURITY_TOKEN")
