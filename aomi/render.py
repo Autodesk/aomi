@@ -50,13 +50,24 @@ def env(client, path, opt):
                 env_name = '_'.join(env_bits).upper()
 
             print("%s=\"%s\"" % (env_name, s_val))
+            if opt.export:
+                print("export %s" % env_name)
 
 
-def aws(client, path):
+def aws(client, path, opt):
     """Renders a shell environment snippet with AWS information"""
     creds = client.read(path)
     if creds and 'data' in creds:
         print("AWS_ACCESS_KEY_ID=\"%s\"" % creds['data']['access_key'])
         print("AWS_SECRET_ACCESS_KEY=\"%s\"" % creds['data']['secret_key'])
+        if 'security_token' in creds['data']:
+            token = creds['data']['security_token']
+            print("AWS_SECURITY_TOKEN=\"%s\"" % token)
     else:
         problems("Unable to generate AWS credentials from %s" % path)
+
+    if opt.export:
+        print("export AWS_ACCESS_KEY_ID")
+        print("export AWS_SECRET_ACCESS_KEY")
+        if 'security_token' in creds['data']:
+            print("export AWS_SECURITY_TOKEN")
