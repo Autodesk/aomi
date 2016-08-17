@@ -1,6 +1,6 @@
 import unittest
 import aomi.cli
-                        
+
 class OpParserTest(unittest.TestCase):
     def enabled_options(self, operations, option):
         for op in operations:
@@ -61,3 +61,9 @@ class OpParserTest(unittest.TestCase):
                               'extract_file',
                               'aws_environment',
                               'template'], '--lease')
+
+    def test_export(self):
+        self.enabled_options(['environment', 'aws_environment'], '--export')
+        self.disabled_options(['seed',
+                               'extract_file',
+                               'template'], '--export')
