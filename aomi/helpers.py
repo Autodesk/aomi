@@ -10,6 +10,11 @@ def log(msg, opt):
         print(msg, file=sys.stderr)
 
 
+def warning(msg):
+    """Print a warning message to stderr"""
+    print("Warning {0}".format(msg), file=sys.stderr)
+
+
 def problems(msg):
     """Simple give-up and error out function."""
     print("Problem: %s" % msg,

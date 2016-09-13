@@ -2,7 +2,7 @@ import os
 import re
 import yaml
 import hvac
-from aomi.helpers import problems, hard_path, log, is_tagged
+from aomi.helpers import problems, hard_path, log, is_tagged, warning
 
 
 def is_mounted(mount, backends, style):
@@ -86,15 +86,30 @@ def aws(client, secret, opt):
 
     ttl_obj = {}
     lease_msg = ''
-    if 'lease' in aws_obj:
-        ttl_obj['lease'] = aws_obj['lease']
-        lease_msg = "%s lease:%s" % (lease_msg, ttl_obj['lease'])
+    if 'lease' in secret:
+        ttl_obj['lease'] = secret['lease']
+        lease_msg = "lease:%s" % (ttl_obj['lease'])
 
-    if 'lease_max' in aws_obj:
-        ttl_obj['lease_max'] = aws_obj['lease_max']
+    if 'lease_max' in secret:
+        ttl_obj['lease_max'] = secret['lease_max']
     else:
         if 'lease' in ttl_obj:
             ttl_obj['lease_max'] = ttl_obj['lease']
+
+    if lease_msg == '':
+        if 'lease' in aws_obj:
+            ttl_obj['lease'] = aws_obj['lease']
+            lease_msg = "lease:%s" % (ttl_obj['lease'])
+
+        if 'lease_max' in aws_obj:
+            ttl_obj['lease_max'] = aws_obj['lease_max']
+        else:
+            if 'lease' in ttl_obj:
+                ttl_obj['lease_max'] = ttl_obj['lease']
+
+        if lease_msg != '':
+            warning('Setting lease and lease_max from the '
+                    'AWS yaml is deprecated')
 
     if 'lease_max' in ttl_obj:
         lease_msg = "%s lease_max:%s" % (lease_msg, ttl_obj['lease_max'])
