@@ -2,7 +2,7 @@ import os
 import re
 import yaml
 import hvac
-from aomi.helpers import problems, hard_path, log, is_tagged
+from aomi.helpers import problems, hard_path, log, is_tagged, warning
 
 
 def is_mounted(mount, backends, style):
@@ -86,15 +86,30 @@ def aws(client, secret, opt):
 
     ttl_obj = {}
     lease_msg = ''
-    if 'lease' in aws_obj:
-        ttl_obj['lease'] = aws_obj['lease']
-        lease_msg = "%s lease:%s" % (lease_msg, ttl_obj['lease'])
+    if 'lease' in secret:
+        ttl_obj['lease'] = secret['lease']
+        lease_msg = "lease:%s" % (ttl_obj['lease'])
 
-    if 'lease_max' in aws_obj:
-        ttl_obj['lease_max'] = aws_obj['lease_max']
+    if 'lease_max' in secret:
+        ttl_obj['lease_max'] = secret['lease_max']
     else:
         if 'lease' in ttl_obj:
             ttl_obj['lease_max'] = ttl_obj['lease']
+
+    if lease_msg == '':
+        if 'lease' in aws_obj:
+            ttl_obj['lease'] = aws_obj['lease']
+            lease_msg = "lease:%s" % (ttl_obj['lease'])
+
+        if 'lease_max' in aws_obj:
+            ttl_obj['lease_max'] = aws_obj['lease_max']
+        else:
+            if 'lease' in ttl_obj:
+                ttl_obj['lease_max'] = ttl_obj['lease']
+
+        if lease_msg != '':
+            warning('Setting lease and lease_max from the '
+                    'AWS yaml is deprecated')
 
     if 'lease_max' in ttl_obj:
         lease_msg = "%s lease_max:%s" % (lease_msg, ttl_obj['lease_max'])
@@ -130,7 +145,7 @@ def app(client, app_obj, opt):
     app_file = hard_path(app_obj['app_file'], opt.secrets)
     data = yaml.load(open(app_file).read())
     if 'app_id' not in data \
-       or 'policy' not in data:
+       or ('policy' not in data and 'policy_name' not in data):
         problems("Invalid app file %s" % app_file)
 
     policy_name = None
@@ -139,8 +154,22 @@ def app(client, app_obj, opt):
     else:
         policy_name = name
 
-    policy = open(hard_path(data['policy'], opt.policies), 'r').read()
-    client.set_policy(name, policy)
+    if 'policy' in data:
+        policy_data = open(hard_path(data['policy'], opt.policies), 'r').read()
+        if policy_name in client.list_policies():
+            if policy_data != client.get_policy(policy_name):
+                problems("Policy %s already exists and content differs"
+                         % policy_name)
+
+        log("Using inline policy %s" % policy_name, opt)
+        client.set_policy(name, policy_data)
+    else:
+        if policy_name not in client.list_policies():
+            problems("Policy %s is not inline but does not exist"
+                     % policy_name)
+
+        log("Using existing policy %s" % policy_name, opt)
+
     app_path = "auth/app-id/map/app-id/%s" % data['app_id']
     app_obj = {'value': policy_name, 'display_name': name}
     client.write(app_path, **app_obj)
@@ -186,3 +215,19 @@ def files(client, secret, opt):
     ensure_mounted(client, 'generic', secret['mount'])
 
     client.write(vault_path, **obj)
+
+
+def policy(client, secret, opt):
+    """Seed a standalone policy into Vault"""
+    if 'name' not in secret or 'file' not in secret:
+        problems("Invalid policy specification %s" % secret)
+
+    policy_name = secret['name']
+    if not is_tagged(secret.get('tags', []), opt.tags):
+        log("Skipping policy %s as it does not have appropriate tags" %
+            policy_name, opt)
+        return
+
+    policy_data = open(hard_path(secret['file'], opt.policies), 'r').read()
+    log('writing policy %s' % policy_name, opt)
+    client.set_policy(policy_name, policy_data)

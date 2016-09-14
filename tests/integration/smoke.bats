@@ -1,32 +1,15 @@
 #!/usr/bin/env bats
 # -*- mode: Shell-script;bash -*-
 
-VAULT_LOG="${BATS_TMPDIR}/aomi-vault-log"
+load helper
 
 setup() {
-    if [ -e "${HOME}/.vault-token" ] ; then
-        mv "${HOME}/.vault-token" "${BATS_TMPDIR}/og-token"
-    fi
-    nohup vault server -dev &> "$VAULT_LOG" &
-    VAULT_PID=$!
-    export VAULT_ADDR='http://127.0.0.1:8200'
-    VAULT_TOKEN=$(grep -e 'Root Token' "$VAULT_LOG" | cut -f 3 -d ' ')
-    export VAULT_TOKEN
-    FIXTURE_DIR="${BATS_TMPDIR}/fixtures"
-    mkdir -p "${FIXTURE_DIR}/.secrets"
-    cp -r "${BATS_TEST_DIRNAME}"/fixtures/generic/* "$FIXTURE_DIR"
-    cd "$FIXTURE_DIR"
-    echo -n "$RANDOM" > "${FIXTURE_DIR}/.secrets/secret.txt"
-    echo -n "secret: ${RANDOM}" > "${FIXTURE_DIR}/.secrets/secret.yml"
-    echo ".secrets" > "${FIXTURE_DIR}/.gitignore"
+    start_vault
+    use_fixture generic
 }
 
 teardown() {
-    if [ -e "${BATS_TMPDIR}/og-token" ] ; then
-        mv "${BATS_TMPDIR}/og-token" "${HOME}/.vault-token"
-    fi
-    kill $VAULT_PID
-    rm -f "$VAULT_LOG"
+    stop_vault
     rm -rf "$FIXTURE_DIR"
 }
 
@@ -49,6 +32,20 @@ teardown() {
     run aomi environment foo/bar/bam --export
     [ "${lines[0]}" = "FOO_BAR_BAM_SECRET=\"${SECRET}\"" ]
     [ "${lines[1]}" = "export FOO_BAR_BAM_SECRET" ]
+}
+
+@test "can seed a policy" {
+    run aomi seed
+    [ "$status" -eq 0 ]
+    run vault policies foo
+    [ "$status" -eq 0 ]
+}
+
+@test "can seed an app and user with builtin policy" {
+    run aomi seed
+    [ "$status" -eq 0 ]
+    run vault read -field=key auth/app-id/map/app-id/test
+    [ "$status" -eq 0 ]
 }
 
 @test "respects tags when seeding" {

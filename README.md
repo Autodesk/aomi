@@ -20,6 +20,10 @@ When sourcing a initial token first the `VAULT_TOKEN` environment variable will 
 
 The important piece of the `Secretfile` is `secrets` as that is where seeds are defined. There are different types of secrets which may be seeded into vault.
 
+## Tags
+
+You may tag individual policies, appids, and secrets. When resources have tags, and the `seed` command is run with the `--tags` option, only matching items will be seeded. If the `--tags` option is not specified, then everything will be seeded.
+
 ## Files
 
 You may specify a list of files and their destination Vault secret item. Each `files` section has a list of source files, and the key name they should use in Vault. Each instance of a `files` section must also include a Vault mount point and path.  The following example would create two secrets (`private` and `public`) based on the two files under the `.secrets` directory and place them in the Vault path `foo/bar/baz`.
@@ -42,7 +46,7 @@ secrets:
 
 By specifying an appropriately populated `aws_file` you can create [AWS secret backends](https://www.vaultproject.io/docs/secrets/aws/index.html) in Vault. The `aws_file` must point to a valid file, and the base of the AWS credentials will be set by the `path`.
 
-The AWS file contains the `region`, `access_key_id`, `secret_access_key`, and a list of AWS roles that will be loaded by Vault. The `name` of each role will be used to compute the final path for accessing credentials. The policy files are simply JSON IAM Access representations. The following example would create an AWS Vault secret backend at `foo/bar/baz` based on the account and policy information defined in `.secrets/aws.yml`. While `lease` and `lease_max` are provided in this example, they are not strictly required.
+The AWS file contains the `region`, `access_key_id`, `secret_access_key`, and a list of AWS roles that will be loaded by Vault. The `name` of each role will be used to compute the final path for accessing credentials. The policy files are simply JSON IAM Access representations. The following example would create an AWS Vault secret backend at `foo/bar/baz` based on the account and policy information defined in `.secrets/aws.yml`. While `lease` and `lease_max` are provided in this example, they are not strictly required. Note that a previous version had `lease` and `lease_max` located in the `aws_file` itself - this behavior is now considered deprecated.
 
 ----
 
@@ -52,6 +56,8 @@ The AWS file contains the `region`, `access_key_id`, `secret_access_key`, and a 
 secrets:
 - aws_file: 'aws.yml'
   mount: 'foo/bar/baz'
+  lease: "1800s"
+  lease_max: "86400s"
 ```
 
 ----
@@ -63,8 +69,6 @@ secrets:
 access_key_id: "REDACTED"
 secret_access_key: "REDACTED"
 region: "us-east-1"
-lease: "1800s"
-lease_max: "86400s"
 roles:
 - policy: "policy.json"
   name: default
@@ -94,7 +98,7 @@ password: 'bar'
 
 ## Vault Applications
 
-One of the authentication types supported by Vault is that of an Application/UserID combination. You may provision these with `aomi` as well. You may specify an Application ID, a series of User ID's, and a [Vault policy](https://www.vaultproject.io/docs/concepts/policies.html) to apply to resulting tokens. The following example would create an application named `foo` with two users (`bar` and `baz`) who read anything under the `foo/bar` Vault path.
+One of the authentication types supported by Vault is that of an Application/UserID combination. You may provision these with `aomi` as well. You may specify an Application ID, a series of User ID's, and a [Vault policy](https://www.vaultproject.io/docs/concepts/policies.html) to apply to resulting tokens. The following example would create an application named `foo` with two users (`bar` and `baz`) who read anything under the `foo/bar` Vault path. In this example the policy will be created _inline_. You may also re-use an existing policy by _only_ specifying a `policy_name`. When creating inline policies, you can _not_ modify the existing policy. This is a safeguard designed to prevent overwriting shared policies. It is recommended that you do not use inline policies for real world deployments.
 
 ----
 
@@ -114,6 +118,28 @@ users:
 - 'bar'
 - 'baz'
 policy: 'foo.hcl'
+policy_name: 'foo'
+```
+
+`vault/foo.hcl`
+
+```
+path "foo/bar/*" {
+  policy = "read"
+}
+```
+
+## Policies
+
+You can seed policies separately now. Each policy has a `name` and a source `file` specified. This is recommended over using inline policies. The following example will provision a simple policy.
+
+----
+`Secretfile`
+
+```
+policies:
+- name: 'foo'
+  file: 'foo.hcl'
 ```
 
 `vault/foo.hcl`
