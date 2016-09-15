@@ -46,7 +46,7 @@ secrets:
 
 By specifying an appropriately populated `aws_file` you can create [AWS secret backends](https://www.vaultproject.io/docs/secrets/aws/index.html) in Vault. The `aws_file` must point to a valid file, and the base of the AWS credentials will be set by the `path`.
 
-The AWS file contains the `region`, `access_key_id`, `secret_access_key`, and a list of AWS roles that will be loaded by Vault. The `name` of each role will be used to compute the final path for accessing credentials. The policy files are simply JSON IAM Access representations. The following example would create an AWS Vault secret backend at `foo/bar/baz` based on the account and policy information defined in `.secrets/aws.yml`. While `lease` and `lease_max` are provided in this example, they are not strictly required. Note that a previous version had `lease` and `lease_max` located in the `aws_file` itself - this behavior is now considered deprecated.
+The AWS file contains the `access_key_id`, and `secret_access_key`. The `region`, and a list of AWS roles that will be loaded by Vault are in the `Secretfile`. Note that you may specify either an inline `policy` _or_ a native AWS `arn`. The `name` of each role will be used to compute the final path for accessing credentials. The policy files are simply JSON IAM Access representations. The following example would create an AWS Vault secret backend at `foo/bar/baz` based on the account and policy information defined in `.secrets/aws.yml`. While `lease` and `lease_max` are provided in this example, they are not strictly required. Note that a previous version had `lease`, `lease_max`, `region`, and the `roles` section located in the `aws_file` itself - this behavior is now considered deprecated. The _only_ thing which should be present in the AWS yaml is the actual secrets.
 
 ----
 
@@ -58,6 +58,10 @@ secrets:
   mount: 'foo/bar/baz'
   lease: "1800s"
   lease_max: "86400s"
+  region: "us-east-1"
+  roles:
+  - policy: "policy.json"
+    name: default
 ```
 
 ----
@@ -68,10 +72,6 @@ secrets:
 
 access_key_id: "REDACTED"
 secret_access_key: "REDACTED"
-region: "us-east-1"
-roles:
-- policy: "policy.json"
-  name: default
 ```
 
 ## Variable Files
@@ -174,7 +174,7 @@ This action takes a single argument - an AWS credentials path in Vault.  In retu
 
 ## environment
 
-This action takes a single argument - a generic Vault path. In return, it will generate a small snipped exporting the contained secrets as environment variable. This output is sufficient to be eval'd (no really, don't do this) or piped to a file an sourced in to a shell. You can include export snippets with `--export`.
+This action takes any number of Vault paths are it's arguments. In return, it will generate a small snipped exporting the contained secrets as environment variables. This output is sufficient to be eval'd (no really, don't do this) or piped to a file an sourced in to a shell. You can include export snippets with `--export`.
 
 ```
 aomi environment foo/bar/baz
@@ -192,9 +192,9 @@ BAZ_PASSWORD="bar"
 
 ## template
 
-This action takes three arguments - the template source, a destination file, and the Vault path. Secrets will be included as variables in the template as the full path with forward slashes replaced by underscores. As an example, `foo/bar/baz/user` would become `foo_bar_baz_user`. The template format used is Jinja2.
+This action takes at least three arguments - the template source, a destination file, and a list of Vault paths. Secrets will be included as variables in the template as the full path with forward slashes replaced by underscores. As an example, `foo/bar/baz/user` would become `foo_bar_baz_user`. The template format used is Jinja2. Note that hyphens will be replaced with underscores in variable names.
 
-# About Paths
+# About File Paths
 
 By default the `Secretfile` is searched for in the current directory. All Vault and AWS policy files will be searched for in a directory named `vault` adjacent to the `Secretfile`. All files containing secrets referenced from the `Secretfile` will be searched for in an adjacent directory named `.secrets`.
 

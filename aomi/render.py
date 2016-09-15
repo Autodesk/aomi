@@ -4,18 +4,18 @@ from jinja2 import Template
 from aomi.helpers import problems
 
 
-def template(client, src, dest, vault_path):
+def template(client, src, dest, paths):
     """Writes a template using variables from a vault path"""
     template_src = Template(open(os.path.abspath(src), 'r').read())
-    secrets = client.read(vault_path)
-    if not secrets:
-        problems("Unable to retrieve %s" % vault_path)
-
     obj = {}
-    for k, v in secrets['data'].items():
-        norm_path = [x for x in vault_path.split('/') if x]
-        v_name = ("%s_%s" % ('_'.join(norm_path), k)).lower()
-        obj[v_name] = v
+    for path in paths:
+        data = client.read(path)['data']
+        for s_k, s_v in data.items():
+            norm_path = [x for x in path.split('/') if x]
+            k_name = ("%s_%s" % ('_'.join(norm_path), s_k)) \
+                .lower() \
+                .replace('-', '_')
+            obj[k_name] = s_v
 
     output = template_src.render(**obj)
     open(os.path.abspath(dest), 'w').write(output)
@@ -37,21 +37,22 @@ def raw_file(client, src, dest):
             problems("Key %s not found in %s" % (key, path))
 
 
-def env(client, path, opt):
+def env(client, paths, opt):
     """Renders a shell snippet based on paths in a Secretfile"""
-    secrets = client.read(path)
-    if secrets and 'data' in secrets:
-        for s_key, s_val in secrets['data'].items():
-            if opt.prefix:
-                env_name = "%s_%s" % (opt.prefix.upper(), s_key.upper())
-            else:
-                env_bits = path.split('/')
-                env_bits.append(s_key)
-                env_name = '_'.join(env_bits).upper()
+    for path in paths:
+        secrets = client.read(path)
+        if secrets and 'data' in secrets:
+            for s_key, s_val in secrets['data'].items():
+                if opt.prefix:
+                    env_name = "%s_%s" % (opt.prefix.upper(), s_key.upper())
+                else:
+                    env_bits = path.split('/')
+                    env_bits.append(s_key)
+                    env_name = '_'.join(env_bits).upper()
 
-            print("%s=\"%s\"" % (env_name, s_val))
-            if opt.export:
-                print("export %s" % env_name)
+                print("%s=\"%s\"" % (env_name, s_val))
+                if opt.export:
+                    print("export %s" % env_name)
 
 
 def aws(client, path, opt):

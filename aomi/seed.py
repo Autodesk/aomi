@@ -52,19 +52,42 @@ def var_file(client, secret, opt):
         secret['path']), opt)
 
 
+def aws_region(secret, aws_obj):
+    """Return the AWS region with appropriate output"""
+    if 'region' in secret:
+        return secret['region']
+    elif 'region' in aws_obj:
+        warning('Defining region in the AWS yaml is deprecated')
+        return aws_obj['region']
+    else:
+        problems('AWS region is not defined')
+
+
+def aws_roles(secret, aws_obj):
+    """Return the AWS roles with appropriate output"""
+    if 'roles' in secret:
+        return secret['roles']
+    elif 'roles' in aws_obj:
+        warning('Defining roles within the AWS yaml is deprecated')
+        return aws_obj['roles']
+    else:
+        problems('No AWS roles defined')
+
+
 def aws(client, secret, opt):
     """Seed an aws_file into Vault"""
-    if 'aws_file' not in secret or 'mount' not in secret:
+    if ('aws_file' not in secret and 'aws' not in secret) \
+       or 'mount' not in secret:
         problems("Invalid aws secret definition" % secret)
 
     aws_file_path = hard_path(secret['aws_file'], opt.secrets)
     aws_obj = yaml.load(open(aws_file_path, 'r').read())
 
     if 'access_key_id' not in aws_obj \
-       or 'secret_access_key' not in aws_obj \
-       or 'region' not in aws_obj \
-       or 'roles' not in aws_obj:
+       or 'secret_access_key' not in aws_obj:
         problems("Invalid AWS secrets" % aws)
+
+    region = aws_region(secret, aws_obj)
 
     aws_path = "%s/config/root" % secret['mount']
     if not is_tagged(secret.get('tags', []), opt.tags):
@@ -77,10 +100,10 @@ def aws(client, secret, opt):
     obj = {
         'access_key': aws_obj['access_key_id'],
         'secret_key': aws_obj['secret_access_key'],
-        'region': aws_obj['region']
+        'region': region
     }
     client.write(aws_path, **obj)
-    log('wrote aws_file %s into %s' % (
+    log('wrote aws secrets %s into %s' % (
         aws_file_path,
         aws_path), opt)
 
@@ -118,13 +141,37 @@ def aws(client, secret, opt):
         client.write("%s/config/lease" % (secret['mount']), **ttl_obj)
         log("Updated lease for %s %s" % (secret['mount'], lease_msg), opt)
 
-    for role in aws_obj['roles']:
-        if 'policy' not in role or 'name' not in role:
+    roles = aws_roles(secret, aws_obj)
+
+    seed_aws_roles(client, secret['mount'], roles, opt)
+
+
+def seed_aws_roles(client, mount, roles, opt):
+    for role in roles:
+        if 'name' not in role or \
+           ('policy' not in role and 'arn' not in role):
             problems("Invalid role definition %s" % role)
 
-        data = open(hard_path(role['policy'], opt.policies), 'r').read()
-        role_path = "%s/roles/%s" % (secret['mount'], role['name'])
-        client.write(role_path, policy=data)
+        role_path = "%s/roles/%s" % (mount, role['name'])
+        if 'policy' in role:
+            data = open(hard_path(role['policy'], opt.policies), 'r').read()
+            client.write(role_path, policy=data)
+        elif 'arn' in role:
+            client.write(role_path, arn=role['arn'])
+
+
+def app_users(client, app_id, users):
+    """Write out users for an application"""
+    for user in users:
+        if 'id' not in user:
+            problems("Invalid user definition %s" % user)
+
+        user_path = "auth/app-id/map/user-id/%s" % user['id']
+        user_obj = {'value': app_id}
+        if 'cidr' in user:
+            user_obj['cidr_block'] = user['cidr']
+
+        client.write(user_path, **user_obj)
 
 
 def app(client, app_obj, opt):
@@ -174,17 +221,7 @@ def app(client, app_obj, opt):
     app_obj = {'value': policy_name, 'display_name': name}
     client.write(app_path, **app_obj)
     users = data.get('users', [])
-    for user in users:
-        if 'id' not in user:
-            problems("Invalid user definition %s" % user)
-
-        user_path = "auth/app-id/map/user-id/%s" % user['id']
-        user_obj = {'value': data['app_id']}
-        if 'cidr' in user:
-            user_obj['cidr_block'] = user['cidr']
-
-        client.write(user_path, **user_obj)
-
+    app_users(client, data['app_id'], users)
     log('created %d users in application %s' % (len(users), name), opt)
 
 
