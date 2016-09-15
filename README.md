@@ -10,6 +10,8 @@ The `aomi` tool has several requirements which can (generally) all be sourced fr
 
 The [PyYAML](http://pyyaml.org/) package, by default, will make use of libyaml. This can be a problem on some systems as you may need to manually install libyaml.
 
+Tests run (both locally and on Travis) in isolation using [virtualenv](https://virtualenv.pypa.io/en/stable/) so you must have this installed if you wish to do active development on `aomi`.
+
 # Authentication
 
 The `aomi` tool will make several attempts at determining appropriate credentials to use with Vault. Upon receiving an initial token, it will request a short lived token for to use for itself. When requesting this token (which has a default TTL of ten seconds) an assortment of metadata is provided. The `USER` environment variable, the system hostname, and the current operation will always be included as token metadata. You may optionally add additional fields with the `--metadata` option in the format of `key1=value1,key2=value2`.
