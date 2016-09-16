@@ -23,15 +23,28 @@ teardown() {
 
 @test "can seed and render environment" {
     SECRET=$(shyaml get-value secret < ${FIXTURE_DIR}/.secrets/secret.yml)
+    SECRET2=$(shyaml get-value secret < ${FIXTURE_DIR}/.secrets/secret2.yml)
     run aomi seed
     [ "$status" -eq 0 ]
-    run aomi environment foo/bar/bam
-    [ "$output" = "FOO_BAR_BAM_SECRET=\"${SECRET}\"" ]
+    run aomi environment foo/bar/bam foo/bar/bang-bang
+    [ "${lines[0]}" = "FOO_BAR_BAM_SECRET=\"${SECRET}\"" ]
+    [ "${lines[1]}" = "FOO_BAR_BANG-BANG_SECRET=\"${SECRET2}\"" ]
     run aomi environment foo/bar/bam --prefix aaa
     [ "$output" = "AAA_SECRET=\"${SECRET}\"" ]
     run aomi environment foo/bar/bam --export
     [ "${lines[0]}" = "FOO_BAR_BAM_SECRET=\"${SECRET}\"" ]
     [ "${lines[1]}" = "export FOO_BAR_BAM_SECRET" ]
+}
+
+@test "can seed and render a template" {
+    SECRET1=$(shyaml get-value secret < ${FIXTURE_DIR}/.secrets/secret.yml)
+    SECRET2=$(shyaml get-value secret < ${FIXTURE_DIR}/.secrets/secret2.yml)
+    run aomi seed
+    [ "$status" -eq 0 ]
+    echo -n '{{foo_bar_bam_secret}}{{foo_bar_bang_bang_secret}}' > "${BATS_TMPDIR}/tpl"
+    run aomi template "${BATS_TMPDIR}/tpl" "${BATS_TMPDIR}/render" "foo/bar/bam" "foo/bar/bang-bang"
+    [ "$status" -eq 0 ]
+    [ "$(cat ${BATS_TMPDIR}/render)" == "${SECRET1}${SECRET2}" ]
 }
 
 @test "can seed a policy" {

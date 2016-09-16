@@ -85,8 +85,9 @@ def action_runner(operation):
             aomi.render.raw_file(client, args[1], args[2])
             sys.exit(0)
     elif operation == 'environment':
-        if len(args) == 2:
-            aomi.render.env(client, args[1], opt)
+        if len(args) >= 2:
+            paths = args[1:]
+            aomi.render.env(client, paths, opt)
             sys.exit(0)
     elif operation == 'aws_environment':
         if len(args) == 2:
@@ -98,8 +99,9 @@ def action_runner(operation):
             aomi.vault.seed(client, opt)
             sys.exit(0)
     elif operation == 'template':
-        if len(args) == 4:
-            aomi.render.template(client, args[1], args[2], args[3])
+        if len(args) >= 4:
+            paths = args[3:]
+            aomi.render.template(client, args[1], args[2], paths)
             sys.exit(0)
     usage()
     sys.exit(1)

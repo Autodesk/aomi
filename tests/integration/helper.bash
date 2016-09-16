@@ -31,5 +31,6 @@ function use_fixture() {
     cd "$FIXTURE_DIR" || exit 1
     echo -n "$RANDOM" > "${FIXTURE_DIR}/.secrets/secret.txt"
     echo -n "secret: ${RANDOM}" > "${FIXTURE_DIR}/.secrets/secret.yml"
+    echo -n "secret: ${RANDOM}" > "${FIXTURE_DIR}/.secrets/secret2.yml"
     echo ".secrets" > "${FIXTURE_DIR}/.gitignore"    
 }
