@@ -88,6 +88,7 @@ def operational_token(vault_client, operation, opt):
         'meta': token_meta(operation, opt)
     }
     token = vault_client.create_token(**args)
+    log("Using lease of %s" % opt.lease, opt)
     return token['auth']['client_token']
 
 
