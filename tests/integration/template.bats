@@ -17,9 +17,7 @@ teardown() {
 
 @test "can use b64encode/b64decode filters" {
     echo -n '{{b64|b64decode}}{{secret|b64encode}}' > "${BATS_TMPDIR}/tpl"
-    if [ "$(uname -s)" == "Darwin" ] ; then
-        B64_SECRET="$(echo -n ${FILE_SECRET1} | base64)"
-    fi
+    B64_SECRET="$(echo -n ${FILE_SECRET1} | base64)"
     run aomi template \
         --no-merge-path \
         --extra-vars "b64=${B64_SECRET}" \
