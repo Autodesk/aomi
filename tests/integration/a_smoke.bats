@@ -24,22 +24,20 @@ teardown() {
 }
 
 @test "can seed and render environment" {
-    SECRET=$(shyaml get-value secret < ${FIXTURE_DIR}/.secrets/secret.yml)
-    SECRET2=$(shyaml get-value secret < ${FIXTURE_DIR}/.secrets/secret2.yml)
     run aomi seed
     [ "$status" -eq 0 ]
     run aomi environment foo/bar/bam foo/bar/bang-bang
     echo $output
-    [ "${lines[0]}" = "FOO_BAR_BAM_SECRET=\"${SECRET}\"" ]
-    [ "${lines[1]}" = "FOO_BAR_BANG-BANG_SECRET=\"${SECRET2}\"" ]
+    scan_lines "FOO_BAR_BAM_SECRET=\"${YAML_SECRET1}\"" "${lines[@]}"
+    scan_lines "FOO_BAR_BANG-BANG_SECRET=\"${YAML_SECRET2}\"" "${lines[@]}"
     # old syntax
     # run aomi environment foo/bar/bam --prefix aaa
     # new sytax
     run aomi environment --add-prefix aaa_ --no-merge-path foo/bar/bam
-    [ "$output" = "AAA_SECRET=\"${SECRET}\"" ]
+    scan_lines "AAA_SECRET=\"${YAML_SECRET1}\"" "${lines[@]}"
     run aomi environment foo/bar/bam --export
-    [ "${lines[0]}" = "FOO_BAR_BAM_SECRET=\"${SECRET}\"" ]
-    [ "${lines[1]}" = "export FOO_BAR_BAM_SECRET" ]
+    scan_lines "FOO_BAR_BAM_SECRET=\"${YAML_SECRET1}\"" "${lines[@]}"
+    scan_lines "export FOO_BAR_BAM_SECRET" "${lines[@]}"
 }
 
 @test "can seed and render a template" {
@@ -75,6 +73,6 @@ teardown() {
     run vault read foo/bar/baz
     [ "$status" -eq 0 ]
     run vault read foo/bar/bam
-    [ "$status" -eq 0 ]
+    [ "$status" -eq 1 ]
 
 }

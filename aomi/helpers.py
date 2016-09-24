@@ -47,11 +47,11 @@ def hard_path(path, prefix_dir):
 
 def is_tagged(has_tags, required_tags):
     """Checks if tags match"""
-    if len(required_tags) == 0:
+    if len(required_tags) == 0 and len(has_tags) == 0:
         return True
+    elif len(required_tags) == 0:
+        return False
     else:
-        if len(has_tags) == 0:
-            return False
         found_tags = []
         for tag in required_tags:
             if tag in has_tags:

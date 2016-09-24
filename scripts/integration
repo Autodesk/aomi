@@ -4,6 +4,13 @@ VAULT_VERSION="0.6.1"
 
 set -e
 
+if [ $# == 1 ] ; then
+    TEST="$1"
+    if [ "$TEST" == "smoke" ] ; then
+        TEST="a_smoke"
+    fi
+fi
+
 SCRIPT_DIR=$(cd ${0%/*} && pwd)
 CIDIR=${SCRIPT_DIR%/*}
 BATSGIT="${CIDIR}/.bats-git"
@@ -37,4 +44,8 @@ if [ ! -d "${CIDIR}/.vault" ] ; then
     export PATH
 fi
 
-"${CIDIR}/.bats/bin/bats" "${CIDIR}"/tests/integration/*.bats
+if [ -z "$TEST" ] ; then
+    "${CIDIR}/.bats/bin/bats" "${CIDIR}"/tests/integration/*.bats
+else
+    "${CIDIR}/.bats/bin/bats" "${CIDIR}/tests/integration/${TEST}.bats"
+fi
