@@ -96,17 +96,21 @@ def env(client, paths, opt):
     elif opt.prefix:
         warning("the prefix option is deprecated but not being "
                 "used due to passing in new options")
-
+    key_map = cli_hash(opt.key_map)
     for path in paths:
         secrets = client.read(path)
         if secrets and 'data' in secrets:
             for s_key, s_val in secrets['data'].items():
+                o_key = s_key
+                if s_key in key_map:
+                    o_key = key_map[s_key]
+
                 # see https://github.com/Autodesk/aomi/issues/40
                 env_name = None
                 if old_prefix:
-                    env_name = ("%s_%s" % (opt.prefix, s_key)).upper()
+                    env_name = ("%s_%s" % (opt.prefix, o_key)).upper()
                 else:
-                    env_name = secret_key_name(path, s_key, opt).upper()
+                    env_name = secret_key_name(path, o_key, opt).upper()
 
                 print("%s=\"%s\"" % (env_name, s_val))
                 if opt.export:
