@@ -7,10 +7,12 @@ from optparse import OptionParser
 import aomi.vault
 import aomi.render
 import aomi.validation
+from aomi.helpers import version
 
 
 def usage():
     """Real Time Help"""
+    print("aomi version (%s)" % version)
     print('aomi extract_file <vault path> <file path>')
     print('aomi environment <vault path>')
     print('aomi aws_environment <vault path>')
@@ -55,27 +57,43 @@ def parser_factory(operation):
                           default=[],
                           type=str,
                           action='append')
+        parser.add_option('--mount-only',
+                          dest='mount_only',
+                          help='Only mount paths if needed',
+                          default=False,
+                          action='store_true')
     elif operation == 'environment' or operation == 'template':
         parser.add_option('--add-prefix',
                           dest='add_prefix',
                           help='Specify a prefix to use when '
                           'generating secret key names')
-
         parser.add_option('--add-suffix',
                           dest='add_suffix',
                           help='Specify a suffix to use when '
                           'generating secret key names')
-
         parser.add_option('--merge-path',
                           dest='merge_path',
                           action='store_true',
-                          default=d_merge,
+                          default=True,
                           help='merge vault path and key name')
         parser.add_option('--no-merge-path',
                           dest='merge_path',
                           action='store_false',
-                          default=d_merge,
+                          default=True,
                           help='do not merge vault path and key name')
+        parser.add_option('--key-map',
+                          dest='key_map',
+                          action='append',
+                          type=str,
+                          default=[])
+
+    if operation == 'template':
+        parser.add_option('--extra-vars',
+                          dest='extra_vars',
+                          help='Extra template variables',
+                          default=[],
+                          type=str,
+                          action='append')
 
     if operation == 'environment' or operation == 'aws_environment':
         parser.add_option('--export',
@@ -90,6 +108,16 @@ def parser_factory(operation):
                           'generating secret key names')
 
     return parser
+
+
+def parse_extra_vars(extra_vars):
+    """Parse out a hash from a list of key=value strings"""
+    ev_obj = {}
+    for ev in extra_vars:
+        key, val = ev.split('=')
+        ev_obj[key] = val
+
+    return ev_obj
 
 
 def action_runner(operation):

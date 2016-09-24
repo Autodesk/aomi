@@ -7,3 +7,4 @@ dist
 .bats-git
 .vault
 build
+aomi/version

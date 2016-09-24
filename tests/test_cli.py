@@ -34,20 +34,35 @@ class OpParserTest(unittest.TestCase):
                                'template'], '--secrets')
 
 
+    def test_mount_only_option(self):
+        self.enabled_options(['seed'], '--mount-only')
+        self.disabled_options(['environment',
+                               'extract_file',
+                               'aws_environment',
+                               'template'], '--mount-only')
+
+
     def test_prefix_option(self):
-        self.enabled_options(['environment',
-                              'template'], '--prefix')
+        self.enabled_options(['environment'], '--prefix')
         self.disabled_options(['seed',
                                'aws_environment',
+                               'template'
                                'extract_file'], '--prefix')
-        
+
+
+    def test_prefix_option(self):
+        self.enabled_options(['environment',
+                              'template'], '--add-prefix')
+        self.disabled_options(['seed',
+                               'extract_file',
+                               'aws_environment'], '--add-prefix')
 
     def test_suffix_option(self):
         self.enabled_options(['environment',
-                              'template'], '--suffix')
+                              'template'], '--add-suffix')
         self.disabled_options(['seed',
                                'extract_file',
-                               'aws_environment'], '--suffix')
+                               'aws_environment'], '--add-suffix')
 
 
     def test_merge_path_option(self):
@@ -91,3 +106,10 @@ class OpParserTest(unittest.TestCase):
         self.disabled_options(['seed',
                                'extract_file',
                                'template'], '--export')
+        
+    def test_extra_vars_option(self):
+        self.enabled_options(['template'], '--extra-vars')
+        self.disabled_options(['environment',
+                               'extract_file',
+                               'aws_environment',
+                               'seed'], '--extra-vars')

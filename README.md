@@ -22,9 +22,17 @@ When sourcing a initial token first the `VAULT_TOKEN` environment variable will 
 
 The important piece of the `Secretfile` is `secrets` as that is where seeds are defined. There are different types of secrets which may be seeded into vault.
 
+## About File Paths
+
+By default the `Secretfile` is searched for in the current directory. All Vault and AWS policy files will be searched for in a directory named `vault` adjacent to the `Secretfile`. All files containing secrets referenced from the `Secretfile` will be searched for in an adjacent directory named `.secrets`.
+
 ## Tags
 
 You may tag individual policies, appids, and secrets. When resources have tags, and the `seed` command is run with the `--tags` option, only matching items will be seeded. If the `--tags` option is not specified, then everything will be seeded.
+
+# Vault Constructs
+
+These are the different things which `aomi` may interact with in a Vault instance.
 
 ## Files
 
@@ -195,10 +203,6 @@ BAZ_PASSWORD="bar"
 ## template
 
 This action takes at least three arguments - the template source, a destination file, and a list of Vault paths. Secrets will be included as variables in the template as the full path with forward slashes replaced by underscores. As an example, `foo/bar/baz/user` would become `foo_bar_baz_user`. The template format used is Jinja2. Note that hyphens will be replaced with underscores in variable names.
-
-# About File Paths
-
-By default the `Secretfile` is searched for in the current directory. All Vault and AWS policy files will be searched for in a directory named `vault` adjacent to the `Secretfile`. All files containing secrets referenced from the `Secretfile` will be searched for in an adjacent directory named `.secrets`.
 
 # Test
 

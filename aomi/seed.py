@@ -29,6 +29,14 @@ def ensure_mounted(client, backend, mount):
                          (mount, m.group('path')))
 
 
+def ensure_auth(client, auth):
+    """Will ensure a particular auth endpoint is mounted"""
+    backends = client.list_auth_backends()['data'].keys()
+    backends = [x.rstrip('/') for x in backends]
+    if auth not in backends:
+        client.enable_auth_backend(auth)
+
+
 def var_file(client, secret, opt):
     """Seed a var_file into Vault"""
     path = "%s/%s" % (secret['mount'], secret['path'])
@@ -45,6 +53,10 @@ def var_file(client, secret, opt):
 
     ensure_mounted(client, 'generic', secret['mount'])
 
+    if opt.mount_only:
+        log("Only mounting %s" % secret['mount'], opt)
+        return
+
     client.write(path, **varz)
     log('wrote var_file %s into %s/%s' % (
         var_file_name,
@@ -57,6 +69,7 @@ def aws_region(secret, aws_obj):
     if 'region' in secret:
         return secret['region']
     elif 'region' in aws_obj:
+        # see https://github.com/Autodesk/aomi/issues/40
         warning('Defining region in the AWS yaml is deprecated')
         return aws_obj['region']
     else:
@@ -68,6 +81,7 @@ def aws_roles(secret, aws_obj):
     if 'roles' in secret:
         return secret['roles']
     elif 'roles' in aws_obj:
+        # see https://github.com/Autodesk/aomi/issues/40
         warning('Defining roles within the AWS yaml is deprecated')
         return aws_obj['roles']
     else:
@@ -96,6 +110,10 @@ def aws(client, secret, opt):
         return
 
     ensure_mounted(client, 'aws', secret['mount'])
+
+    if opt.mount_only:
+        log("Only mounting %s" % secret['mount'], opt)
+        return
 
     obj = {
         'access_key': aws_obj['access_key_id'],
@@ -131,6 +149,7 @@ def aws(client, secret, opt):
                 ttl_obj['lease_max'] = ttl_obj['lease']
 
         if lease_msg != '':
+            # see https://github.com/Autodesk/aomi/issues/40
             warning('Setting lease and lease_max from the '
                     'AWS yaml is deprecated')
 
@@ -189,6 +208,11 @@ def app(client, app_obj, opt):
         log("Skipping %s as it does not have appropriate tags" % name, opt)
         return
 
+    ensure_auth(client, 'app-id')
+    if opt.mount_only:
+        log("Only enabling app-id", opt)
+        return
+
     app_file = hard_path(app_obj['app_file'], opt.secrets)
     data = yaml.load(open(app_file).read())
     if 'app_id' not in data \
@@ -237,6 +261,11 @@ def files(client, secret, opt):
             vault_path, opt)
         return
 
+    ensure_mounted(client, 'generic', secret['mount'])
+    if opt.mount_only:
+        log("Only mounting %s" % secret['mount'], opt)
+        return
+
     for f in secret.get('files', []):
         if 'source' not in f or 'name' not in f:
             problems("Invalid file specification %s" % f)
@@ -248,8 +277,6 @@ def files(client, secret, opt):
             filename,
             vault_path,
             f['name']), opt)
-
-    ensure_mounted(client, 'generic', secret['mount'])
 
     client.write(vault_path, **obj)
 

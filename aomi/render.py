@@ -1,7 +1,10 @@
 """ Secret rendering """
 import os
-from jinja2 import Template
+from base64 import b64encode, b64decode
+from pkg_resources import resource_filename
+from jinja2 import Environment, FileSystemLoader
 from aomi.helpers import problems, warning
+
 
 def secret_key_name(path, key, opt):
     """Renders a Secret key name appropriately"""
@@ -10,25 +13,55 @@ def secret_key_name(path, key, opt):
         norm_path = [x for x in path.split('/') if x]
         value = "%s_%s" % ('_'.join(norm_path), key)
 
-    if opt.prefix:
-        value = "%s%s" % (opt.prefix, value)
+    if opt.add_prefix:
+        value = "%s%s" % (opt.add_prefix, value)
 
-    if opt.suffix:
-        value = "%s%s" % (value, opt.suffix)
+    if opt.add_suffix:
+        value = "%s%s" % (value, opt.add_suffix)
 
     return value
 
 
+def cli_hash(list_of_kv):
+    """Parse out a hash from a list of key=value strings"""
+    ev_obj = {}
+    for ev in list_of_kv:
+        key, val = ev.split('=')
+        ev_obj[key] = val
+
+    return ev_obj
+
+
+def grok_template_file(src):
+    """Determine the real deal template file"""
+    if not src.startswith('builtin:'):
+        return os.path.abspath(src)
+    else:
+        builtin = src.split(':')[1]
+        builtin = "templates/%s.j2" % builtin
+        return resource_filename(__name__, builtin)
+
+
 def template(client, src, dest, paths, opt):
     """Writes a template using variables from a vault path"""
-    template_src = Template(open(os.path.abspath(src), 'r').read())
-    obj = {}
+    template_file = grok_template_file(src)
+    fs_loader = FileSystemLoader(os.path.dirname(template_file))
+    env = Environment(loader=fs_loader)
+    env.filters['b64encode'] = b64encode
+    env.filters['decode'] = b64decode
+    template_src = env.get_template(os.path.basename(template_file))
+    obj = cli_hash(opt.extra_vars)
+    key_map = cli_hash(opt.key_map)
     for path in paths:
         data = client.read(path)['data']
         for s_k, s_v in data.items():
-            k_name = secret_key_name(path, s_k, opt) \
-                    .lower() \
-                    .replace('-', '_')
+            o_key = s_k
+            if s_k in key_map:
+                o_key = key_map[s_k]
+
+            k_name = secret_key_name(path, o_key, opt) \
+                .lower() \
+                .replace('-', '_')
             obj[k_name] = s_v
 
     output = template_src.render(**obj)
@@ -53,15 +86,27 @@ def raw_file(client, src, dest):
 
 def env(client, paths, opt):
     """Renders a shell snippet based on paths in a Secretfile"""
+    old_prefix = False
+    old_prefix = opt.prefix and not (opt.add_prefix or
+                                     opt.add_suffix or
+                                     not opt.merge_path)
+    if old_prefix:
+        warning("the prefix option is deprecated but being used "
+                "due to not passing in new options")
+    elif opt.prefix:
+        warning("the prefix option is deprecated but not being "
+                "used due to passing in new options")
+
     for path in paths:
         secrets = client.read(path)
         if secrets and 'data' in secrets:
             for s_key, s_val in secrets['data'].items():
-                if opt.prefix:
-                    warning("the prefix option is deprecated")
-                    env_name = ("%s_%s" % (opt.prefix, s_key)).upper
-                env_name = secret_key_name(path, s_key, opt) \
-                        .upper()
+                # see https://github.com/Autodesk/aomi/issues/40
+                env_name = None
+                if old_prefix:
+                    env_name = ("%s_%s" % (opt.prefix, s_key)).upper()
+                else:
+                    env_name = secret_key_name(path, s_key, opt).upper()
 
                 print("%s=\"%s\"" % (env_name, s_val))
                 if opt.export:

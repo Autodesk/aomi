@@ -21,5 +21,5 @@ setup(name='aomi',
       entry_points = {
           'console_scripts': ['aomi = aomi.cli:main']
       },
-      package_data={'aomi':['version']}
+      package_data={'aomi':['version', 'templates/*.j2']}
 )

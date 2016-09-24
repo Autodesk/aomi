@@ -15,6 +15,7 @@ teardown() {
 
 @test "can seed and extract a file" {
     run aomi seed
+    echo "$output"
     [ "$status" -eq 0 ]
     run aomi extract_file foo/bar/baz/secret "${BATS_TMPDIR}/secret.txt"
     [ "$status" -eq 0 ]
