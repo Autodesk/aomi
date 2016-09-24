@@ -26,7 +26,9 @@ def cli_hash(list_of_kv):
     """Parse out a hash from a list of key=value strings"""
     ev_obj = {}
     for ev in list_of_kv:
-        key, val = ev.split('=')
+        ev_list = ev.split('=')
+        key = ev_list[0]
+        val = '='.join(ev_list[1:])  # b64 and other side effects
         ev_obj[key] = val
 
     return ev_obj
@@ -48,7 +50,7 @@ def template(client, src, dest, paths, opt):
     fs_loader = FileSystemLoader(os.path.dirname(template_file))
     env = Environment(loader=fs_loader)
     env.filters['b64encode'] = b64encode
-    env.filters['decode'] = b64decode
+    env.filters['b64decode'] = b64decode
     template_src = env.get_template(os.path.basename(template_file))
     obj = cli_hash(opt.extra_vars)
     key_map = cli_hash(opt.key_map)

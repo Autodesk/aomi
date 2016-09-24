@@ -5,7 +5,7 @@ load helper
 
 setup() {
     start_vault
-    use_fixture environment
+    use_fixture minimal
     run aomi seed
     [ "$status" -eq 0 ]
 }
