@@ -8,7 +8,7 @@ function start_vault() {
     fi
     nohup vault server -dev &> "$VAULT_LOG" &
     export VAULT_PID=$!
-    if ! ps $VAULT_PID 2> /dev/null ; then
+    if ! ps $VAULT_PID | grep vault &> /dev/null ; then
         stop_vault
         start_vault
     else
