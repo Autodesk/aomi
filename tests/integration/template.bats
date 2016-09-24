@@ -15,6 +15,19 @@ teardown() {
     rm -rf "$FIXTURE_DIR"
 }
 
+
+@test "jinja include" {
+    echo "{% include 'real' -%}" > "${BATS_TMPDIR}/tpl"
+    echo "{{secret}}" > "${BATS_TMPDIR}/real"
+    run aomi template \
+        --no-merge-path \
+        "${BATS_TMPDIR}/tpl" \
+        "${BATS_TMPDIR}/render" \
+        "foo/bar"
+    [ "$status" -eq 0 ]
+    [ "$(cat "${BATS_TMPDIR}/render")" == "$FILE_SECRET1" ]
+}
+
 @test "can use b64encode/b64decode filters" {
     echo -n '{{b64|b64decode}}{{secret|b64encode}}' > "${BATS_TMPDIR}/tpl"
     B64_SECRET="$(echo -n ${FILE_SECRET1} | base64)"
