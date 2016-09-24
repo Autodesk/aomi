@@ -86,4 +86,3 @@ teardown() {
     scan_lines "AAA_USER_BBB=\"${FILE_SECRET1}\"" "${lines[@]}"
     scan_lines "AAA_PASSWORD_BBB=\"${FILE_SECRET2}\"" "${lines[@]}"
 }
-
