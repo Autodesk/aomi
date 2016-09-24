@@ -1,5 +1,2 @@
-app_id: 'test'
-policy: 'sample.hcl'
-policy_name: 'sample2'
 users:
 - id: 'aaa'

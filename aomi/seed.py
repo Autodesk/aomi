@@ -215,18 +215,36 @@ def app(client, app_obj, opt):
 
     app_file = hard_path(app_obj['app_file'], opt.secrets)
     data = yaml.load(open(app_file).read())
-    if 'app_id' not in data \
-       or ('policy' not in data and 'policy_name' not in data):
+    if 'users' not in data:
         problems("Invalid app file %s" % app_file)
 
     policy_name = None
     if 'policy_name' in data:
+        warning('Defining policy_name within the app yaml is deprecated')
         policy_name = data['policy_name']
+    elif 'policy_name' in app_obj:
+        policy_name = app_obj['policy_name']
     else:
         policy_name = name
 
+    app_id = None
+    if 'app_id' in data:
+        warning('Defining app_id within the app yaml is deprecated')
+        app_id = data['app_id']
+    elif 'app_id' in app_obj:
+        app_id = app_obj['app_id']
+    else:
+        app_id = name
+
+    policy_file = None
     if 'policy' in data:
-        policy_data = open(hard_path(data['policy'], opt.policies), 'r').read()
+        warning('Defining policy_name within the app yaml is deprecated')
+        policy_file = data['policy']
+    elif 'policy' in app_obj:
+        policy_file = app_obj['policy']
+
+    if policy_file:
+        policy_data = open(hard_path(policy_file, opt.policies), 'r').read()
         if policy_name in client.list_policies():
             if policy_data != client.get_policy(policy_name):
                 problems("Policy %s already exists and content differs"
@@ -241,11 +259,11 @@ def app(client, app_obj, opt):
 
         log("Using existing policy %s" % policy_name, opt)
 
-    app_path = "auth/app-id/map/app-id/%s" % data['app_id']
+    app_path = "auth/app-id/map/app-id/%s" % app_id
     app_obj = {'value': policy_name, 'display_name': name}
     client.write(app_path, **app_obj)
     users = data.get('users', [])
-    app_users(client, data['app_id'], users)
+    app_users(client, app_id, users)
     log('created %d users in application %s' % (len(users), name), opt)
 
 
