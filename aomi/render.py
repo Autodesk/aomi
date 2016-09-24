@@ -1,20 +1,34 @@
 """ Secret rendering """
 import os
 from jinja2 import Template
-from aomi.helpers import problems
+from aomi.helpers import problems, warning
+
+def secret_key_name(path, key, opt):
+    """Renders a Secret key name appropriately"""
+    value = key
+    if opt.merge_path:
+        norm_path = [x for x in path.split('/') if x]
+        value = "%s_%s" % ('_'.join(norm_path), key)
+
+    if opt.prefix:
+        value = "%s%s" % (opt.prefix, value)
+
+    if opt.suffix:
+        value = "%s%s" % (value, opt.suffix)
+
+    return value
 
 
-def template(client, src, dest, paths):
+def template(client, src, dest, paths, opt):
     """Writes a template using variables from a vault path"""
     template_src = Template(open(os.path.abspath(src), 'r').read())
     obj = {}
     for path in paths:
         data = client.read(path)['data']
         for s_k, s_v in data.items():
-            norm_path = [x for x in path.split('/') if x]
-            k_name = ("%s_%s" % ('_'.join(norm_path), s_k)) \
-                .lower() \
-                .replace('-', '_')
+            k_name = secret_key_name(path, s_k, opt) \
+                    .lower() \
+                    .replace('-', '_')
             obj[k_name] = s_v
 
     output = template_src.render(**obj)
@@ -44,11 +58,10 @@ def env(client, paths, opt):
         if secrets and 'data' in secrets:
             for s_key, s_val in secrets['data'].items():
                 if opt.prefix:
-                    env_name = "%s_%s" % (opt.prefix.upper(), s_key.upper())
-                else:
-                    env_bits = path.split('/')
-                    env_bits.append(s_key)
-                    env_name = '_'.join(env_bits).upper()
+                    warning("the prefix option is deprecated")
+                    env_name = ("%s_%s" % (opt.prefix, s_key)).upper
+                env_name = secret_key_name(path, s_key, opt) \
+                        .upper()
 
                 print("%s=\"%s\"" % (env_name, s_val))
                 if opt.export:

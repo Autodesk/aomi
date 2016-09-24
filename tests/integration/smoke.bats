@@ -29,7 +29,10 @@ teardown() {
     run aomi environment foo/bar/bam foo/bar/bang-bang
     [ "${lines[0]}" = "FOO_BAR_BAM_SECRET=\"${SECRET}\"" ]
     [ "${lines[1]}" = "FOO_BAR_BANG-BANG_SECRET=\"${SECRET2}\"" ]
-    run aomi environment foo/bar/bam --prefix aaa
+    # old syntax
+    # run aomi environment foo/bar/bam --prefix aaa
+    # new sytax
+    run aomi environment --add-prefix aaa_ --no-merge-path foo/bar/bam
     [ "$output" = "AAA_SECRET=\"${SECRET}\"" ]
     run aomi environment foo/bar/bam --export
     [ "${lines[0]}" = "FOO_BAR_BAM_SECRET=\"${SECRET}\"" ]
