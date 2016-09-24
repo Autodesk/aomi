@@ -36,7 +36,7 @@ All files containing secrets referenced from the `Secretfile` will be searched f
 
 ## Tags
 
-You may tag individual policies, appids, and secrets. When resources have tags, and the `seed` command is run with the `--tags` option, only matching items will be seeded. If the `--tags` option is not specified, then everything will be seeded.
+You may tag individual policies, appids, and secrets. When resources have tags, and the `seed` command is run with the `--tags` option, only matching items will be seeded. If the `--tags` option is not specified, then only things which do not have tags specified will be seeded.
 
 # Vault Constructs
 

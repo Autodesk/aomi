@@ -15,7 +15,6 @@ function start_vault() {
         export VAULT_ADDR='http://127.0.0.1:8200'
         VAULT_TOKEN=$(grep -e 'Root Token' "$VAULT_LOG" | cut -f 3 -d ' ')
         export VAULT_TOKEN="$VAULT_TOKEN"
-        vault auth-enable app-id &> /dev/null
     fi
 }
 
@@ -23,7 +22,11 @@ function stop_vault() {
     if [ -e "${BATS_TMPDIR}/og-token" ] ; then
         mv "${BATS_TMPDIR}/og-token" "${HOME}/.vault-token"
     fi
-    kill $VAULT_PID
+    if ps "$VAULT_PID" &> /dev/null ; then
+        kill "$VAULT_PID"
+    else
+        echo "vault server went away"
+    fi
     rm -f "$VAULT_LOG"
 }
 
