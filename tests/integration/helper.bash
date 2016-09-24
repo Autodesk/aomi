@@ -7,11 +7,11 @@ function start_vault() {
         mv "${HOME}/.vault-token" "${BATS_TMPDIR}/og-token"
     fi
     nohup vault server -dev &> "$VAULT_LOG" &
-    export VAULT_PID=$!
-    if ! ps $VAULT_PID | grep vault &> /dev/null ; then
+    if ! pgrep vault &> /dev/null ; then
         stop_vault
         start_vault
     else
+        export VAULT_PID=$(pgrep vault)
         export VAULT_ADDR='http://127.0.0.1:8200'
         VAULT_TOKEN=$(grep -e 'Root Token' "$VAULT_LOG" | cut -f 3 -d ' ')
         export VAULT_TOKEN="$VAULT_TOKEN"
