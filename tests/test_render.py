@@ -1,6 +1,6 @@
 import sys
 import unittest
-from aomi.render import secret_key_name, cli_hash
+from aomi.render import secret_key_name, cli_hash, grok_template_file
 from aomi.cli import parser_factory
 
 class CliHashTest(unittest.TestCase):
@@ -8,6 +8,16 @@ class CliHashTest(unittest.TestCase):
         assert cli_hash(["foo=bar"]) == {'foo': 'bar'}
         assert cli_hash(["foo=bar","baz=bam"]) == {'foo': 'bar', 'baz': 'bam'}
 
+
+class TemplateTest(unittest.TestCase):
+    def test_builtin(self):
+        builtin_file = grok_template_file('builtin:foo')
+        assert builtin_file.endswith('foo.j2')
+        assert not builtin_file.startswith('builtin:')
+
+    def test_normal(self):
+        builtin_file = grok_template_file('/foo')
+        assert builtin_file == '/foo'
 
 class SecretKeyNameTest(unittest.TestCase):
     def getopt(self, op, args):
