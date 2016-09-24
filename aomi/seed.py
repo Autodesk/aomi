@@ -47,7 +47,7 @@ def var_file(client, secret, opt):
        or 'path' not in secret:
         problems("Invalid generic secret definition %s" % secret)
 
-    if not is_tagged(secret.get('tags', []), opt.tags):
+    if not is_tagged(opt.tags, secret.get('tags', [])):
         log("Skipping %s as it does not have appropriate tags" % path, opt)
         return
 
@@ -104,7 +104,7 @@ def aws(client, secret, opt):
     region = aws_region(secret, aws_obj)
 
     aws_path = "%s/config/root" % secret['mount']
-    if not is_tagged(secret.get('tags', []), opt.tags):
+    if not is_tagged(opt.tags, secret.get('tags', [])):
         log("Skipping %s as it does not have appropriate tags" %
             aws_path, opt)
         return
@@ -204,7 +204,7 @@ def app(client, app_obj, opt):
     else:
         name = os.path.splitext(os.path.basename(app_obj['app_file']))[0]
 
-    if not is_tagged(app_obj.get('tags', []), opt.tags):
+    if not is_tagged(opt.tags, app_obj.get('tags', [])):
         log("Skipping %s as it does not have appropriate tags" % name, opt)
         return
 
@@ -274,7 +274,7 @@ def files(client, secret, opt):
 
     obj = {}
     vault_path = "%s/%s" % (secret['mount'], secret['path'])
-    if not is_tagged(secret.get('tags', []), opt.tags):
+    if not is_tagged(opt.tags, secret.get('tags', [])):
         log("Skipping %s as it does not have appropriate tags" %
             vault_path, opt)
         return
@@ -305,7 +305,7 @@ def policy(client, secret, opt):
         problems("Invalid policy specification %s" % secret)
 
     policy_name = secret['name']
-    if not is_tagged(secret.get('tags', []), opt.tags):
+    if not is_tagged(opt.tags, secret.get('tags', [])):
         log("Skipping policy %s as it does not have appropriate tags" %
             policy_name, opt)
         return

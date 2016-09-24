@@ -14,10 +14,11 @@ teardown() {
 }
 
 @test "can seed and extract a file" {
-    run aomi seed
-    echo "$output"
+    run aomi seed --tags bar
     [ "$status" -eq 0 ]
-    run aomi extract_file foo/bar/baz/secret "${BATS_TMPDIR}/secret.txt"
+    run aomi extract_file \
+        foo/bar/baz/secret \
+        "${BATS_TMPDIR}/secret.txt"
     [ "$status" -eq 0 ]
     [ "$(cat ${BATS_TMPDIR}/secret.txt)" = "$(cat ${FIXTURE_DIR}/.secrets/secret.txt)" ]
 }
@@ -28,6 +29,7 @@ teardown() {
     run aomi seed
     [ "$status" -eq 0 ]
     run aomi environment foo/bar/bam foo/bar/bang-bang
+    echo $output
     [ "${lines[0]}" = "FOO_BAR_BAM_SECRET=\"${SECRET}\"" ]
     [ "${lines[1]}" = "FOO_BAR_BANG-BANG_SECRET=\"${SECRET2}\"" ]
     # old syntax
@@ -68,8 +70,11 @@ teardown() {
 @test "respects tags when seeding" {
     run aomi seed --tags bar
     [ "$status" -eq 0 ]
-    run vault read foo/bar/bam
+    run vault read foo/bar/bof
     [ "$status" -eq 1 ]
     run vault read foo/bar/baz
     [ "$status" -eq 0 ]
+    run vault read foo/bar/bam
+    [ "$status" -eq 0 ]
+
 }
