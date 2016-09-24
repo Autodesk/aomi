@@ -10,7 +10,7 @@ The `aomi` tool has several requirements which can (generally) all be sourced fr
 
 The [PyYAML](http://pyyaml.org/) package, by default, will make use of libyaml. This can be a problem on some systems as you may need to manually install libyaml.
 
-You should be using a recent enough version of Python to have good TLS support. Vault can make use of SNI and thaht requires fresh Python 2.7.
+You should be using a recent enough version of Python to have good TLS support. Vault can make use of SNI and that requires fresh Python 2.7.
 
 Tests run (both locally and on Travis) in isolation using [virtualenv](https://virtualenv.pypa.io/en/stable/) so you must have this installed if you wish to do active development on `aomi`.
 
@@ -26,13 +26,13 @@ The important piece of the `Secretfile` is `secrets` as that is where seeds are 
 
 ## About File Paths
 
-By default the `Secretfile` is searched for in the current directory. You can override this behaviour with the `--secretfile` option.
+By default the `Secretfile` is searched for in the current directory. You can override this behavior with the `--secretfile` option.
 
 Supplemental data is loaded from relative paths by default. If files are not found at the relative (but tunable) path, the data will be loaded as an absolute path.
 
 All Vault and AWS policy files will be searched for first in a relative location. This relative directory defaults to `vault` adjacent to the `Secretfile` however you may override it with `--policies`. 
 
-All files containing secrets referenced from the `Secretfile` will be searched for in an adjacent directory named `.secrets`. You are able to override the directory used for static secretswith the `--secrets` option. 
+All files containing secrets referenced from the `Secretfile` will be searched for in an adjacent directory named `.secrets`. You are able to override the directory used for static secrets with the `--secrets` option. 
 
 ## Tags
 
@@ -44,7 +44,7 @@ These are the different things which `aomi` may interact with in a Vault instanc
 
 ## Files
 
-You may specify a list of files and their destination Vault secret item. Each `files` section has a list of source files, and the key name they should use in Vault. Each instance of a `files` section must also include a Vault mount point and path.  The following example would create two secrets (`private` and `public`) based on the two files under the `.secrets` directory and place them in the Vault path `foo/bar/baz`.
+You may specify a list of files and their destination Vault secret item. Each `files` section has a list of source files, and the key name they should use in Vault. Each instance of a `files` section must also include a Vault mount point and path.  The following example would create two secrets (`private` and `public`) based on the two files under the `.secrets` directory and place them in the Vault path `foo/bar/baz`. The mountpoint will be created as a [generic](https://www.vaultproject.io/docs/secrets/generic/) secret store.
 
 ----
 `Secretfile`
@@ -62,9 +62,11 @@ secrets:
 
 ## AWS
 
-By specifying an appropriately populated `aws_file` you can create [AWS secret backends](https://www.vaultproject.io/docs/secrets/aws/index.html) in Vault. The `aws_file` must point to a valid file, and the base of the AWS credentials will be set by the `path`.
+By specifying an appropriately populated `aws_file` you can create [AWS secret backends](https://www.vaultproject.io/docs/secrets/aws/index.html) in Vault. The `aws_file` must point to a valid file, and the base of the AWS credentials will be set by the `mount`.
 
-The AWS file contains the `access_key_id`, and `secret_access_key`. The `region`, and a list of AWS roles that will be loaded by Vault are in the `Secretfile`. Note that you may specify either an inline `policy` _or_ a native AWS `arn`. The `name` of each role will be used to compute the final path for accessing credentials. The policy files are simply JSON IAM Access representations. The following example would create an AWS Vault secret backend at `foo/bar/baz` based on the account and policy information defined in `.secrets/aws.yml`. While `lease` and `lease_max` are provided in this example, they are not strictly required. Note that a previous version had `lease`, `lease_max`, `region`, and the `roles` section located in the `aws_file` itself - this behavior is now considered deprecated. The _only_ thing which should be present in the AWS yaml is the actual secrets.
+The AWS file contains the `access_key_id`, and `secret_access_key`. The `region`, and a list of AWS roles that will be loaded by Vault are in the `Secretfile`. Note that you may specify either an inline `policy` _or_ a native AWS `arn`. The `name` of each role will be used to compute the final path for accessing credentials. The policy files are simply JSON IAM Access representations. The following example would create an AWS Vault secret backend at `foo/bar/baz` based on the account and policy information defined in `.secrets/aws.yml`. While `lease` and `lease_max` are provided in this example, they are not strictly required.
+
+Note that a previous version had `lease`, `lease_max`, `region`, and the `roles` section located in the `aws_file` itself - this behavior is now considered deprecated. The _only_ thing which should be present in the AWS yaml is the actual secrets.
 
 ----
 
@@ -94,7 +96,7 @@ secret_access_key: "REDACTED"
 
 ## Variable Files
 
-You may define a preset list of secrets and associate them with a mountpoint and path. The `var_file` contains a list of YAML key value pairs. The following example would create two secrets (`user` and `password`) at the Vault path `foo/bar/baz`.
+You may define a preset list of secrets and associate them with a mountpoint and path. The `var_file` contains a list of YAML key value pairs. The following example would create two secrets (`user` and `password`) at the Vault path `foo/bar/baz`. The mountpoint will be created as a [generic](https://www.vaultproject.io/docs/secrets/generic/) secret store.
 
 ----
 
@@ -176,7 +178,7 @@ Other than the `seed` command, everything else is used to extract secrets from t
 
 The seed command will go through the `Secretfile` and appropriately provision Vault. Note that you need to be logged in, and already have appropriate permissions. The seed command _can_ be executed with no arguments, and it will look for everything in the current working directory. The `seed` command takes the `--secretfile`, `--policies`, and `--secrets` options. The `--mount-only` option ensures that backends are attached and does not actually writing anything to Vault.
 
-This command will make some sanity checks as it goes. One of these is to check for the presence of the secrets directory within your `.gitignore`. As this directory can contain plaintext secrets, it should never be comitted.
+This command will make some sanity checks as it goes. One of these is to check for the presence of the secrets directory within your `.gitignore`. As this directory can contain plaintext secrets, it should never be committed.
 
 ## extract_file
 
@@ -199,7 +201,7 @@ aomi environment --prefix aaa foo/bar/baz
 AAA_BAM=secret
 ```
 
-The same behaviour is still available through a combination of new modifying options.
+The same behavior is still available through a combination of new modifying options.
 
 ```
 aomi environment --add-prefix aaa_ --no-merge-path foo/bar/baz
@@ -224,7 +226,7 @@ This action takes at least three arguments - the template source, a destination 
 
 Additional variables may be passed in via the command line with the `--extra-vars` option. This may be specified more than once and takes a `key=value` argument.
 
-`aomi` now includes some built in templates. They are specified them with a `builtin:` prefix. In combination with the key modification and extra variables this should allow easy support of non Vault native applications. Current templates are lited
+`aomi` now includes some built in templates. They are specified them with a `builtin:` prefix. In combination with the key modification and extra variables this should allow easy support of non Vault native applications. Current templates are listed below.
 
 * `bundle-config` provides a read only configuration for a Ruby gems host.
 * `gem-credentials` provides a write configuration for uploading gems.
