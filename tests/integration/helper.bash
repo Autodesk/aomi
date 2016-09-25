@@ -56,6 +56,7 @@ function use_fixture() {
     echo -n "secret2: ${RANDOM}" >> "${SECRET_DIR}/secret2.yml"
     echo ".secrets${ALT}" > "${FIXTURE_DIR}/.gitignore"
     chmod -R o-rwx "${SECRET_DIR}"
+    chmod -R g-w "${SECRET_DIR}"
     export FILE_SECRET1="$(cat "${SECRET_DIR}/secret.txt")"
     export FILE_SECRET2="$(cat "${SECRET_DIR}/secret2.txt")"
     export YAML_SECRET1=$(shyaml get-value secret < "${SECRET_DIR}/secret.yml")
