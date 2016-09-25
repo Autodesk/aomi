@@ -120,7 +120,8 @@ def client(operation, opt):
 
 def seed(vault_client, opt):
     """Will provision vault based on the definition within a Secretfile"""
-    config = yaml.load(open(os.path.abspath(opt.secretfile)).read())
+    secretfile_path = os.path.abspath(opt.secretfile)
+    config = yaml.load(open(secretfile_path).read())
     for secret in config.get('secrets', []):
         if 'var_file' in secret:
             aomi.seed.var_file(vault_client, secret, opt)
@@ -142,3 +143,6 @@ def seed(vault_client, opt):
             aomi.seed.app(vault_client, app, opt)
         else:
             problems("Invalid app element %s" % app)
+
+    for users in config.get('users', []):
+        aomi.seed.users(vault_client, users, opt)

@@ -37,6 +37,11 @@ validate_defaults() {
     [ "$status" -eq 0 ]
     validate_defaults
 }
+@test "can seed users" {
+    run aomi seed
+    [ "$status" -eq 0 ]
+    check_secret true "auth/userpass/users/foo/ttl" "0" 
+}
 
 @test "can mount everything (non-tagged) on a blank vault" {
     run aomi seed --mount-only

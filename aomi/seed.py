@@ -3,6 +3,7 @@ import re
 import yaml
 import hvac
 from aomi.helpers import problems, hard_path, log, is_tagged, warning
+from aomi.validation import secret_file
 
 
 def is_mounted(mount, backends, style):
@@ -41,6 +42,7 @@ def var_file(client, secret, opt):
     """Seed a var_file into Vault"""
     path = "%s/%s" % (secret['mount'], secret['path'])
     var_file_name = hard_path(secret['var_file'], opt.secrets)
+    secret_file(var_file_name)
     varz = yaml.load(open(var_file_name).read())
     if 'var_file' not in secret \
        or 'mount' not in secret \
@@ -95,6 +97,7 @@ def aws(client, secret, opt):
         problems("Invalid aws secret definition" % secret)
 
     aws_file_path = hard_path(secret['aws_file'], opt.secrets)
+    secret_file(aws_file_path)
     aws_obj = yaml.load(open(aws_file_path, 'r').read())
 
     if 'access_key_id' not in aws_obj \
@@ -208,13 +211,15 @@ def app(client, app_obj, opt):
         log("Skipping %s as it does not have appropriate tags" % name, opt)
         return
 
+    app_file = hard_path(app_obj['app_file'], opt.secrets)
+    secret_file(app_file)
+    data = yaml.load(open(app_file).read())
+
     ensure_auth(client, 'app-id')
     if opt.mount_only:
         log("Only enabling app-id", opt)
         return
 
-    app_file = hard_path(app_obj['app_file'], opt.secrets)
-    data = yaml.load(open(app_file).read())
     if 'users' not in data:
         problems("Invalid app file %s" % app_file)
 
@@ -289,6 +294,7 @@ def files(client, secret, opt):
             problems("Invalid file specification %s" % f)
 
         filename = hard_path(f['source'], opt.secrets)
+        secret_file(filename)
         data = open(filename, 'r').read()
         obj[f['name']] = data
         log('writing file %s into %s/%s' % (
@@ -313,3 +319,32 @@ def policy(client, secret, opt):
     policy_data = open(hard_path(secret['file'], opt.policies), 'r').read()
     log('writing policy %s' % policy_name, opt)
     client.set_policy(policy_name, policy_data)
+
+
+def users(client, user_obj, opt):
+    """Creates userpass users in Vault"""
+    if 'password_file' not in user_obj or \
+       'username' not in user_obj or \
+       'policies' not in user_obj:
+        problems("Invalid user specification %s" % user_obj)
+
+    name = user_obj['username']
+
+    if not is_tagged(opt.tags, user_obj.get('tags', [])):
+        log("Skipping %s as it does not have appropriate tags" %
+            (name), opt)
+        return
+
+    password_file = hard_path(user_obj['password_file'],
+                              opt.secrets)
+    secret_file(password_file)
+    password = open(password_file).readline().strip()
+
+    ensure_auth(client, 'userpass')
+
+    user_path = "auth/userpass/users/%s" % name
+    v_obj = {
+        'password': password,
+        'policies': ','.join(user_obj['policies'])
+    }
+    client.write(user_path, **v_obj)

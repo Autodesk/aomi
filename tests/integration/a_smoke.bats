@@ -15,6 +15,7 @@ teardown() {
 
 @test "can seed and extract a file" {
     run aomi seed --tags bar
+    echo $output
     [ "$status" -eq 0 ]
     run aomi extract_file \
         foo/bar/baz/secret \

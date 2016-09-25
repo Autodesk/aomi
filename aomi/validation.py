@@ -1,7 +1,7 @@
 """Some validation helpers for aomi"""
 from __future__ import print_function
 import os
-
+import stat
 from aomi.helpers import problems, abspath
 
 
@@ -56,3 +56,17 @@ def gitignore(opt):
                      (secrets_path, gitignore_file))
     else:
         problems("You should really have a .gitignore")
+
+
+def secret_file(filename):
+    """Will check the permissions of thigns which really
+    should be secret files"""
+    filestat = os.stat(abspath(filename))
+    if stat.S_ISREG(filestat.st_mode) == 0 and \
+       stat.S_ISLNK(filestat.st_mode) == 0:
+        problems("Secret file %s must be a real file or symlink" % filename)
+
+    if filestat.st_mode & stat.S_IROTH or \
+       filestat.st_mode & stat.S_IWOTH or \
+       filestat.st_mode & stat.S_IWGRP:
+        problems("Secret file %s has too loose permissions" % filename)
