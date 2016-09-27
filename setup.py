@@ -6,8 +6,10 @@ from pkg_resources import resource_filename
 
 vsn_path = resource_filename(__name__, 'aomi/version')
 if not os.path.exists(vsn_path):
-    print("%s is missing" % vsn_path)
-    sys.exit(1)
+    vsn_path = resource_filename(__name__, 'version')
+    if not os.path.exists(vsn_path):
+        print("%s is missing" % vsn_path)
+        sys.exit(1)
 
 setup(name='aomi',
       version=open(vsn_path, 'r').read(),
