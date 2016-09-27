@@ -1,1 +1,2 @@
-include version
+include aomi/version
+include aomi/templates/*.j2

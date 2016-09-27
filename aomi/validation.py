@@ -1,8 +1,8 @@
 """Some validation helpers for aomi"""
 from __future__ import print_function
 import os
-
-from aomi.helpers import problems, abspath
+import stat
+from aomi.helpers import problems, abspath, is_tagged, log
 
 
 def find_file(name, directory):
@@ -56,3 +56,96 @@ def gitignore(opt):
                      (secrets_path, gitignore_file))
     else:
         problems("You should really have a .gitignore")
+
+
+def secret_file(filename):
+    """Will check the permissions of thigns which really
+    should be secret files"""
+    filestat = os.stat(abspath(filename))
+    if stat.S_ISREG(filestat.st_mode) == 0 and \
+       stat.S_ISLNK(filestat.st_mode) == 0:
+        problems("Secret file %s must be a real file or symlink" % filename)
+
+    if filestat.st_mode & stat.S_IROTH or \
+       filestat.st_mode & stat.S_IWOTH or \
+       filestat.st_mode & stat.S_IWGRP:
+        problems("Secret file %s has too loose permissions" % filename)
+
+
+def validate_obj(keys, obj):
+    """Super simple object validation."""
+    msg = ''
+    for k in keys:
+        if isinstance(k, str):
+            if k not in obj:
+                if len(msg) > 0:
+                    msg = "%s," % msg
+
+                msg = "%s%s" % (msg, k)
+        elif isinstance(k, list):
+            found = False
+            for k_a in k:
+                if k_a in obj:
+                    found = True
+
+            if not found:
+                if len(msg) > 0:
+                    msg = "%s," % msg
+
+                msg = "%s(%s" % (msg, ','.join(k))
+
+    if len(msg) > 0:
+        msg = "%s missing" % msg
+
+    return msg
+
+
+def var_file_obj(obj):
+    """Does some validation around a var_file object"""
+    check_obj(['var_file', 'mount', 'path'], 'var_file', obj)
+
+
+def aws_file_obj(obj):
+    """Does some validation around an aws_file object"""
+    check_obj([['aws_file', 'aws'], 'mount'], 'aws_file', obj)
+
+
+def aws_secret_obj(filename, obj):
+    """Does some validation around AWS secrets"""
+    check_obj(['access_key_id', 'secret_access_key'],
+              "aws secret %s" % (filename),
+              obj)
+
+
+def file_obj(obj):
+    """Basic validation around file objects"""
+    check_obj(['mount', 'path'], 'file element', obj)
+
+
+def tag_check(obj, path, opt):
+    """If we require tags, validate for that"""
+    if not is_tagged(opt.tags, obj.get('tags', [])):
+        log("Skipping %s as it does not have requested tags" %
+            path, opt)
+        return False
+    else:
+        return True
+
+
+def check_obj(keys, name, obj):
+    """Do basic validation on an object"""
+    msg = validate_obj(keys, obj)
+    if len(msg) > 0:
+        problems("%s in %s" % (msg, name))
+
+
+def policy_obj(obj):
+    """Basic validation around policy objects"""
+    check_obj(['name', 'file'], 'policy', obj)
+
+
+def user_obj(obj):
+    """Do basic validation on a user obj"""
+    check_obj(['username', 'password_file', 'policies'],
+              'user specification',
+              obj)

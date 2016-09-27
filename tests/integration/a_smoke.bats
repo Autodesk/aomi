@@ -14,26 +14,31 @@ teardown() {
 }
 
 @test "can seed and extract a file" {
-    run aomi seed
+    run aomi seed --tags bar
+    echo $output
     [ "$status" -eq 0 ]
-    run aomi extract_file foo/bar/baz/secret "${BATS_TMPDIR}/secret.txt"
+    run aomi extract_file \
+        foo/bar/baz/secret \
+        "${BATS_TMPDIR}/secret.txt"
     [ "$status" -eq 0 ]
     [ "$(cat ${BATS_TMPDIR}/secret.txt)" = "$(cat ${FIXTURE_DIR}/.secrets/secret.txt)" ]
 }
 
 @test "can seed and render environment" {
-    SECRET=$(shyaml get-value secret < ${FIXTURE_DIR}/.secrets/secret.yml)
-    SECRET2=$(shyaml get-value secret < ${FIXTURE_DIR}/.secrets/secret2.yml)
     run aomi seed
     [ "$status" -eq 0 ]
     run aomi environment foo/bar/bam foo/bar/bang-bang
-    [ "${lines[0]}" = "FOO_BAR_BAM_SECRET=\"${SECRET}\"" ]
-    [ "${lines[1]}" = "FOO_BAR_BANG-BANG_SECRET=\"${SECRET2}\"" ]
-    run aomi environment foo/bar/bam --prefix aaa
-    [ "$output" = "AAA_SECRET=\"${SECRET}\"" ]
+    echo $output
+    scan_lines "FOO_BAR_BAM_SECRET=\"${YAML_SECRET1}\"" "${lines[@]}"
+    scan_lines "FOO_BAR_BANG-BANG_SECRET=\"${YAML_SECRET2}\"" "${lines[@]}"
+    # old syntax
+    # run aomi environment foo/bar/bam --prefix aaa
+    # new sytax
+    run aomi environment --add-prefix aaa_ --no-merge-path foo/bar/bam
+    scan_lines "AAA_SECRET=\"${YAML_SECRET1}\"" "${lines[@]}"
     run aomi environment foo/bar/bam --export
-    [ "${lines[0]}" = "FOO_BAR_BAM_SECRET=\"${SECRET}\"" ]
-    [ "${lines[1]}" = "export FOO_BAR_BAM_SECRET" ]
+    scan_lines "FOO_BAR_BAM_SECRET=\"${YAML_SECRET1}\"" "${lines[@]}"
+    scan_lines "export FOO_BAR_BAM_SECRET" "${lines[@]}"
 }
 
 @test "can seed and render a template" {
@@ -64,8 +69,11 @@ teardown() {
 @test "respects tags when seeding" {
     run aomi seed --tags bar
     [ "$status" -eq 0 ]
-    run vault read foo/bar/bam
+    run vault read foo/bar/bof
     [ "$status" -eq 1 ]
     run vault read foo/bar/baz
     [ "$status" -eq 0 ]
+    run vault read foo/bar/bam
+    [ "$status" -eq 1 ]
+
 }

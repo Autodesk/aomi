@@ -3,6 +3,7 @@ import re
 import yaml
 import hvac
 from aomi.helpers import problems, hard_path, log, is_tagged, warning
+import aomi.validation
 
 
 def is_mounted(mount, backends, style):
@@ -29,21 +30,30 @@ def ensure_mounted(client, backend, mount):
                          (mount, m.group('path')))
 
 
+def ensure_auth(client, auth):
+    """Will ensure a particular auth endpoint is mounted"""
+    backends = client.list_auth_backends()['data'].keys()
+    backends = [x.rstrip('/') for x in backends]
+    if auth not in backends:
+        client.enable_auth_backend(auth)
+
+
 def var_file(client, secret, opt):
     """Seed a var_file into Vault"""
+    aomi.validation.var_file_obj(secret)
     path = "%s/%s" % (secret['mount'], secret['path'])
     var_file_name = hard_path(secret['var_file'], opt.secrets)
+    aomi.validation.secret_file(var_file_name)
     varz = yaml.load(open(var_file_name).read())
-    if 'var_file' not in secret \
-       or 'mount' not in secret \
-       or 'path' not in secret:
-        problems("Invalid generic secret definition %s" % secret)
 
-    if not is_tagged(secret.get('tags', []), opt.tags):
-        log("Skipping %s as it does not have appropriate tags" % path, opt)
+    if not aomi.validation.tag_check(secret, path, opt):
         return
 
     ensure_mounted(client, 'generic', secret['mount'])
+
+    if opt.mount_only:
+        log("Only mounting %s" % secret['mount'], opt)
+        return
 
     client.write(path, **varz)
     log('wrote var_file %s into %s/%s' % (
@@ -57,6 +67,7 @@ def aws_region(secret, aws_obj):
     if 'region' in secret:
         return secret['region']
     elif 'region' in aws_obj:
+        # see https://github.com/Autodesk/aomi/issues/40
         warning('Defining region in the AWS yaml is deprecated')
         return aws_obj['region']
     else:
@@ -68,6 +79,7 @@ def aws_roles(secret, aws_obj):
     if 'roles' in secret:
         return secret['roles']
     elif 'roles' in aws_obj:
+        # see https://github.com/Autodesk/aomi/issues/40
         warning('Defining roles within the AWS yaml is deprecated')
         return aws_obj['roles']
     else:
@@ -76,26 +88,24 @@ def aws_roles(secret, aws_obj):
 
 def aws(client, secret, opt):
     """Seed an aws_file into Vault"""
-    if ('aws_file' not in secret and 'aws' not in secret) \
-       or 'mount' not in secret:
-        problems("Invalid aws secret definition" % secret)
+    aomi.validation.aws_file_obj(secret)
 
     aws_file_path = hard_path(secret['aws_file'], opt.secrets)
+    aomi.validation.secret_file(aws_file_path)
     aws_obj = yaml.load(open(aws_file_path, 'r').read())
-
-    if 'access_key_id' not in aws_obj \
-       or 'secret_access_key' not in aws_obj:
-        problems("Invalid AWS secrets" % aws)
+    aomi.validation.aws_secret_obj(aws_file_path, aws_obj)
 
     region = aws_region(secret, aws_obj)
 
     aws_path = "%s/config/root" % secret['mount']
-    if not is_tagged(secret.get('tags', []), opt.tags):
-        log("Skipping %s as it does not have appropriate tags" %
-            aws_path, opt)
+    if not aomi.validation.tag_check(secret, aws_path, opt):
         return
 
     ensure_mounted(client, 'aws', secret['mount'])
+
+    if opt.mount_only:
+        log("Only mounting %s" % secret['mount'], opt)
+        return
 
     obj = {
         'access_key': aws_obj['access_key_id'],
@@ -131,6 +141,7 @@ def aws(client, secret, opt):
                 ttl_obj['lease_max'] = ttl_obj['lease']
 
         if lease_msg != '':
+            # see https://github.com/Autodesk/aomi/issues/40
             warning('Setting lease and lease_max from the '
                     'AWS yaml is deprecated')
 
@@ -160,9 +171,9 @@ def seed_aws_roles(client, mount, roles, opt):
             client.write(role_path, arn=role['arn'])
 
 
-def app_users(client, app_id, users):
+def app_users(client, app_id, p_users):
     """Write out users for an application"""
-    for user in users:
+    for user in p_users:
         if 'id' not in user:
             problems("Invalid user definition %s" % user)
 
@@ -185,24 +196,48 @@ def app(client, app_obj, opt):
     else:
         name = os.path.splitext(os.path.basename(app_obj['app_file']))[0]
 
-    if not is_tagged(app_obj.get('tags', []), opt.tags):
-        log("Skipping %s as it does not have appropriate tags" % name, opt)
+    if not aomi.validation.tag_check(app_obj, "app-id/%s" % name, opt):
         return
 
     app_file = hard_path(app_obj['app_file'], opt.secrets)
+    aomi.validation.secret_file(app_file)
     data = yaml.load(open(app_file).read())
-    if 'app_id' not in data \
-       or ('policy' not in data and 'policy_name' not in data):
+
+    ensure_auth(client, 'app-id')
+    if opt.mount_only:
+        log("Only enabling app-id", opt)
+        return
+
+    if 'users' not in data:
         problems("Invalid app file %s" % app_file)
 
     policy_name = None
     if 'policy_name' in data:
+        warning('Defining policy_name within the app yaml is deprecated')
         policy_name = data['policy_name']
+    elif 'policy_name' in app_obj:
+        policy_name = app_obj['policy_name']
     else:
         policy_name = name
 
+    app_id = None
+    if 'app_id' in data:
+        warning('Defining app_id within the app yaml is deprecated')
+        app_id = data['app_id']
+    elif 'app_id' in app_obj:
+        app_id = app_obj['app_id']
+    else:
+        app_id = name
+
+    policy_file = None
     if 'policy' in data:
-        policy_data = open(hard_path(data['policy'], opt.policies), 'r').read()
+        warning('Defining policy_name within the app yaml is deprecated')
+        policy_file = data['policy']
+    elif 'policy' in app_obj:
+        policy_file = app_obj['policy']
+
+    if policy_file:
+        policy_data = open(hard_path(policy_file, opt.policies), 'r').read()
         if policy_name in client.list_policies():
             if policy_data != client.get_policy(policy_name):
                 problems("Policy %s already exists and content differs"
@@ -217,24 +252,24 @@ def app(client, app_obj, opt):
 
         log("Using existing policy %s" % policy_name, opt)
 
-    app_path = "auth/app-id/map/app-id/%s" % data['app_id']
+    app_path = "auth/app-id/map/app-id/%s" % app_id
     app_obj = {'value': policy_name, 'display_name': name}
     client.write(app_path, **app_obj)
-    users = data.get('users', [])
-    app_users(client, data['app_id'], users)
-    log('created %d users in application %s' % (len(users), name), opt)
+    r_users = data.get('users', [])
+    app_users(client, app_id, r_users)
+    log('created %d users in application %s' % (len(r_users), name), opt)
 
 
 def files(client, secret, opt):
     """Seed files into Vault"""
-    if 'mount' not in secret or 'path' not in secret:
-        problems("Invalid files specification %s" % secret)
-
+    aomi.validation.file_obj(secret)
     obj = {}
     vault_path = "%s/%s" % (secret['mount'], secret['path'])
-    if not is_tagged(secret.get('tags', []), opt.tags):
-        log("Skipping %s as it does not have appropriate tags" %
-            vault_path, opt)
+    if not aomi.validation.tag_check(secret, vault_path, opt):
+        return
+    ensure_mounted(client, 'generic', secret['mount'])
+    if opt.mount_only:
+        log("Only mounting %s" % secret['mount'], opt)
         return
 
     for f in secret.get('files', []):
@@ -242,6 +277,7 @@ def files(client, secret, opt):
             problems("Invalid file specification %s" % f)
 
         filename = hard_path(f['source'], opt.secrets)
+        aomi.validation.secret_file(filename)
         data = open(filename, 'r').read()
         obj[f['name']] = data
         log('writing file %s into %s/%s' % (
@@ -249,22 +285,43 @@ def files(client, secret, opt):
             vault_path,
             f['name']), opt)
 
-    ensure_mounted(client, 'generic', secret['mount'])
-
     client.write(vault_path, **obj)
 
 
 def policy(client, secret, opt):
     """Seed a standalone policy into Vault"""
-    if 'name' not in secret or 'file' not in secret:
-        problems("Invalid policy specification %s" % secret)
+    aomi.validation.policy_obj(secret)
 
     policy_name = secret['name']
-    if not is_tagged(secret.get('tags', []), opt.tags):
-        log("Skipping policy %s as it does not have appropriate tags" %
-            policy_name, opt)
+    if not aomi.validation.tag_check(secret, "app-id/%s" % policy_name, opt):
         return
 
     policy_data = open(hard_path(secret['file'], opt.policies), 'r').read()
     log('writing policy %s' % policy_name, opt)
     client.set_policy(policy_name, policy_data)
+
+
+def users(client, user_obj, opt):
+    """Creates userpass users in Vault"""
+    aomi.validation.user_obj(user_obj)
+
+    name = user_obj['username']
+
+    if not aomi.validation.tag_check(user_obj,
+                                     "userpass/%s" % name,
+                                     opt):
+        return
+
+    password_file = hard_path(user_obj['password_file'],
+                              opt.secrets)
+    aomi.validation.secret_file(password_file)
+    password = open(password_file).readline().strip()
+
+    ensure_auth(client, 'userpass')
+
+    user_path = "auth/userpass/users/%s" % name
+    v_obj = {
+        'password': password,
+        'policies': ','.join(user_obj['policies'])
+    }
+    client.write(user_path, **v_obj)
