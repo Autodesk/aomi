@@ -2,8 +2,9 @@
 import os
 import sys
 from setuptools import setup
+from pkg_resources import resource_filename
 
-vsn_path = "%s/aomi/version" % os.path.dirname(os.path.abspath(__file__))
+vsn_path = resource_filename(__name__, 'aomi/version')
 if not os.path.exists(vsn_path):
     print("%s is missing" % vsn_path)
     sys.exit(1)
@@ -18,7 +19,7 @@ setup(name='aomi',
       install_requires=['PyYAML', 'hvac', 'jinja2'],
       include_package_data=True,
       packages=['aomi'],
-      entry_points = {
+      entry_points={
           'console_scripts': ['aomi = aomi.cli:main']
       },
       package_data={'aomi':['version', 'templates/*.j2']}

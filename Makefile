@@ -14,3 +14,6 @@ test:
 
 clean:
 	rm -rf aomi.egg-info dist
+
+distclean: clean
+	rm -rf build .ci-env aomi/version .vault .bats
