@@ -3,7 +3,7 @@ import os
 import sys
 from setuptools import setup
 
-vsn_path = "%s/version" % os.path.dirname(os.path.abspath(__file__))
+vsn_path = "%s/aomi/version" % os.path.dirname(os.path.abspath(__file__))
 if not os.path.exists(vsn_path):
     print("%s is missing" % vsn_path)
     sys.exit(1)
