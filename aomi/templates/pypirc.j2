@@ -1,8 +1,8 @@
 [distutils]
 index-servers =
-  {{repository}}
+  {{repository|default('private`)}}
 
-[{{repository}}]
+[{{repository|default('private`)}}]
 repository: {{url}}
 username: {{user}}
 password: {{password}}

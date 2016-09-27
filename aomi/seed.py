@@ -3,7 +3,7 @@ import re
 import yaml
 import hvac
 from aomi.helpers import problems, hard_path, log, is_tagged, warning
-from aomi.validation import secret_file
+import aomi.validation
 
 
 def is_mounted(mount, backends, style):
@@ -40,17 +40,13 @@ def ensure_auth(client, auth):
 
 def var_file(client, secret, opt):
     """Seed a var_file into Vault"""
+    aomi.validation.var_file_obj(secret)
     path = "%s/%s" % (secret['mount'], secret['path'])
     var_file_name = hard_path(secret['var_file'], opt.secrets)
-    secret_file(var_file_name)
+    aomi.validation.secret_file(var_file_name)
     varz = yaml.load(open(var_file_name).read())
-    if 'var_file' not in secret \
-       or 'mount' not in secret \
-       or 'path' not in secret:
-        problems("Invalid generic secret definition %s" % secret)
 
-    if not is_tagged(opt.tags, secret.get('tags', [])):
-        log("Skipping %s as it does not have appropriate tags" % path, opt)
+    if not aomi.validation.tag_check(secret, path, opt):
         return
 
     ensure_mounted(client, 'generic', secret['mount'])
@@ -92,24 +88,17 @@ def aws_roles(secret, aws_obj):
 
 def aws(client, secret, opt):
     """Seed an aws_file into Vault"""
-    if ('aws_file' not in secret and 'aws' not in secret) \
-       or 'mount' not in secret:
-        problems("Invalid aws secret definition" % secret)
+    aomi.validation.aws_file_obj(secret)
 
     aws_file_path = hard_path(secret['aws_file'], opt.secrets)
-    secret_file(aws_file_path)
+    aomi.validation.secret_file(aws_file_path)
     aws_obj = yaml.load(open(aws_file_path, 'r').read())
-
-    if 'access_key_id' not in aws_obj \
-       or 'secret_access_key' not in aws_obj:
-        problems("Invalid AWS secrets" % aws)
+    aomi.validation.aws_secret_obj(aws_file_path, aws_obj)
 
     region = aws_region(secret, aws_obj)
 
     aws_path = "%s/config/root" % secret['mount']
-    if not is_tagged(opt.tags, secret.get('tags', [])):
-        log("Skipping %s as it does not have appropriate tags" %
-            aws_path, opt)
+    if not aomi.validation.tag_check(secret, aws_path, opt):
         return
 
     ensure_mounted(client, 'aws', secret['mount'])
@@ -182,9 +171,9 @@ def seed_aws_roles(client, mount, roles, opt):
             client.write(role_path, arn=role['arn'])
 
 
-def app_users(client, app_id, users):
+def app_users(client, app_id, p_users):
     """Write out users for an application"""
-    for user in users:
+    for user in p_users:
         if 'id' not in user:
             problems("Invalid user definition %s" % user)
 
@@ -207,12 +196,11 @@ def app(client, app_obj, opt):
     else:
         name = os.path.splitext(os.path.basename(app_obj['app_file']))[0]
 
-    if not is_tagged(opt.tags, app_obj.get('tags', [])):
-        log("Skipping %s as it does not have appropriate tags" % name, opt)
+    if not aomi.validation.tag_check(app_obj, "app-id/%s" % name, opt):
         return
 
     app_file = hard_path(app_obj['app_file'], opt.secrets)
-    secret_file(app_file)
+    aomi.validation.secret_file(app_file)
     data = yaml.load(open(app_file).read())
 
     ensure_auth(client, 'app-id')
@@ -267,23 +255,18 @@ def app(client, app_obj, opt):
     app_path = "auth/app-id/map/app-id/%s" % app_id
     app_obj = {'value': policy_name, 'display_name': name}
     client.write(app_path, **app_obj)
-    users = data.get('users', [])
-    app_users(client, app_id, users)
-    log('created %d users in application %s' % (len(users), name), opt)
+    r_users = data.get('users', [])
+    app_users(client, app_id, r_users)
+    log('created %d users in application %s' % (len(r_users), name), opt)
 
 
 def files(client, secret, opt):
     """Seed files into Vault"""
-    if 'mount' not in secret or 'path' not in secret:
-        problems("Invalid files specification %s" % secret)
-
+    aomi.validation.file_obj(secret)
     obj = {}
     vault_path = "%s/%s" % (secret['mount'], secret['path'])
-    if not is_tagged(opt.tags, secret.get('tags', [])):
-        log("Skipping %s as it does not have appropriate tags" %
-            vault_path, opt)
+    if not aomi.validation.tag_check(secret, vault_path, opt):
         return
-
     ensure_mounted(client, 'generic', secret['mount'])
     if opt.mount_only:
         log("Only mounting %s" % secret['mount'], opt)
@@ -294,7 +277,7 @@ def files(client, secret, opt):
             problems("Invalid file specification %s" % f)
 
         filename = hard_path(f['source'], opt.secrets)
-        secret_file(filename)
+        aomi.validation.secret_file(filename)
         data = open(filename, 'r').read()
         obj[f['name']] = data
         log('writing file %s into %s/%s' % (
@@ -307,13 +290,10 @@ def files(client, secret, opt):
 
 def policy(client, secret, opt):
     """Seed a standalone policy into Vault"""
-    if 'name' not in secret or 'file' not in secret:
-        problems("Invalid policy specification %s" % secret)
+    aomi.validation.policy_obj(secret)
 
     policy_name = secret['name']
-    if not is_tagged(opt.tags, secret.get('tags', [])):
-        log("Skipping policy %s as it does not have appropriate tags" %
-            policy_name, opt)
+    if not aomi.validation.tag_check(secret, "app-id/%s" % policy_name, opt):
         return
 
     policy_data = open(hard_path(secret['file'], opt.policies), 'r').read()
@@ -323,21 +303,18 @@ def policy(client, secret, opt):
 
 def users(client, user_obj, opt):
     """Creates userpass users in Vault"""
-    if 'password_file' not in user_obj or \
-       'username' not in user_obj or \
-       'policies' not in user_obj:
-        problems("Invalid user specification %s" % user_obj)
+    aomi.validation.user_obj(user_obj)
 
     name = user_obj['username']
 
-    if not is_tagged(opt.tags, user_obj.get('tags', [])):
-        log("Skipping %s as it does not have appropriate tags" %
-            (name), opt)
+    if not aomi.validation.tag_check(user_obj,
+                                     "userpass/%s" % name,
+                                     opt):
         return
 
     password_file = hard_path(user_obj['password_file'],
                               opt.secrets)
-    secret_file(password_file)
+    aomi.validation.secret_file(password_file)
     password = open(password_file).readline().strip()
 
     ensure_auth(client, 'userpass')

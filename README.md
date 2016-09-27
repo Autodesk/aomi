@@ -220,18 +220,45 @@ FOO_BAR_BAZ_USER="foo"
 FOO_BAR_BAZ_PASSWORD="bar"
 ```
 
+The previously available `--prefix` functionality has been replaced with more generic [key modification](https://github.com/Autodesk/aomi#key-modification) functionality. The old functionality will still work for now, but will throw a warning about deprecation. Compare the following commands to see how the same effect would be accomplished now.
+
+```
+$ aomi environment foo/bar/baz --prefix foo/bar
+$ aomi environment --no-merge-path foo/bar/baz --add-prefix baz_
+BAZ_USER="foo"
+BAZ_PASSWORD="bar"
+```
+
 ## template
 
-This action takes at least three arguments - the template source, a destination file, and a list of Vault paths. Secrets will be included as variables in the template as the full path with forward slashes replaced by underscores. As an example, `foo/bar/baz/user` would become `foo_bar_baz_user`. The template format used is Jinja2. Note that hyphens will be replaced with underscores in variable names.
+This action takes at least three arguments - the template source, a destination file, and a list of Vault paths. Secrets will be included as variables in the template as the full path with forward slashes replaced by underscores. As an example, `foo/bar/baz/user` would become `foo_bar_baz_user`. The template format used is Jinja2. Note that hyphens will be replaced with underscores in variable names. Take the following example for generating a simple inifile configuration snippet.
+
+```
+$ vault read foo/bar
+Key                  Value
+---                  -----
+refresh_interval     720h0m0s
+user                 test
+password             1234
+$ cat /tmp/template
+[auth]
+username: {{user}}
+password: {{password}}
+$ aomi template /tmp/template /tmp/render foo/bar
+$ cat /tmp/render
+[auth]
+username: test
+password: 1234
+```
 
 Additional variables may be passed in via the command line with the `--extra-vars` option. This may be specified more than once and takes a `key=value` argument.
 
-`aomi` now includes some built in templates. They are specified them with a `builtin:` prefix. In combination with the key modification and extra variables this should allow easy support of non Vault native applications. Current templates are listed below.
+`aomi` now includes some built in templates. They are specified them with a `builtin:` prefix. In combination with the key modification and extra variables this should allow easy support of non Vault native applications. When interacting with the builting templates the `--extra-args` and `--key-map` can be used to help work with existing Vault schemas.
 
-* `bundle-config` provides a read only configuration for a Ruby gems host.
-* `gem-credentials` provides a write configuration for uploading gems.
-* `pip-conf` provides a read configuration for a Python PyPi repository.
-* `pypirc` provides a read configuration for a Python PyPi repository.
+* `bundle-config` provides a read only configuration for a Ruby gems host. This file is generally found in `~/.bundle/config`. It takes the `user` and `password` variables. It also expects a `bundle_url` variable which conforms to `bundlers` obtuse URL format. If you capitalize the URL of your Gem repository, and replace the `.` with `__`, then it should probably work. Otherwise the URL can be extracted from the output of `bundle config`.
+* `gem-credentials` provides a write configuration for uploading gems. This file is generally found in `~/.gem/credentials`. It takes a `user` and a `password` variable, which are then base64'd for the HTTP Basic auth format that a Gem credentials file expects.
+* `pip-conf` provides a read configuration for a Python PyPi repository. It is generally found at `~/.pip/pip.conf`. This template takes a `user`, `password`, `url_suffix`, and optional `schema` (defaults to `https`). The `url_suffix` is everything that would be _after_ a URL which includes inline HTTP basic auth.
+* `pypirc` provides a read configuration for a Python PyPi repository. This file is generally found at `~/.pypirc`. It takes a `user`, `password`, `url`, and optional `repository` (defaults to `private`) variable. The URL is the full PyPi repository URL.
 
 # Test
 

@@ -34,6 +34,7 @@ validate_defaults() {
     run aomi seed --secretfile Secretfile-alt \
         --secrets .secrets-alt \
         --policies vault-alt
+    echo "$output"
     [ "$status" -eq 0 ]
     validate_defaults
 }
