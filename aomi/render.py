@@ -3,7 +3,7 @@ import os
 from base64 import b64encode, b64decode
 from pkg_resources import resource_filename
 from jinja2 import Environment, FileSystemLoader
-from aomi.helpers import problems, warning
+from aomi.helpers import problems, warning, log
 
 
 def secret_key_name(path, key, opt):
@@ -138,3 +138,5 @@ def aws(client, path, opt):
         if 'security_token' in creds['data'] \
            and creds['data']['security_token']:
             print("export AWS_SECURITY_TOKEN")
+
+    log("lease id is %s" % creds['lease_id'], opt)

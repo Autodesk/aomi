@@ -301,6 +301,50 @@ def policy(client, secret, opt):
     client.set_policy(policy_name, policy_data)
 
 
+def audit_logs(client, log_obj, opt):
+    """Creates an audit log entry in Vault"""
+    aomi.validation.audit_log_obj(log_obj)
+    log_type = log_obj['type']
+    vault_path = log_obj.get('path', log_type)
+    if not aomi.validation.tag_check(log_obj, vault_path, opt):
+        return
+
+    existing_backends = client.list_audit_backends()['data']
+    audit_path = "%s/" % vault_path
+    if audit_path in existing_backends.keys():
+        if log_type == existing_backends[audit_path]['type']:
+            log("audit log %s already exists" % vault_path, opt)
+            return
+        else:
+            problems("conflicting audit log at %s" % vault_path)
+
+    obj = {
+        'type': log_obj['type']
+    }
+    if log_type == 'file':
+        obj['file_path'] = log_obj['file_path']
+
+    if log_type == 'syslog':
+        if 'tag' in log_obj:
+            obj['tag'] = log_obj['tag']
+
+        if 'facility' in log_obj:
+            obj['facility'] = log_obj['facility']
+
+    if 'description' in log_obj:
+        client.enable_audit_backend(log_type,
+                                    description=log_obj['description'],
+                                    options=obj,
+                                    name=vault_path)
+    else:
+        print("AAAAA %s" % vault_path)
+        client.enable_audit_backend(log_type,
+                                    options=obj,
+                                    name=vault_path)
+
+    log("created %s audit log at %s" % (log_type, vault_path), opt)
+
+
 def users(client, user_obj, opt):
     """Creates userpass users in Vault"""
     aomi.validation.user_obj(user_obj)

@@ -146,3 +146,6 @@ def seed(vault_client, opt):
 
     for users in config.get('users', []):
         aomi.seed.users(vault_client, users, opt)
+
+    for audit_log in config.get('audit_logs', []):
+        aomi.seed.audit_logs(vault_client, audit_log, opt)
