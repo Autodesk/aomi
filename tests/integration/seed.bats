@@ -29,6 +29,22 @@ validate_defaults() {
     done
 }
 
+@test "can seed a simple template" {
+    use_fixture jinja2
+    run aomi seed
+    echo "$output"
+    [ "$status" -eq 0 ]
+    validate_defaults
+}
+
+@test "can seed a complex template" {
+    use_fixture jinja2-complex
+    run aomi seed --extra-vars-file vars.yml --extra-vars username=foo
+    echo "$output"
+    [ "$status" -eq 0 ]
+    validate_defaults
+}
+
 @test "can seed with alt paths" {
     use_fixture seed alt
     run aomi seed --secretfile Secretfile-alt \

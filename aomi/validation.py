@@ -59,7 +59,7 @@ def gitignore(opt):
 
 
 def secret_file(filename):
-    """Will check the permissions of thigns which really
+    """Will check the permissions of things which really
     should be secret files"""
     filestat = os.stat(abspath(filename))
     if stat.S_ISREG(filestat.st_mode) == 0 and \
@@ -73,11 +73,11 @@ def secret_file(filename):
 
 
 def validate_obj(keys, obj):
-    """Super simple object validation."""
+    """Super simple "object" validation."""
     msg = ''
     for k in keys:
         if isinstance(k, str):
-            if k not in obj:
+            if k not in obj or len(obj[k]) == 0:
                 if len(msg) > 0:
                     msg = "%s," % msg
 

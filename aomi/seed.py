@@ -337,7 +337,6 @@ def audit_logs(client, log_obj, opt):
                                     options=obj,
                                     name=vault_path)
     else:
-        print("AAAAA %s" % vault_path)
         client.enable_audit_backend(log_type,
                                     options=obj,
                                     name=vault_path)

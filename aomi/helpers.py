@@ -4,6 +4,8 @@ import sys
 import os
 from pkg_resources import resource_string
 
+VERSION = resource_string(__name__, 'version')
+
 
 def log(msg, opt):
     """Verbose messaging!"""
@@ -62,4 +64,30 @@ def is_tagged(has_tags, required_tags):
 
         return len(found_tags) == len(required_tags)
 
-version = resource_string(__name__, 'version')
+
+def cli_hash(list_of_kv):
+    """Parse out a hash from a list of key=value strings"""
+    ev_obj = {}
+    for ev in list_of_kv:
+        ev_list = ev.split('=')
+        key = ev_list[0]
+        val = '='.join(ev_list[1:])  # b64 and other side effects
+        ev_obj[key] = val
+
+    return ev_obj
+
+
+def merge_dicts(a, b):
+    """Deep merge of two dicts"""
+    obj = {}
+    for key, value in a.iteritems():
+        if key in b:
+            if isinstance(b[key], dict):
+                obj[key] = merge_dicts(value, b.pop(key))
+        else:
+            obj[key] = value
+
+    for key, value in b.iteritems():
+        obj[key] = value
+
+    return obj

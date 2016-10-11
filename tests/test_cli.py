@@ -108,8 +108,13 @@ class OpParserTest(unittest.TestCase):
                                'template'], '--export')
         
     def test_extra_vars_option(self):
-        self.enabled_options(['template'], '--extra-vars')
+        self.enabled_options(['template', 'seed'], '--extra-vars')
         self.disabled_options(['environment',
                                'extract_file',
-                               'aws_environment',
-                               'seed'], '--extra-vars')
+                               'aws_environment'], '--extra-vars')
+
+    def test_extra_vars_file_option(self):
+        self.enabled_options(['template', 'seed'], '--extra-vars-file')
+        self.disabled_options(['environment',
+                               'extract_file',
+                               'aws_environment'], '--extra-vars-file')

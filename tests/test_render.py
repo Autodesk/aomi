@@ -3,12 +3,6 @@ import unittest
 from aomi.render import secret_key_name, cli_hash, grok_template_file
 from aomi.cli import parser_factory
 
-class CliHashTest(unittest.TestCase):
-    def test_happy_path(self):
-        assert cli_hash(["foo=bar"]) == {'foo': 'bar'}
-        assert cli_hash(["foo=bar","baz=bam"]) == {'foo': 'bar', 'baz': 'bam'}
-
-
 class TemplateTest(unittest.TestCase):
     def test_builtin(self):
         builtin_file = grok_template_file('builtin:foo')

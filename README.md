@@ -178,7 +178,9 @@ Other than the `seed` command, everything else is used to extract secrets from t
 
 The seed command will go through the `Secretfile` and appropriately provision Vault. Note that you need to be logged in, and already have appropriate permissions. The seed command _can_ be executed with no arguments, and it will look for everything in the current working directory. The `seed` command takes the `--secretfile`, `--policies`, and `--secrets` options. The `--mount-only` option ensures that backends are attached and does not actually writing anything to Vault.
 
-This command will make some sanity checks as it goes. One of these is to check for the presence of the secrets directory within your `.gitignore`. As this directory can contain plaintext secrets, it should never be committed.
+The `Secretfile` is interpreted as a Jinja2 template, and you can pass in `--extra-vars` and `--extra-vars-file` to `seed`. This opens up some possibilities for bulk-creating sets of credentials based on itnegrations with other systems, while still preserving various paths and structures.
+
+The `seed` command will make some sanity checks as it goes. One of these is to check for the presence of the secrets directory within your `.gitignore`. As this directory can contain plaintext secrets, it should never be committed.
 
 ## extract_file
 
@@ -191,6 +193,10 @@ This action takes two arguments - the source path and the destination file. The 
 This action takes a single argument - an AWS credentials path in Vault.  In return, it will generate a shell snippet exporting the `AWS_SECRET_ACCESS_KEY` and `AWS_ACCESS_KEY_ID` environment variables. This output is sufficient to be eval'd (don't do this) or piped to a file and sourced in to a shell. Export snippets can be generated  with `--export`. If the AWS Vault path provides a STS token, this will also be used.
 
 `aomi aws_environment foo/bar/baz/aws/creds/default`
+
+## auth
+
+This action will generate a token and print it on stdout. This command respects the `--lease`, and `--metadata` options. You can use this action to easily generate a token from a Vault App/User ID combination.
 
 ## key modification
 
@@ -251,7 +257,7 @@ username: test
 password: 1234
 ```
 
-Additional variables may be passed in via the command line with the `--extra-vars` option. This may be specified more than once and takes a `key=value` argument.
+Additional variables may be passed in via the command line with the `--extra-vars` option. This may be specified more than once and takes a `key=value` argument. You may also pass in YAML variable files with the `--extra-vars-file` options.
 
 If your template requires iteration across a bunch of secrets then you may use the `aomi_items` variable, which is Python dictionary accessible from the Jinja2 template. This is automatically added to every `aomi` template context.
 

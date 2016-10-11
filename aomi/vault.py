@@ -7,8 +7,9 @@ import yaml
 # need to override those SSL warnings
 import requests
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
-from aomi.helpers import problems, log
+from aomi.helpers import problems, log, cli_hash, merge_dicts
 import aomi.seed
+from aomi.template import render, load_var_files
 
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
@@ -118,10 +119,16 @@ def client(operation, opt):
     return vault_client
 
 
-def seed(vault_client, opt):
-    """Will provision vault based on the definition within a Secretfile"""
+def get_secretfile(opt):
+    """Renders, YAMLs, and returns the Secretfile construct"""
     secretfile_path = os.path.abspath(opt.secretfile)
-    config = yaml.load(open(secretfile_path).read())
+    obj = merge_dicts(load_var_files(opt),
+                      cli_hash(opt.extra_vars))
+    return yaml.load(render(secretfile_path, obj))
+
+
+def seed_secrets(config, vault_client, opt):
+    """Seed our various secrets"""
     for secret in config.get('secrets', []):
         if 'var_file' in secret:
             aomi.seed.var_file(vault_client, secret, opt)
@@ -131,6 +138,12 @@ def seed(vault_client, opt):
             aomi.seed.files(vault_client, secret, opt)
         else:
             problems("Invalid secret element %s" % secret, vault_client)
+
+
+def seed(vault_client, opt):
+    """Will provision vault based on the definition within a Secretfile"""
+    config = get_secretfile(opt)
+    seed_secrets(config, vault_client, opt)
 
     for policy in config.get('policies', []):
         if 'name' in policy:

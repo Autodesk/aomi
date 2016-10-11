@@ -7,7 +7,7 @@ from optparse import OptionParser
 import aomi.vault
 import aomi.render
 import aomi.validation
-from aomi.helpers import version
+from aomi.helpers import VERSION as version
 
 
 def usage():
@@ -88,10 +88,16 @@ def parser_factory(operation):
                           type=str,
                           default=[])
 
-    if operation == 'template':
+    if operation == 'template' or operation == 'seed':
         parser.add_option('--extra-vars',
                           dest='extra_vars',
                           help='Extra template variables',
+                          default=[],
+                          type=str,
+                          action='append')
+        parser.add_option('--extra-vars-file',
+                          dest='extra_vars_file',
+                          help='YAML files full of variables',
                           default=[],
                           type=str,
                           action='append')

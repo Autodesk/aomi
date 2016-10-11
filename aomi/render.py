@@ -1,10 +1,8 @@
 """ Secret rendering """
-import sys
 import os
-from base64 import b64encode, b64decode
 from pkg_resources import resource_filename
-from jinja2 import Environment, FileSystemLoader
-from aomi.helpers import problems, warning
+from aomi.helpers import problems, warning, cli_hash, merge_dicts
+from aomi.template import render, load_var_files
 
 
 def secret_key_name(path, key, opt):
@@ -23,18 +21,6 @@ def secret_key_name(path, key, opt):
     return value
 
 
-def cli_hash(list_of_kv):
-    """Parse out a hash from a list of key=value strings"""
-    ev_obj = {}
-    for ev in list_of_kv:
-        ev_list = ev.split('=')
-        key = ev_list[0]
-        val = '='.join(ev_list[1:])  # b64 and other side effects
-        ev_obj[key] = val
-
-    return ev_obj
-
-
 def grok_template_file(src):
     """Determine the real deal template file"""
     if not src.startswith('builtin:'):
@@ -45,32 +31,20 @@ def grok_template_file(src):
         return resource_filename(__name__, builtin)
 
 
-def portable_b64encode(thing):
-    """Wrap b64encode for Python 2 & 3"""
-    if sys.version_info >= (3, 0):
-        return b64encode(bytes(thing, 'utf-8')).decode('utf-8')
-    else:
-        return b64encode(thing)
-
-
-def portable_b64decode(thing):
-    """Consistent b64decode in Python 2 & 3"""
-    if sys.version_info >= (3, 0):
-        return b64decode(thing).decode('utf-8')
-    else:
-        return b64decode(thing)
+def blend_vars(secrets, opt):
+    """Blends secret and static variables together"""
+    extra_obj = merge_dicts(load_var_files(opt),
+                            cli_hash(opt.extra_vars))
+    template_obj = merge_dicts(extra_obj, secrets)
+    # give templates something to iterate over
+    template_obj['aomi_items'] = template_obj.copy()
+    return template_obj
 
 
 def template(client, src, dest, paths, opt):
     """Writes a template using variables from a vault path"""
-    template_file = grok_template_file(src)
-    fs_loader = FileSystemLoader(os.path.dirname(template_file))
-    env = Environment(loader=fs_loader)
-    env.filters['b64encode'] = portable_b64encode
-    env.filters['b64decode'] = portable_b64decode
-    template_src = env.get_template(os.path.basename(template_file))
-    obj = cli_hash(opt.extra_vars)
     key_map = cli_hash(opt.key_map)
+    obj = {}
     for path in paths:
         data = client.read(path)['data']
         for s_k, s_v in data.items():
@@ -82,9 +56,10 @@ def template(client, src, dest, paths, opt):
                 .lower() \
                 .replace('-', '_')
             obj[k_name] = s_v
-    # give templates something to iterate over
-    obj['aomi_items'] = obj.copy()
-    output = template_src.render(**obj)
+
+    template_obj = blend_vars(obj, opt)
+    output = render(grok_template_file(src),
+                    template_obj)
     open(os.path.abspath(dest), 'w').write(output)
 
 

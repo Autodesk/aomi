@@ -14,3 +14,9 @@ class IsTaggedTest(unittest.TestCase):
         self.assertTrue(aomi.helpers.is_tagged(['foo'], ['foo']))
         self.assertTrue(aomi.helpers.is_tagged(['foo', 'bar'], ['foo']))
 
+class CliHashTest(unittest.TestCase):
+    def test_happy_path(self):
+        assert aomi.helpers.cli_hash(["foo=bar"]) == {'foo': 'bar'}
+        assert aomi.helpers.cli_hash(["foo=bar","baz=bam"]) == {'foo': 'bar', 'baz': 'bam'}
+
+
