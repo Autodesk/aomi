@@ -1,0 +1,8 @@
+txtfile: 'secret.txt'
+policies:
+- name: 'foo'
+- name: 'baz'
+  tag: 'baz'
+- name: 'bam'
+  tag: 'bam'
+  

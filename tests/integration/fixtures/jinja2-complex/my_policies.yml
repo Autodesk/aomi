@@ -1,0 +1,9 @@
+policies:
+{% for policy in policies -%}
+- name: '{{policy.name}}'
+  file: '{{policy.filename|default('sample.hcl')}}'
+{% if policy.tags -%}
+{# jinja gets weird about indents #}
+{{'  '}}tags: ['{{policy.tag}}']
+{% endif -%}
+{% endfor %}

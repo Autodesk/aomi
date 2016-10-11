@@ -1,0 +1,11 @@
+policies:
+- name: 'foo'
+  file: 'sample.hcl'
+- name: 'baz'
+  file: 'sample.hcl'
+  tags:
+  - 'baz'
+- name: 'bam'
+  file: 'sample.hcl'
+  tags:
+  - 'bam'
