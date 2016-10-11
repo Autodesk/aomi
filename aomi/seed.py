@@ -32,7 +32,7 @@ def ensure_mounted(client, backend, mount):
 
 def ensure_auth(client, auth):
     """Will ensure a particular auth endpoint is mounted"""
-    backends = client.list_auth_backends()['data'].keys()
+    backends = client.list_auth_backends().keys()
     backends = [x.rstrip('/') for x in backends]
     if auth not in backends:
         client.enable_auth_backend(auth)
