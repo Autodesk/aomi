@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+
+set -e
+
+function problems {
+    echo "Error: ${1}"
+    exit 1
+}
+
+if [ ! -e "/.vault-token" ] && \
+       [ -z "$VAULT_TOKEN" ] &&
+       ([ -z "$VAULT_USER_ID" ] && [ -z "$VAULT_APP_ID" ]) && \
+           [ ! -e "/.aomi-app-token" ] ; then
+    problems "Unable to find any known Vault authentication hints"
+fi
+export VAULT_TOKEN_FILE="/.vault-token"
+export VAULT_APP_FILE="/.aomi-app-token"
+
+ACTION="$1"
+
+if [ -z "$ACTION" ] ; then
+    echo "aomi docker container ${VERSION}"
+    aomi
+    exit 1
+fi
+ARGS="$*"
+
+/usr/local/bin/aomi $ARGS
