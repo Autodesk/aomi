@@ -130,19 +130,19 @@ def seed(vault_client, opt):
         elif 'files' in secret:
             aomi.seed.files(vault_client, secret, opt)
         else:
-            problems("Invalid secret element %s" % secret)
+            problems("Invalid secret element %s" % secret, vault_client)
 
     for policy in config.get('policies', []):
         if 'name' in policy:
             aomi.seed.policy(vault_client, policy, opt)
         else:
-            problems('Invalid policy %s' % policy)
+            problems('Invalid policy %s' % policy, vault_client)
 
     for app in config.get('apps', []):
         if 'app_file' in app:
             aomi.seed.app(vault_client, app, opt)
         else:
-            problems("Invalid app element %s" % app)
+            problems("Invalid app element %s" % app, vault_client)
 
     for users in config.get('users', []):
         aomi.seed.users(vault_client, users, opt)

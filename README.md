@@ -10,7 +10,7 @@ The `aomi` tool has several requirements which can (generally) all be sourced fr
 
 The [PyYAML](http://pyyaml.org/) package, by default, will make use of libyaml. This can be a problem on some systems as you may need to manually install libyaml.
 
-You should be using a recent enough version of Python to have good TLS support. Vault can make use of SNI and that requires fresh Python 2.7.
+You should be using a recent enough version of Python to have good TLS support. Vault can make use of SNI and that requires Python 3.0 or a fresh Python 2.7.
 
 Tests run (both locally and on Travis) in isolation using [virtualenv](https://virtualenv.pypa.io/en/stable/) so you must have this installed if you wish to do active development on `aomi`.
 
@@ -253,12 +253,16 @@ password: 1234
 
 Additional variables may be passed in via the command line with the `--extra-vars` option. This may be specified more than once and takes a `key=value` argument.
 
+If your template requires iteration across a bunch of secrets then you may use the `aomi_items` variable, which is Python dictionary accessible from the Jinja2 template. This is automatically added to every `aomi` template context.
+
 `aomi` now includes some built in templates. They are specified them with a `builtin:` prefix. In combination with the key modification and extra variables this should allow easy support of non Vault native applications. When interacting with the builting templates the `--extra-args` and `--key-map` can be used to help work with existing Vault schemas.
 
 * `bundle-config` provides a read only configuration for a Ruby gems host. This file is generally found in `~/.bundle/config`. It takes the `user` and `password` variables. It also expects a `bundle_url` variable which conforms to `bundlers` obtuse URL format. If you capitalize the URL of your Gem repository, and replace the `.` with `__`, then it should probably work. Otherwise the URL can be extracted from the output of `bundle config`.
 * `gem-credentials` provides a write configuration for uploading gems. This file is generally found in `~/.gem/credentials`. It takes a `user` and a `password` variable, which are then base64'd for the HTTP Basic auth format that a Gem credentials file expects.
 * `pip-conf` provides a read configuration for a Python PyPi repository. It is generally found at `~/.pip/pip.conf`. This template takes a `user`, `password`, `url_suffix`, and optional `schema` (defaults to `https`). The `url_suffix` is everything that would be _after_ a URL which includes inline HTTP basic auth.
 * `pypirc` provides a read configuration for a Python PyPi repository. This file is generally found at `~/.pypirc`. It takes a `user`, `password`, `url`, and optional `repository` (defaults to `private`) variable. The URL is the full PyPi repository URL.
+* `tfvars` will render a Terraform compatible variable file with every returned secret.
+* `terraform-aws` will render a Terraform AWS `provider` section. Note you will need to pass in the `aws_region` variable as an extra.
 
 # Test
 

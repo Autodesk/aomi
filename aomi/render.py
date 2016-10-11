@@ -1,9 +1,10 @@
 """ Secret rendering """
+import sys
 import os
 from base64 import b64encode, b64decode
 from pkg_resources import resource_filename
 from jinja2 import Environment, FileSystemLoader
-from aomi.helpers import problems, warning, log
+from aomi.helpers import problems, warning
 
 
 def secret_key_name(path, key, opt):
@@ -44,13 +45,29 @@ def grok_template_file(src):
         return resource_filename(__name__, builtin)
 
 
+def portable_b64encode(thing):
+    """Wrap b64encode for Python 2 & 3"""
+    if sys.version_info >= (3, 0):
+        return b64encode(bytes(thing, 'utf-8')).decode('utf-8')
+    else:
+        return b64encode(thing)
+
+
+def portable_b64decode(thing):
+    """Consistent b64decode in Python 2 & 3"""
+    if sys.version_info >= (3, 0):
+        return b64decode(thing).decode('utf-8')
+    else:
+        return b64decode(thing)
+
+
 def template(client, src, dest, paths, opt):
     """Writes a template using variables from a vault path"""
     template_file = grok_template_file(src)
     fs_loader = FileSystemLoader(os.path.dirname(template_file))
     env = Environment(loader=fs_loader)
-    env.filters['b64encode'] = b64encode
-    env.filters['b64decode'] = b64decode
+    env.filters['b64encode'] = portable_b64encode
+    env.filters['b64decode'] = portable_b64decode
     template_src = env.get_template(os.path.basename(template_file))
     obj = cli_hash(opt.extra_vars)
     key_map = cli_hash(opt.key_map)
@@ -65,7 +82,8 @@ def template(client, src, dest, paths, opt):
                 .lower() \
                 .replace('-', '_')
             obj[k_name] = s_v
-
+    # give templates something to iterate over
+    obj['aomi_items'] = obj.copy()
     output = template_src.render(**obj)
     open(os.path.abspath(dest), 'w').write(output)
 
@@ -77,13 +95,13 @@ def raw_file(client, src, dest):
     key = path_bits[len(path_bits) - 1]
     resp = client.read(path)
     if not resp:
-        problems("Unable to retrieve %s" % path)
+        problems("Unable to retrieve %s" % path, client)
     else:
         if 'data' in resp and key in resp['data']:
             secret = resp['data'][key]
             open(os.path.abspath(dest), 'w').write(secret)
         else:
-            problems("Key %s not found in %s" % (key, path))
+            problems("Key %s not found in %s" % (key, path), client)
 
 
 def env(client, paths, opt):
@@ -119,9 +137,31 @@ def env(client, paths, opt):
                     print("export %s" % env_name)
 
 
+def grok_seconds(lease):
+    """Ensures that we are returning just seconds"""
+    if lease.endswith('s'):
+        return int(lease[0:-1])
+    elif lease.endswith('m'):
+        return int(lease[0:-1] * 60)
+    elif lease.endswith('h'):
+        return int(lease[0:-1] * 3600)
+    else:
+        return None
+
+
 def aws(client, path, opt):
     """Renders a shell environment snippet with AWS information"""
     creds = client.read(path)
+    seconds = grok_seconds(opt.lease)
+    if not seconds:
+        problems("Passed in invalid lease type %s" % opt.lease, client)
+
+    renew = client.renew_secret(creds['lease_id'], seconds)
+    # sometimes it takes a bit for vault to respond
+    # if we are within 5s then we are fine
+    if seconds - renew['lease_duration'] >= 5:
+        problems('Unable to renew secret with desired lease', client)
+
     if creds and 'data' in creds:
         print("AWS_ACCESS_KEY_ID=\"%s\"" % creds['data']['access_key'])
         print("AWS_SECRET_ACCESS_KEY=\"%s\"" % creds['data']['secret_key'])
@@ -130,7 +170,7 @@ def aws(client, path, opt):
             token = creds['data']['security_token']
             print("AWS_SECURITY_TOKEN=\"%s\"" % token)
     else:
-        problems("Unable to generate AWS credentials from %s" % path)
+        problems("Unable to generate AWS credentials from %s" % path, client)
 
     if opt.export:
         print("export AWS_ACCESS_KEY_ID")
@@ -138,5 +178,3 @@ def aws(client, path, opt):
         if 'security_token' in creds['data'] \
            and creds['data']['security_token']:
             print("export AWS_SECURITY_TOKEN")
-
-    log("lease id is %s" % creds['lease_id'], opt)

@@ -1,6 +1,10 @@
 sudo: false
 language: python
 script: make test
+python:
+- "2.7"
+- "3.5"
+
 deploy:
   provider: pypi
   user: otakup0pe

@@ -19,6 +19,7 @@ def usage():
     print('aomi seed [--secretfile ./Secretfile]'
           ' [--secrets ./secrets] [--policies ./vault]')
     print('aomi template <template> <destination> <path>')
+    print('aomi token')
 
 
 def parser_factory(operation):
@@ -153,6 +154,11 @@ def action_runner(operation):
             paths = args[3:]
             aomi.render.template(client, args[1], args[2], paths, opt)
             sys.exit(0)
+    elif operation == 'token':
+        if len(args) == 1:
+            print(client.token)
+            sys.exit(0)
+
     usage()
     sys.exit(1)
 

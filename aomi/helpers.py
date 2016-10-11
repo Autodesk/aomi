@@ -16,8 +16,11 @@ def warning(msg):
     print("Warning {0}".format(msg), file=sys.stderr)
 
 
-def problems(msg):
+def problems(msg, client=None):
     """Simple give-up and error out function."""
+    if client:
+        client.revoke_self_token()
+
     print("Problem: %s" % msg,
           file=sys.stderr)
     exit(1)

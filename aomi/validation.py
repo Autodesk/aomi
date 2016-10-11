@@ -152,7 +152,7 @@ def user_obj(obj):
 
 
 def audit_log_obj(obj):
-    """Do basic validation on an a udit log object"""
+    """Do basic validation on an audit log object"""
     check_obj(['type'], 'audit log object', obj)
     if obj['type'] == 'file':
         check_obj(['file_path'], 'file audit log', obj)
