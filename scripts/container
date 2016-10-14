@@ -2,7 +2,9 @@
 
 set -e
 
-[ "$TRAVIS_PYTHON_VERSION" == "3.5" ]
+if [ "$TRAVIS_PYTHON_VERSION" != "3.5" ] ; then
+    exit 0
+fi
 
 if git describe --tags --exact-match HEAD &> /dev/null ; then
     LATEST="yes"
@@ -18,13 +20,14 @@ else
     exit 1
 fi
 
+CONTAINER="autodesk/aomi"
 [ ! -z "$VSN" ]
 docker build \
        --build-arg "VERSION=${VSN}" \
-       -t "autodedsk/aomi:${VSN}" .
-docker push  "autodesk/aomi:${VSN}"
+       -t "${CONTAINER}:${VSN}" .
+docker push "${CONTAINER}:${VSN}"
 
 if [ ! -z "$LATEST" ] ; then
-    docker tag "autodesk/aomi:${VSN}" "autodesk/aomi:latest"
-    docker push "autodesk/aomi:latest"
+    docker tag "${CONTAINER}:${VSN}" "${CONTAINER}:latest"
+    docker push "${CONTAINER}:latest"
 fi
