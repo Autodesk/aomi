@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+
+set -e
+
+if [ "$TRAVIS_PYTHON_VERSION" != "3.5" ] ; then
+    exit 0
+fi
+
+if git describe --tags --exact-match HEAD &> /dev/null ; then
+    LATEST="yes"
+fi
+if which docker &> /dev/null ; then
+    if [ -z "$LATEST" ] ; then
+        VSN=$(docker run -v "$(pwd):/app" otakup0pe/avakas show /app --pre-build)
+    else
+        VSN=$(docker run -v "$(pwd):/app" otakup0pe/avakas show /app)
+    fi
+else
+    echo "Unable to determine version"
+    exit 1
+fi
+
+CONTAINER="autodesk/aomi"
+[ ! -z "$VSN" ]
+docker build \
+       --build-arg "VERSION=${VSN}" \
+       -t "${CONTAINER}:${VSN}" .
+docker push "${CONTAINER}:${VSN}"
+
+if [ ! -z "$LATEST" ] ; then
+    docker tag "${CONTAINER}:${VSN}" "${CONTAINER}:latest"
+    docker push "${CONTAINER}:latest"
+fi
