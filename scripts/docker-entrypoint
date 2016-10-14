@@ -14,7 +14,7 @@ if [ ! -e "/.vault-token" ] && \
     problems "Unable to find any known Vault authentication hints"
 fi
 export VAULT_TOKEN_FILE="/.vault-token"
-export VAULT_APP_FILE="/.aomi-app-token"
+export AOMI_APP_FILE="/.aomi-app-token"
 
 ACTION="$1"
 
