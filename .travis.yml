@@ -1,10 +1,17 @@
 sudo: false
 language: python
-script: make test
+script: make test container
 python:
-- "2.7"
-- "3.5"
+- '2.7'
+- '3.5'
+services:
+- docker
 
+env:
+  global:
+  - DOCKER_HUB_USERNAME=otakup0pe
+  - DOCKER_HUB_EMAIL=jonafree@gmail.com
+  - secure: ep1otFA9phmSyP4R9tPbu/1tBEN72jIEWxG5xQam63namK4Fwy5s1VSB6hv37JN48E/MVRYzgQEDBuA6K5LLCtWJdIFYGAiniduVPBGDncPprp/4vAzXc6YcdBpPNI0/yLWorz3/xNsjZk7G9UrojJu2KdAHhJ+mFZhGesXuPyYav4hgowp88AjGQSHq5RQyK6Drht5OeuEV6tTs8lLEzqOYZWonWNuTCxE38LhfiTn4MWZijCPB9YIOfA0YNN9RX9vaoocXm5OOt1jhXDCaP/pVblC0A1yLiMT0qBmMuWy/Col/22UmND3+Cumva4Y+fY7heetNHEK2FJnTHfSG9Lsd149JqNfz0CfV/BvFNCp12TS7hAV2Mmkb6mf8Gi/zea9mA/3DwiIkjfcCK8Hkfmna4OmkFyrEGYergEIr1rGgo/zJxE1R+CZHwLDPvuY9yimQ51Y9d63NweHxt3b5F8+MGPAN9yWsGdFWcoo8xdo6M0otHurFx0RpFoOtBkljMK8OblE+ncIj1JpNW0zzDktlEHPeXpzN67HgcKw+FwfSedm5RDgYRNuu2e8BhYkJDwu04fYvxDIJklxdO+yCa7Ul4FL8fNuCxOS6tQAtAdaEye3rxcb8mUolMD3P44GLADhy4QC3Fe7F0BXUKwdKl4/wkXUN1o10oMREQZiE33Q=
 deploy:
   provider: pypi
   user: otakup0pe
@@ -14,3 +21,6 @@ deploy:
     repo: Autodesk/aomi
   password:
     secure: YNxlgGBAAhax9iv5jV8GE+J7BpX439yEDLZVyrOVHQAkrQWijy9jAXEy15TSC1AWUAITIWVjXdcUDJrxc3j11RFsfgbNEqgrc29qD8mdfzM7gYSvCJK0wed0gMrwco7Iuv5PszWULH6SUV+bqSCQb9ub9QMz9It1rzTNDinvsipXhOEjwVn3CUUS/4pImTpN1wgi69Jom5X0mA9vAi8GnnoqX8hboAp7nFxWNpN24/8nzMYALc/5hCX9FNsPRambY24gant4SXBRpMc2FR+6Lx3Dvz302rp98H4ZaYlHVIfqjlOKoiGbtczYH5Or//qdIfJoam7ACMBM+OwhQmoUxqK0H3N//XEnW9A/8FdZ8heEnJD3Fn44aNF76vURslqSBqGFQsGcWMkRfK6hrqzBDmesRWL9RiZG7SFtYZoyq/v4kvxVLTcYv2zKagA85lfwlIEufvUkjH2Bpq/EE01NPGAE605n0NmrG0JOYtKlB5EGiKaDgzaQF6DQRjvD5GFm1wThBIw8SJOaCJbX/M55QI3sIjkDlkXbjY/H4s4rJrHiUZLMe1RKg+mLOO0LkUEKK3SdbTfQ9jZdiBC3yi++bRzwOaJrliTIPR4QJEaVY+zgCjjfKy1HY2HbGgLo0U6MhiSDsrOU6EoVtIAEmiBzT5eq9DwJ2eqlq0AGgDXhpYo=
+install:
+- docker login --email $DOCKER_HUB_EMAIL --username=$DOCKER_HUB_USERNAME --password=$DOCKER_HUB_PASSWORD
+before_install:

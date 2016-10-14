@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+
+set -e
+
+if git describe --tags --exact-match HEAD &> /dev/null ; then
+    LATEST="yes"
+fi
+if which docker &> /dev/null ; then
+    if [ -z "$LATEST" ] ; then
+        VSN=$(docker run -v "$(pwd):/app" otakup0pe/avakas show /app --pre-build)
+    else
+        VSN=$(docker run -v "$(pwd):/app" otakup0pe/avakas show /app)
+    fi
+else
+    echo "Unable to determine version"
+    exit 1
+fi
+
+[ ! -z "$VSN" ]
+docker build \
+       --build-arg "VERSION=${VSN}" \
+       -t "autodedsk/aomi:${VSN}" .
+docker push  "autodesk/aomi:${VSN}"
+
+if [ ! -z "$LATEST" ] ; then
+    docker tag "autodesk/aomi:${VSN}" "autodesk/aomi:latest"
+    docker push "autodesk/aomi:latest"
+fi
