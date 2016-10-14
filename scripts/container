@@ -2,6 +2,8 @@
 
 set -e
 
+[ "$TRAVIS_PYTHON_VERSION" == "3.5" ]
+
 if git describe --tags --exact-match HEAD &> /dev/null ; then
     LATEST="yes"
 fi

@@ -17,3 +17,6 @@ clean:
 
 distclean: clean
 	rm -rf build .ci-env aomi/version .vault .bats
+
+container:
+	./scripts/container
