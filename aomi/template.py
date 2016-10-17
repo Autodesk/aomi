@@ -3,8 +3,8 @@ import sys
 import os
 from base64 import b64encode, b64decode
 import yaml
-from jinja2 import Environment, FileSystemLoader
-from aomi.helpers import merge_dicts
+from jinja2 import Environment, FileSystemLoader, meta
+from aomi.helpers import merge_dicts, problems
 
 
 def render(filename, obj):
@@ -14,8 +14,20 @@ def render(filename, obj):
     env = Environment(loader=fs_loader)
     env.filters['b64encode'] = portable_b64encode
     env.filters['b64decode'] = portable_b64decode
-    template_src = env.get_template(os.path.basename(template_path))
-    output = template_src.render(**obj)
+    template_src = env.loader.get_source(env, os.path.basename(template_path))
+    parsed_content = env.parse(template_src)
+    template_vars = meta.find_undeclared_variables(parsed_content)
+    if len(template_vars) > 0:
+        missing_vars = []
+        for var in template_vars:
+            if var not in obj:
+                missing_vars.append(var)
+
+        if len(missing_vars) > 0:
+            problems("Missing required variables %s" % ','.join(missing_vars))
+
+    template_obj = env.get_template(os.path.basename(template_path))
+    output = template_obj.render(**obj)
     return output
 
 

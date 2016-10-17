@@ -4,6 +4,22 @@
 
 This wrapper around vault provides [lightly opinionated](http://cloudengineering.autodesk.com/blog/2016/08/introducing-aomi-a-light-dusting-of-opinions-on-using-vault.html) interface to Hashicorp Vault that provides the ability to enforce strong opinions across organizations. It fulfills two core functions : seeding secrets on behalf of an application or service, and retrieving secrets as pre-formatted consumables. Many operations for the wrapper are defined in a `Secretfile` which will generally live at the top level of a repository.
 
+# Docker
+
+We are trying to make it super easy to make use of `aomi` via [Docker](https://hub.docker.com/r/autodesk/aomi/), both on workstations and within build and release pipelines. You can pass configuration into the `aomi` Docker container using either environment variables or files passed in during `docker run`.
+
+* The `VAULT_TOKEN` environment variable.
+* The `VAULT_APP_ID` and `VAULT_USER_ID` variables.
+* The `/.vault-token` file.
+* The `/.aomi-app-token` file.
+* If the `/app` directory is present, the working directory will be switched. Use this during `seed` operations
+
+To view perform an `aomi seed` using an existing Vault login on a workstation you could use something like the following.
+
+```
+docker run -e VAULT_ADDR=$VAULT_ADDR -v ${HOME}/.vault-token -v ${HOME}/src/example autodesk/aomi seed
+```
+
 # Requirements
 
 The `aomi` tool has several requirements which can (generally) all be sourced from [PyPI](https://pypi.python.org/pypi).

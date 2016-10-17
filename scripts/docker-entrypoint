@@ -25,4 +25,7 @@ if [ -z "$ACTION" ] ; then
 fi
 ARGS="$*"
 
+if [ -d "/app" ] ; then
+    cd /app || exit 1
+fi
 /usr/local/bin/aomi $ARGS
