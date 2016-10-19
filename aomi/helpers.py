@@ -2,9 +2,17 @@
 from __future__ import print_function
 import sys
 import os
-from pkg_resources import resource_string
+from pkg_resources import resource_string, resource_filename
 
-VERSION = resource_string(__name__, 'version')
+
+def my_version():
+    """Return the version, checking both packaged and development locations"""
+    if os.path.exists(resource_filename(__name__, 'version')):
+        return resource_string(__name__, 'version')
+    else:
+        return open("%s/../version" % os.path.dirname(__file__)).read()
+
+VERSION = my_version()
 
 
 def log(msg, opt):
