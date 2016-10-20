@@ -10,7 +10,7 @@ def sanitize_mount(mount):
     """Returns a quote-unquote sanitized mount path"""
     sanitized_mount = mount
     if sanitized_mount.startswith('/'):
-        sanitized_mount = sanitized_mount[1:-1]
+        sanitized_mount = sanitized_mount[1:]
 
     if sanitized_mount.endswith('/'):
         sanitized_mount = sanitized_mount[:-1]
