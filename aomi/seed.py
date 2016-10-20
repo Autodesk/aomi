@@ -90,13 +90,6 @@ def aws(client, secret, opt):
     """Seed an aws_file into Vault"""
     aomi.validation.aws_file_obj(secret)
 
-    aws_file_path = hard_path(secret['aws_file'], opt.secrets)
-    aomi.validation.secret_file(aws_file_path)
-    aws_obj = yaml.load(open(aws_file_path, 'r').read())
-    aomi.validation.aws_secret_obj(aws_file_path, aws_obj)
-
-    region = aws_region(secret, aws_obj)
-
     aws_path = "%s/config/root" % secret['mount']
     if not aomi.validation.tag_check(secret, aws_path, opt):
         return
@@ -106,6 +99,14 @@ def aws(client, secret, opt):
     if opt.mount_only:
         log("Only mounting %s" % secret['mount'], opt)
         return
+
+    aws_file_path = hard_path(secret['aws_file'], opt.secrets)
+    aomi.validation.secret_file(aws_file_path)
+
+    aws_obj = yaml.load(open(aws_file_path, 'r').read())
+    aomi.validation.aws_secret_obj(aws_file_path, aws_obj)
+
+    region = aws_region(secret, aws_obj)
 
     obj = {
         'access_key': aws_obj['access_key_id'],
