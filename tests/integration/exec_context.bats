@@ -8,12 +8,14 @@ load helper
       [ "$status" -eq 0 ]
 }
 @test "can run aomi as a dev py" {
-    cd "$CIDIR"
+    cd "$CIDIR" || exit 1
     run python aomi.py help
+    echo "$output"
     [ "$status" -eq 0 ]
 }
 @test "can run aomi as a dev dir" {
-    cd "$CIDIR"
+    cd "$CIDIR" || exit 1
     run python aomi help
+    echo "$output"
     [ "$status" -eq 0 ]
 }

@@ -44,6 +44,7 @@ if [ ! -d "${CIDIR}/.vault" ] ; then
     export PATH
 fi
 
+export CIDIR
 if [ -z "$TEST" ] ; then
     "${CIDIR}/.bats/bin/bats" "${CIDIR}"/tests/integration/*.bats
 else
