@@ -1,6 +1,6 @@
 sudo: false
 language: python
-script: make test container
+script: 'if [ "$TRAVIS_PULL_REQUEST" = "false" ]; then make test container ; else make test ; fi'
 python:
 - '2.7'
 - '3.5'
@@ -22,5 +22,4 @@ deploy:
   password:
     secure: YNxlgGBAAhax9iv5jV8GE+J7BpX439yEDLZVyrOVHQAkrQWijy9jAXEy15TSC1AWUAITIWVjXdcUDJrxc3j11RFsfgbNEqgrc29qD8mdfzM7gYSvCJK0wed0gMrwco7Iuv5PszWULH6SUV+bqSCQb9ub9QMz9It1rzTNDinvsipXhOEjwVn3CUUS/4pImTpN1wgi69Jom5X0mA9vAi8GnnoqX8hboAp7nFxWNpN24/8nzMYALc/5hCX9FNsPRambY24gant4SXBRpMc2FR+6Lx3Dvz302rp98H4ZaYlHVIfqjlOKoiGbtczYH5Or//qdIfJoam7ACMBM+OwhQmoUxqK0H3N//XEnW9A/8FdZ8heEnJD3Fn44aNF76vURslqSBqGFQsGcWMkRfK6hrqzBDmesRWL9RiZG7SFtYZoyq/v4kvxVLTcYv2zKagA85lfwlIEufvUkjH2Bpq/EE01NPGAE605n0NmrG0JOYtKlB5EGiKaDgzaQF6DQRjvD5GFm1wThBIw8SJOaCJbX/M55QI3sIjkDlkXbjY/H4s4rJrHiUZLMe1RKg+mLOO0LkUEKK3SdbTfQ9jZdiBC3yi++bRzwOaJrliTIPR4QJEaVY+zgCjjfKy1HY2HbGgLo0U6MhiSDsrOU6EoVtIAEmiBzT5eq9DwJ2eqlq0AGgDXhpYo=
 install:
-- docker login --email $DOCKER_HUB_EMAIL --username=$DOCKER_HUB_USERNAME --password=$DOCKER_HUB_PASSWORD
-before_install:
+- 'if [ "$TRAVIS_PULL_REQUEST" = "false" ]; then docker login --email $DOCKER_HUB_EMAIL --username=$DOCKER_HUB_USERNAME --password=$DOCKER_HUB_PASSWORD; fi'
