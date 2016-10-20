@@ -285,6 +285,7 @@ If your template requires iteration across a bunch of secrets then you may use t
 * `pypirc` provides a read configuration for a Python PyPi repository. This file is generally found at `~/.pypirc`. It takes a `user`, `password`, `url`, and optional `repository` (defaults to `private`) variable. The URL is the full PyPi repository URL.
 * `tfvars` will render a Terraform compatible variable file with every returned secret.
 * `terraform-aws` will render a Terraform AWS `provider` section. Note you will need to pass in the `aws_region` variable as an extra.
+* `json-kv` will render a JSON key-value file.
 
 # Test
 

@@ -35,7 +35,8 @@ def blend_vars(secrets, opt):
     """Blends secret and static variables together"""
     extra_obj = merge_dicts(load_var_files(opt),
                             cli_hash(opt.extra_vars))
-    template_obj = merge_dicts(extra_obj, secrets)
+    merged = merge_dicts(extra_obj, secrets)
+    template_obj = dict((k, v) for k, v in merged.iteritems() if v)
     # give templates something to iterate over
     template_obj['aomi_items'] = template_obj.copy()
     return template_obj
