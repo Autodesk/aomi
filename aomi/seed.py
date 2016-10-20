@@ -13,7 +13,7 @@ def sanitize_mount(mount):
         sanitized_mount = sanitized_mount[1:-1]
 
     if sanitized_mount.endswith('/'):
-        sanitized_mount = sanitized_mount[:-2]
+        sanitized_mount = sanitized_mount[:-1]
 
     return sanitized_mount
 
