@@ -6,6 +6,18 @@ from aomi.helpers import problems, hard_path, log, is_tagged, warning
 import aomi.validation
 
 
+def sanitize_mount(mount):
+    """Returns a quote-unquote sanitized mount path"""
+    sanitized_mount = mount
+    if sanitized_mount.startswith('/'):
+        sanitized_mount = sanitized_mount[1:-1]
+
+    if sanitized_mount.endswith('/'):
+        sanitized_mount = sanitized_mount[:-2]
+
+    return sanitized_mount
+
+
 def is_mounted(mount, backends, style):
     """Determine whether a backend of a certain type is mounted"""
     for m, v in backends.items():
@@ -28,6 +40,8 @@ def ensure_mounted(client, backend, mount):
             if m:
                 problems("%s has a mountpoint conflict with %s" %
                          (mount, m.group('path')))
+            else:
+                raise e
 
 
 def ensure_auth(client, auth):
@@ -41,7 +55,8 @@ def ensure_auth(client, auth):
 def var_file(client, secret, opt):
     """Seed a var_file into Vault"""
     aomi.validation.var_file_obj(secret)
-    path = "%s/%s" % (secret['mount'], secret['path'])
+    my_mount = sanitize_mount(secret['mount'])
+    path = "%s/%s" % (my_mount, secret['path'])
     var_file_name = hard_path(secret['var_file'], opt.secrets)
     aomi.validation.secret_file(var_file_name)
     varz = yaml.load(open(var_file_name).read())
@@ -49,16 +64,16 @@ def var_file(client, secret, opt):
     if not aomi.validation.tag_check(secret, path, opt):
         return
 
-    ensure_mounted(client, 'generic', secret['mount'])
+    ensure_mounted(client, 'generic', my_mount)
 
     if opt.mount_only:
-        log("Only mounting %s" % secret['mount'], opt)
+        log("Only mounting %s" % my_mount, opt)
         return
 
     client.write(path, **varz)
     log('wrote var_file %s into %s/%s' % (
         var_file_name,
-        secret['mount'],
+        my_mount,
         secret['path']), opt)
 
 
@@ -90,14 +105,15 @@ def aws(client, secret, opt):
     """Seed an aws_file into Vault"""
     aomi.validation.aws_file_obj(secret)
 
-    aws_path = "%s/config/root" % secret['mount']
+    my_mount = sanitize_mount(secret['mount'])
+    aws_path = "%s/config/root" % my_mount
     if not aomi.validation.tag_check(secret, aws_path, opt):
         return
 
-    ensure_mounted(client, 'aws', secret['mount'])
+    ensure_mounted(client, 'aws', my_mount)
 
     if opt.mount_only:
-        log("Only mounting %s" % secret['mount'], opt)
+        log("Only mounting %s" % my_mount, opt)
         return
 
     aws_file_path = hard_path(secret['aws_file'], opt.secrets)
@@ -265,12 +281,13 @@ def files(client, secret, opt):
     """Seed files into Vault"""
     aomi.validation.file_obj(secret)
     obj = {}
-    vault_path = "%s/%s" % (secret['mount'], secret['path'])
+    my_mount = sanitize_mount(secret['mount'])
+    vault_path = "%s/%s" % (my_mount, secret['path'])
     if not aomi.validation.tag_check(secret, vault_path, opt):
         return
-    ensure_mounted(client, 'generic', secret['mount'])
+    ensure_mounted(client, 'generic', my_mount)
     if opt.mount_only:
-        log("Only mounting %s" % secret['mount'], opt)
+        log("Only mounting %s" % my_mount, opt)
         return
 
     for f in secret.get('files', []):
