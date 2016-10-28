@@ -1,6 +1,7 @@
 """Some validation helpers for aomi"""
 from __future__ import print_function
 import os
+import platform
 import stat
 from aomi.helpers import problems, abspath, is_tagged, log
 
@@ -66,10 +67,11 @@ def secret_file(filename):
        stat.S_ISLNK(filestat.st_mode) == 0:
         problems("Secret file %s must be a real file or symlink" % filename)
 
-    if filestat.st_mode & stat.S_IROTH or \
-       filestat.st_mode & stat.S_IWOTH or \
-       filestat.st_mode & stat.S_IWGRP:
-        problems("Secret file %s has too loose permissions" % filename)
+    if (platform.system() != "Windows"):
+        if filestat.st_mode & stat.S_IROTH or \
+           filestat.st_mode & stat.S_IWOTH or \
+           filestat.st_mode & stat.S_IWGRP:
+            problems("Secret file %s has too loose permissions" % filename)
 
 
 def validate_obj(keys, obj):
