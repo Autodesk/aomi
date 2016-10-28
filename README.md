@@ -286,6 +286,7 @@ If your template requires iteration across a bunch of secrets then you may use t
 * `tfvars` will render a Terraform compatible variable file with every returned secret.
 * `terraform-aws` will render a Terraform AWS `provider` section. Note you will need to pass in the `aws_region` variable as an extra.
 * `json-kv` will render a JSON key-value file.
+* `docker-auth` will render a Docker `config.json` auth snippet. It expects a `user`, `password`, and `url` variable.
 
 # Test
 

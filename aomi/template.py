@@ -5,6 +5,18 @@ from base64 import b64encode, b64decode
 import yaml
 from jinja2 import Environment, FileSystemLoader, meta
 from aomi.helpers import merge_dicts, problems
+import jinja2.nodes
+
+
+def grok_default_vars(parsed_content):
+    """Returns a list of vars for which there is a default being set"""
+    default_vars = []
+    for node in parsed_content.body[0].nodes:
+        if isinstance(node, jinja2.nodes.Filter):
+            if node.name == 'default' and node.node.name not in default_vars:
+                default_vars.append(node.node.name)
+
+    return default_vars
 
 
 def render(filename, obj):
@@ -19,8 +31,9 @@ def render(filename, obj):
     template_vars = meta.find_undeclared_variables(parsed_content)
     if len(template_vars) > 0:
         missing_vars = []
+        default_vars = grok_default_vars(parsed_content)
         for var in template_vars:
-            if var not in obj:
+            if var not in default_vars and var not in obj:
                 missing_vars.append(var)
 
         if len(missing_vars) > 0:
