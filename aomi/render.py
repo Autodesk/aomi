@@ -5,6 +5,37 @@ from aomi.helpers import problems, warning, cli_hash, merge_dicts
 from aomi.template import render, load_var_files
 
 
+def grok_seconds(lease):
+    """Ensures that we are returning just seconds"""
+    if lease.endswith('s'):
+        return int(lease[0:-1])
+    elif lease.endswith('m'):
+        return int(lease[0:-1] * 60)
+    elif lease.endswith('h'):
+        return int(lease[0:-1] * 3600)
+    else:
+        return None
+
+
+def is_aws(data):
+    """Takes a decent guess as to whether or not we are dealing with
+    an AWS secret blob"""
+    return 'access_key' in data and 'secret_key' in data
+
+
+def renew_secret(client, creds, opt):
+    """Renews a secret if neccesary"""
+    seconds = grok_seconds(opt.lease)
+    if not seconds:
+        problems("Passed in invalid lease type %s" % opt.lease, client)
+
+    renew = client.renew_secret(creds['lease_id'], seconds)
+    # sometimes it takes a bit for vault to respond
+    # if we are within 5s then we are fine
+    if seconds - renew['lease_duration'] >= 5:
+        problems('Unable to renew secret with desired lease', client)
+
+
 def secret_key_name(path, key, opt):
     """Renders a Secret key name appropriately"""
     value = key
@@ -47,8 +78,11 @@ def template(client, src, dest, paths, opt):
     key_map = cli_hash(opt.key_map)
     obj = {}
     for path in paths:
-        data = client.read(path)['data']
-        for s_k, s_v in data.items():
+        response = client.read(path)
+        if is_aws(response['data']):
+            renew_secret(client, response, opt)
+
+        for s_k, s_v in response['data'].items():
             o_key = s_k
             if s_k in key_map:
                 o_key = key_map[s_k]
@@ -64,7 +98,7 @@ def template(client, src, dest, paths, opt):
     open(os.path.abspath(dest), 'w').write(output)
 
 
-def raw_file(client, src, dest):
+def raw_file(client, src, dest, opt):
     """Write the contents of a vault path/key to a file"""
     path_bits = src.split('/')
     path = '/'.join(path_bits[0:len(path_bits) - 1])
@@ -75,6 +109,9 @@ def raw_file(client, src, dest):
     else:
         if 'data' in resp and key in resp['data']:
             secret = resp['data'][key]
+            if is_aws(resp['data']):
+                renew_secret(client, resp, opt)
+
             open(os.path.abspath(dest), 'w').write(secret)
         else:
             problems("Key %s not found in %s" % (key, path), client)
@@ -96,6 +133,9 @@ def env(client, paths, opt):
     for path in paths:
         secrets = client.read(path)
         if secrets and 'data' in secrets:
+            if is_aws(secrets['data']):
+                renew_secret(client, secrets, opt)
+
             for s_key, s_val in secrets['data'].items():
                 o_key = s_key
                 if s_key in key_map:
@@ -113,30 +153,11 @@ def env(client, paths, opt):
                     print("export %s" % env_name)
 
 
-def grok_seconds(lease):
-    """Ensures that we are returning just seconds"""
-    if lease.endswith('s'):
-        return int(lease[0:-1])
-    elif lease.endswith('m'):
-        return int(lease[0:-1] * 60)
-    elif lease.endswith('h'):
-        return int(lease[0:-1] * 3600)
-    else:
-        return None
-
-
 def aws(client, path, opt):
     """Renders a shell environment snippet with AWS information"""
     creds = client.read(path)
-    seconds = grok_seconds(opt.lease)
-    if not seconds:
-        problems("Passed in invalid lease type %s" % opt.lease, client)
 
-    renew = client.renew_secret(creds['lease_id'], seconds)
-    # sometimes it takes a bit for vault to respond
-    # if we are within 5s then we are fine
-    if seconds - renew['lease_duration'] >= 5:
-        problems('Unable to renew secret with desired lease', client)
+    renew_secret(client, creds, opt)
 
     if creds and 'data' in creds:
         print("AWS_ACCESS_KEY_ID=\"%s\"" % creds['data']['access_key'])

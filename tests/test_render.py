@@ -1,7 +1,16 @@
 import sys
 import unittest
-from aomi.render import secret_key_name, cli_hash, grok_template_file
+from aomi.render import secret_key_name, cli_hash, grok_template_file, is_aws, grok_seconds
 from aomi.cli import parser_factory
+
+
+class HelperTest(unittest.TestCase):
+    def test_is_aws(self):
+        assert is_aws({'access_key': True, 'secret_key': True})
+        assert is_aws({'access_key': True, 'secret_key': True, 'security_token': True})
+
+    def test_is_not_aws(self):
+        assert not is_aws({'aaa': True})
 
 class TemplateTest(unittest.TestCase):
     def test_builtin(self):

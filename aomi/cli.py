@@ -139,7 +139,7 @@ def action_runner(operation):
     client = aomi.vault.client(operation, opt)
     if operation == 'extract_file':
         if len(args) == 3:
-            aomi.render.raw_file(client, args[1], args[2])
+            aomi.render.raw_file(client, args[1], args[2], opt)
             sys.exit(0)
     elif operation == 'environment':
         if len(args) >= 2:
