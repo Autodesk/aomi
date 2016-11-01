@@ -10,9 +10,9 @@ def grok_seconds(lease):
     if lease.endswith('s'):
         return int(lease[0:-1])
     elif lease.endswith('m'):
-        return int(lease[0:-1] * 60)
+        return int(lease[0:-1]) * 60
     elif lease.endswith('h'):
-        return int(lease[0:-1] * 3600)
+        return int(lease[0:-1]) * 3600
     else:
         return None
 
