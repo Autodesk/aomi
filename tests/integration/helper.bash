@@ -102,7 +102,7 @@ function check_policy() {
     fi
 }
 
-function scan_lines() {
+scan_lines() {
     local STRING="$1"
     shift
     while [ ! -z "$1" ] ; do

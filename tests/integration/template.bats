@@ -37,7 +37,6 @@ teardown() {
         "${BATS_TMPDIR}/tpl" \
         "${BATS_TMPDIR}/render" \
         "foo/bar"
-    echo $output
     [ "$status" -eq 0 ]
     echo "$(cat ${BATS_TMPDIR}/render) ${B64_SECRET}"
     [ "$(cat ${BATS_TMPDIR}/render)" = "${FILE_SECRET1}${B64_SECRET}" ]

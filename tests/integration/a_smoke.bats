@@ -15,7 +15,6 @@ teardown() {
 
 @test "can seed and extract a file" {
     run aomi seed --tags bar
-    echo $output
     [ "$status" -eq 0 ]
     run aomi extract_file \
         foo/bar/baz/secret \
@@ -26,15 +25,10 @@ teardown() {
 
 @test "can seed and render environment" {
     run aomi seed
-    echo "$output"
     [ "$status" -eq 0 ]
     run aomi environment foo/bar/bam foo/bar/bang-bang
-    echo $output
     scan_lines "FOO_BAR_BAM_SECRET=\"${YAML_SECRET1}\"" "${lines[@]}"
     scan_lines "FOO_BAR_BANG-BANG_SECRET=\"${YAML_SECRET2}\"" "${lines[@]}"
-    # old syntax
-    # run aomi environment foo/bar/bam --prefix aaa
-    # new sytax
     run aomi environment --add-prefix aaa_ --no-merge-path foo/bar/bam
     scan_lines "AAA_SECRET=\"${YAML_SECRET1}\"" "${lines[@]}"
     run aomi environment foo/bar/bam --export
