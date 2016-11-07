@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 
+TESTS="a_smoke environment exec_context seed template"
+VAULT_TESTS="aws"
+
 VAULT_VERSION="0.6.1"
 
 set -e
@@ -45,8 +48,35 @@ if [ ! -d "${CIDIR}/.vault" ] ; then
 fi
 
 export CIDIR
+EXEC_TESTS=""
+for a_test in $TESTS ; do
+    EXEC_TESTS="${EXEC_TESTS} ${CIDIR}/tests/integration/${a_test}.bats"
+done
+if [ -e "${CIDIR}/.vault-token" ] ; then
+    VAULT_TOKEN=$(cat "${CIDIR}/.vault-token")
+fi
+if [ -e "${HOME}/.vault-token" ] ; then
+    VAULT_TOKEN=$(cat "${HOME}/.vault-token")
+fi
+
+if [ ! -z "$VAULT_TOKEN" ] ; then
+    echo "Vault token found!"
+    export VAULT_TOKEN
+    export VAULT_ADDR
+    TMP="/tmp/aomi-integration-${RANDOM}"
+    vault mounts &> "$TMP" || true
+    if grep 'aomi/aws' "$TMP" &> /dev/null ; then
+        echo "Vault server seems legit..."
+        echo "$VAULT_TOKEN" > "${CIDIR}/.vault-token"
+        for a_test in $VAULT_TESTS ; do
+            EXEC_TESTS="${EXEC_TESTS} ${CIDIR}/tests/integration/${a_test}.bats"
+        done
+    fi
+    rm "$TMP"
+fi
+
 if [ -z "$TEST" ] ; then
-    "${CIDIR}/.bats/bin/bats" "${CIDIR}"/tests/integration/*.bats
+    "${CIDIR}/.bats/bin/bats" $EXEC_TESTS
 else
     "${CIDIR}/.bats/bin/bats" "${CIDIR}/tests/integration/${TEST}.bats"
 fi
