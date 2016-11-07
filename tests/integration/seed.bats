@@ -34,8 +34,7 @@ validate_defaults() {
     [ "$status" -eq 0 ]
     check_policy true bam
     run vault policies bam
-    echo "$output"
-    scan_lines 'path.+variable.+' "${lines[@]}"
+    scan_lines 'path "variable/*" {' "${lines[@]}"
 }
 
 @test "can remove a policy" {

@@ -1,3 +1,0 @@
-path "foo/*" {
-  policy = "read"
-}

@@ -157,8 +157,9 @@ def aws(client, path, opt):
     """Renders a shell environment snippet with AWS information"""
     creds = client.read(path)
 
+    renew_secret(client, creds, opt)
+
     if creds and 'data' in creds:
-        renew_secret(client, creds, opt)
         print("AWS_ACCESS_KEY_ID=\"%s\"" % creds['data']['access_key'])
         print("AWS_SECRET_ACCESS_KEY=\"%s\"" % creds['data']['secret_key'])
         if 'security_token' in creds['data'] \

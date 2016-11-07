@@ -1,7 +1,6 @@
 # -*- mode: Shell-script;bash -*-
 
 VAULT_LOG="${BATS_TMPDIR}/aomi-vault-log"
-AWS_TIMEOUT="30"
 
 function start_vault() {
     if [ -e "${HOME}/.vault-token" ] ; then
@@ -23,15 +22,13 @@ function stop_vault() {
     if [ -e "${BATS_TMPDIR}/og-token" ] ; then
         mv "${BATS_TMPDIR}/og-token" "${HOME}/.vault-token"
     fi
-    if [ ! -z "$VAULT_PID" ] ; then
-        if ps "$VAULT_PID" &> /dev/null ; then
-            kill "$VAULT_PID"
-        else
-            echo "vault server went away"
-            kill "$(pgrep vault)"
-        fi
-        rm -f "$VAULT_LOG"
+    if ps "$VAULT_PID" &> /dev/null ; then
+        kill "$VAULT_PID"
+    else
+        echo "vault server went away"
+        kill "$(pgrep vault)"
     fi
+    rm -f "$VAULT_LOG"
 }
 
 function use_fixture() {
@@ -100,70 +97,14 @@ function check_policy() {
     fi
 }
 
-function scan_lines() {
+scan_lines() {
     local STRING="$1"
     shift
     while [ ! -z "$1" ] ; do
-        if echo "$1" | grep -E "$STRING" &> /dev/null ; then
+        if [ "$1" == "$STRING" ] ; then
             return 0
         fi
         shift
     done
     return 1
-}
-
-function aws_creds() {
-    local TMP="/tmp/aomi-int-aws${RANDOM}"
-    VAULT_TOKEN="$(cat ${CIDIR}/.vault-token)" VAULT_ADDR="https://vault.yolo.computer" aomi aws_environment aomi/aws/creds/travis --export --lease 300s 1> "$TMP" || true
-    if [ "$(cat $TMP)" == "" ] ; then
-        return
-    fi
-    eval "$(cat $TMP)"
-    rm "$TMP"
-    if [ -z "$AWS_ACCESS_KEY_ID" ] || [ -z "$AWS_SECRET_ACCESS_KEY" ] ; then
-        return
-    fi
-    AWS_FILE="${FIXTURE_DIR}/.secrets/aws.yml"
-    echo "access_key_id: ${AWS_ACCESS_KEY_ID}" > "$AWS_FILE"
-    echo "secret_access_key: ${AWS_SECRET_ACCESS_KEY}" >> "$AWS_FILE"
-    chmod og-rwx "$AWS_FILE"
-}
-
-function check_aws {
-    TMP="/tmp/aomi-int${RANDOM}"
-    ROLE="$1"
-    OK=""
-    START="$(date +%s)"
-    # first bit of eventual consistency is on the aws creds created
-    # by the upstream vault server
-    while [ -z "$OK" ] ; do
-        aomi aws_environment "aws/creds/${ROLE}" --lease 30s 1> "$TMP" || true
-        if [ ! -z "$(cat $TMP)" ] ; then
-            OK="ok"
-        else
-            NOW="$(date +%s)"
-            if [ $((NOW - START)) -gt "$AWS_TIMEOUT" ] ; then
-                exit 1
-            fi
-        fi
-    done
-    eval "$(cat $TMP)"
-    rm "$TMP"
-    OK=""
-    START="$(date +%s)"
-    sleep 5
-    # and now this eventual consistency is on the test vault
-    # aws iam credentials
-    while [ -z "$OK" ] ; do
-        if ! aws ec2 describe-availability-zones &> /dev/null ; then
-            NOW="$(date +%s)"
-            if [ $((NOW - START)) -gt "$AWS_TIMEOUT" ] ; then
-                exit 1
-            else
-                sleep 5
-            fi
-        else
-            OK="ok"
-        fi
-    done
 }

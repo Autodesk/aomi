@@ -167,7 +167,7 @@ path "foo/bar/*" {
 
 ## Policies
 
-You can seed policies separately now. Each policy has a `name` and a source `file` specified. This is recommended over using inline policies. You can specify a state of either `present` (the defaut) or `absent` but this is not required. Policies are also templates and thus subject to the same use of variables as all other templates. You may also specify per-policy variables in the `vars` variable when defining the policy. The following example will provision a simple policy.
+You can seed policies separately now. Each policy has a `name` and a source `file` specified. This is recommended over using inline policies. You can specify a state of either `present` (the defaut) or `absent` but this is not required. The following example will provision a simple policy.
 
 ----
 `Secretfile`
