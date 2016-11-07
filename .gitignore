@@ -8,4 +8,4 @@ dist
 .vault
 build
 aomi/version
-.aomi-test/
+.vault-token

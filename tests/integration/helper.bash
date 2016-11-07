@@ -113,10 +113,8 @@ function scan_lines() {
 }
 
 function aws_creds() {
-    [ -e "${CIDIR}/.aomi-test/vault-addr" ]
-    [ -e "${CIDIR}/.aomi-test/vault-token" ]
     local TMP="/tmp/aomi-int-aws${RANDOM}"
-    VAULT_TOKEN=$(cat "${CIDIR}/.aomi-test/vault-token") VAULT_ADDR=$(cat "${CIDIR}/.aomi-test/vault-addr") aomi aws_environment aomi/aws/creds/travis --export --lease 300s 1> "$TMP" || true
+    VAULT_TOKEN="$(cat ${CIDIR}/.vault-token)" VAULT_ADDR="https://vault.yolo.computer" aomi aws_environment aomi/aws/creds/travis --export --lease 300s 1> "$TMP" || true
     if [ "$(cat $TMP)" == "" ] ; then
         return
     fi
