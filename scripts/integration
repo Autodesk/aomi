@@ -52,8 +52,9 @@ EXEC_TESTS=""
 for a_test in $TESTS ; do
     EXEC_TESTS="${EXEC_TESTS} ${CIDIR}/tests/integration/${a_test}.bats"
 done
-if [ -e "${CIDIR}/.vault-token" ] ; then
-    VAULT_TOKEN=$(cat "${CIDIR}/.vault-token")
+CI_TOKEN="${CIDIR}/.aomi-test/vault-token"
+if [ -e "$CI_TOKEN" ] ; then
+    VAULT_TOKEN=$(cat "$CI_TOKEN")
 fi
 if [ -e "${HOME}/.vault-token" ] ; then
     VAULT_TOKEN=$(cat "${HOME}/.vault-token")
@@ -61,16 +62,23 @@ fi
 
 if [ ! -z "$VAULT_TOKEN" ] ; then
     echo "Vault token found!"
-    export VAULT_TOKEN
-    export VAULT_ADDR
     TMP="/tmp/aomi-integration-${RANDOM}"
     vault mounts &> "$TMP" || true
     if grep 'aomi/aws' "$TMP" &> /dev/null ; then
         echo "Vault server seems legit..."
-        echo "$VAULT_TOKEN" > "${CIDIR}/.vault-token"
+        if [ ! -d "${CIDIR}/.aomi-test" ] ; then
+            mkdir -p "${CIDIR}/.aomi-test"
+        fi
+        echo "$VAULT_TOKEN" > "$CI_TOKEN"
         for a_test in $VAULT_TESTS ; do
             EXEC_TESTS="${EXEC_TESTS} ${CIDIR}/tests/integration/${a_test}.bats"
         done
+        if [ ! -z "$VAULT_ADDR" ] ; then
+            echo "$VAULT_ADDR" > "${CIDIR}/.aomi-test/vault-addr"
+        fi
+        if [ ! -z "$AOMI_AWS_ACCOUNT" ] ; then
+            echo "$AOMI_AWS_ACCOUNT" > "${CIDIR}/.aomi-test/aws-account"
+        fi
     fi
     rm "$TMP"
 fi
