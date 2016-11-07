@@ -12,8 +12,7 @@ function start_vault() {
         stop_vault
         start_vault
     else
-        VAULT_PID=$(pgrep vault)
-        export VAULT_PID
+        export VAULT_PID=$(pgrep vault)
         export VAULT_ADDR='http://127.0.0.1:8200'
         VAULT_TOKEN=$(grep -e 'Root Token' "$VAULT_LOG" | cut -f 3 -d ' ')
         export VAULT_TOKEN="$VAULT_TOKEN"
@@ -28,7 +27,7 @@ function stop_vault() {
         kill "$VAULT_PID"
     else
         echo "vault server went away"
-        PIDS=$(pgrep vault)
+        PIDS="$(pgrep vault)"
         if [ ! -z "$PIDS" ] ; then
             kill "$PIDS"
         fi
