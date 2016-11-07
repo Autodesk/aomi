@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 set -e
+SCRIPTDIR=$( cd ${0%/*} && pwd)
+ROOTDIR="${SCRIPTDIR%/*}"
 
 if [ -z "$GUDRUN_TRAVIS_URL" ] || \
        [ -z "$TRAVIS_BUILD_ID" ] || \
@@ -14,16 +16,37 @@ if [ -z "$VAULT_ADDR" ] ; then
 fi
 
 PRE_HASH="${TRAVIS_BUILD_ID}|${TRAVIS_REPO_SLUG}"
-HASH="$(echo -n "$PRE_HASH" | shasum -a 256 | cut -f 1 -d ' ')"
+HASH="$(echo -n "$PRE_HASH" | shasum -a 256 - | cut -f 1 -d ' ')"
 TMP="/tmp/gvt-${RANDOM}"
-curl -s -H "Content-Type: text-plain" \
+DATA="$(echo -n "${TRAVIS_COMMIT}|${HASH}" | base64)"
+STATUS=$(curl -s -H "Content-Type: text-plain" \
+     -w "%{http_code}" \
      -X POST \
-     --data-raw "$HASH" \
-     "$GUDRUN_TRAVIS_URL" > "$TMP"
-ROLE_ID=$(cut -f 1 -d ',' < "$TMP")
-SECRET_ID=$(cut -f 2 -d ',' < "$TMP")
-rm -f "$TMP"
-vault write \
+     -o "$TMP" \
+     --data "$DATA" \
+     "${GUDRUN_TRAVIS_URL}credentials")
+RC="$?"
+ROLE_ID=$(tail -n 1 < "$TMP" | cut -f 1 -d ',')
+SECRET_ID=$(tail -n 1 < "$TMP" | cut -f 2 -d ',')
+
+if [ -e "$TMP" ] ; then
+    rm -f "$TMP"
+fi
+if [ "$RC" != 0 ] || \
+       [ "$STATUS" != "200" ] || \
+       [ -z "$ROLE_ID" ] || \
+       [ -z "$SECRET_ID" ] ; then
+    echo "Unable to retrieve RoleID/SecretID"
+    exit 1
+fi
+
+TOKEN=$(vault write -field=token \
       auth/approle/login \
       role_id="$ROLE_ID" \
-      secret_id="$SECRET_ID" > "$TMP"
+      secret_id="$SECRET_ID" || true)
+if [ -z "$TOKEN" ] ; then
+    echo "could not retrieve a token"
+    exit 1
+fi
+mkdir -p "${ROOTDIR}/.aomi-test"
+echo "$TOKEN" > "${ROOTDIR}/.aomi-test/vault-token"

@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
 
+SCRIPTDIR=$( cd ${0%/*} && pwd)
 TESTS="a_smoke environment exec_context seed template"
 VAULT_TESTS="aws"
+export VAULT_AWS_PATH="travis/aws/creds/aomi"
+export VAULT_SECRET_PATH="secrets/aomi"
 
 VAULT_VERSION="0.6.1"
 
@@ -47,7 +50,13 @@ if [ ! -d "${CIDIR}/.vault" ] ; then
     export PATH
 fi
 
+if [ ! -z "$TRAVIS" ] && [ ! -z "$CI" ] ; then
+    echo "Looking under couch for Vault token"
+    "${SCRIPTDIR}/get-vault-token" || true
+fi
+
 export CIDIR
+
 EXEC_TESTS=""
 for a_test in $TESTS ; do
     EXEC_TESTS="${EXEC_TESTS} ${CIDIR}/tests/integration/${a_test}.bats"
@@ -60,11 +69,10 @@ if [ -e "${HOME}/.vault-token" ] ; then
     VAULT_TOKEN=$(cat "${HOME}/.vault-token")
 fi
 
-if [ ! -z "$VAULT_TOKEN" ] ; then
-    echo "Vault token found..."
-    TMP="/tmp/aomi-integration-${RANDOM}"
-    vault mounts &> "$TMP" || true
-    if grep 'aomi/aws' "$TMP" &> /dev/null ; then
+if [ ! -z "$VAULT_TOKEN" ] && \
+       [ ! -z "$VAULT_ADDR" ] ; then
+    echo "Vault detected..."
+    if VAULT_TOKEN=$VAULT_TOKEN vault read -field=refresh_interval "$VAULT_SECRET_PATH" &> /dev/null ; then
         echo "Vault server seems legit..."
         if [ ! -d "${CIDIR}/.aomi-test" ] ; then
             mkdir -p "${CIDIR}/.aomi-test"
@@ -73,18 +81,27 @@ if [ ! -z "$VAULT_TOKEN" ] ; then
         for a_test in $VAULT_TESTS ; do
             EXEC_TESTS="${EXEC_TESTS} ${CIDIR}/tests/integration/${a_test}.bats"
         done
-        if [ ! -z "$VAULT_ADDR" ] ; then
-            echo "$VAULT_ADDR" > "${CIDIR}/.aomi-test/vault-addr"
-        fi
-        if [ ! -z "$AOMI_AWS_ACCOUNT" ] ; then
-            echo "$AOMI_AWS_ACCOUNT" > "${CIDIR}/.aomi-test/aws-account"
-        fi
+        echo "$VAULT_ADDR" > "${CIDIR}/.aomi-test/vault-addr"
     fi
-    rm "$TMP"
 fi
 
-if [ -z "$TEST" ] ; then
-    "${CIDIR}/.bats/bin/bats" $EXEC_TESTS
-else
-    "${CIDIR}/.bats/bin/bats" "${CIDIR}/tests/integration/${TEST}.bats"
+if [ ! -e "${CIDIR}/.aomi-test/vault-token" ] ; then
+    echo "WARNING: Skipping AWS tests!"
 fi
+
+cmd="${CIDIR}/.bats/bin/bats"
+if [ -z "$TEST" ] ; then
+    cmd="${cmd} ${EXEC_TESTS}"
+else
+    cmd="${cmd} ${CIDIR}/tests/integration/${TEST}.bats"
+fi
+RC=0
+if ! $cmd ; then
+    RC=1
+fi
+
+if [ ! -z "$TRAVIS" ] && [ ! -z "$CI" ] ; then
+    echo "Tearing up our Vault token"
+    VAULT_TOKEN=$VAULT_TOKEN vault write -f auth/token/revoke-self
+fi
+exit "$RC"

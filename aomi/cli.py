@@ -7,6 +7,8 @@ from optparse import OptionParser
 import aomi.vault
 import aomi.render
 import aomi.validation
+import aomi.util
+import aomi.filez
 from aomi.helpers import VERSION as version
 
 
@@ -39,7 +41,7 @@ def parser_factory(operation):
                       help='Lease time for intermediary token.',
                       default='10s')
 
-    if operation == 'seed':
+    if operation == 'seed' or operation == 'freeze' or operation == 'thaw':
         parser.add_option('--secrets',
                           dest='secrets',
                           help='Path where secrets are stored',
@@ -58,12 +60,27 @@ def parser_factory(operation):
                           default=[],
                           type=str,
                           action='append')
+        parser.add_option('--include',
+                          dest='include',
+                          help='Specify paths to include',
+                          default=[],
+                          type=str,
+                          action='append')
+        parser.add_option('--exclude',
+                          dest='exclude',
+                          help='Specify paths to exclude',
+                          default=[],
+                          type=str,
+                          action='append')
+
+    if operation == 'seed':
         parser.add_option('--mount-only',
                           dest='mount_only',
                           help='Only mount paths if needed',
                           default=False,
                           action='store_true')
-    elif operation == 'environment' or operation == 'template':
+
+    if operation == 'environment' or operation == 'template':
         parser.add_option('--add-prefix',
                           dest='add_prefix',
                           help='Specify a prefix to use when '
@@ -88,7 +105,8 @@ def parser_factory(operation):
                           type=str,
                           default=[])
 
-    if operation == 'template' or operation == 'seed':
+    if operation == 'template' or operation == 'seed' or \
+       operation == 'freeze' or operation == 'thaw':
         parser.add_option('--extra-vars',
                           dest='extra_vars',
                           help='Extra template variables',
@@ -120,8 +138,8 @@ def parser_factory(operation):
 def parse_extra_vars(extra_vars):
     """Parse out a hash from a list of key=value strings"""
     ev_obj = {}
-    for ev in extra_vars:
-        key, val = ev.split('=')
+    for extra_var in extra_vars:
+        key, val = extra_var.split('=')
         ev_obj[key] = val
 
     return ev_obj
@@ -137,33 +155,36 @@ def action_runner(operation):
         sys.exit(0)
 
     client = aomi.vault.client(operation, opt)
-    if operation == 'extract_file':
-        if len(args) == 3:
-            aomi.render.raw_file(client, args[1], args[2], opt)
-            sys.exit(0)
-    elif operation == 'environment':
-        if len(args) >= 2:
-            paths = args[1:]
-            aomi.render.env(client, paths, opt)
-            sys.exit(0)
-    elif operation == 'aws_environment':
-        if len(args) == 2:
-            aomi.render.aws(client, args[1], opt)
-            sys.exit(0)
-    elif operation == 'seed':
-        if len(args) == 1:
-            aomi.validation.gitignore(opt)
-            aomi.vault.seed(client, opt)
-            sys.exit(0)
-    elif operation == 'template':
-        if len(args) >= 4:
-            paths = args[3:]
-            aomi.render.template(client, args[1], args[2], paths, opt)
-            sys.exit(0)
-    elif operation == 'token':
-        if len(args) == 1:
-            print(client.token)
-            sys.exit(0)
+    if operation == 'extract_file' and len(args) == 3:
+        aomi.render.raw_file(client, args[1], args[2], opt)
+        sys.exit(0)
+    elif operation == 'environment' and len(args) >= 2:
+        paths = args[1:]
+        aomi.render.env(client, paths, opt)
+        sys.exit(0)
+    elif operation == 'aws_environment' and len(args) == 2:
+        aomi.render.aws(client, args[1], opt)
+        sys.exit(0)
+    elif operation == 'seed' and len(args) == 1:
+        aomi.validation.gitignore(opt)
+        aomi.vault.seed(client, opt)
+        sys.exit(0)
+    elif operation == 'template' and len(args) >= 4:
+        paths = args[3:]
+        aomi.render.template(client, args[1], args[2], paths, opt)
+        sys.exit(0)
+    elif operation == 'token' and len(args) == 1:
+        print(client.token)
+        sys.exit(0)
+    elif operation == 'set_password' and len(args) == 2:
+        aomi.util.password(client, args[1], opt)
+        sys.exit(0)
+    elif operation == 'freeze' and len(args) == 2:
+        aomi.filez.freeze(args[1], opt)
+        sys.exit(0)
+    elif operation == 'thaw' and len(args) == 2:
+        aomi.filez.thaw(args[1], opt)
+        sys.exit(0)
 
     usage()
     sys.exit(1)
@@ -174,5 +195,6 @@ def main():
     if len(sys.argv) < 2:
         usage()
         sys.exit(1)
+
     operation = sys.argv[1]
     action_runner(operation)

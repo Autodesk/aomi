@@ -1,7 +1,8 @@
 """ Secret rendering """
+from __future__ import print_function
 import os
 from pkg_resources import resource_filename
-from aomi.helpers import problems, warning, cli_hash, merge_dicts
+from aomi.helpers import problems, warning, cli_hash, merge_dicts, path_pieces
 from aomi.template import render, load_var_files
 
 
@@ -100,9 +101,7 @@ def template(client, src, dest, paths, opt):
 
 def raw_file(client, src, dest, opt):
     """Write the contents of a vault path/key to a file"""
-    path_bits = src.split('/')
-    path = '/'.join(path_bits[0:len(path_bits) - 1])
-    key = path_bits[len(path_bits) - 1]
+    path, key = path_pieces(src)
     resp = client.read(path)
     if not resp:
         problems("Unable to retrieve %s" % path, client)
@@ -157,8 +156,9 @@ def aws(client, path, opt):
     """Renders a shell environment snippet with AWS information"""
     creds = client.read(path)
 
+    renew_secret(client, creds, opt)
+
     if creds and 'data' in creds:
-        renew_secret(client, creds, opt)
         print("AWS_ACCESS_KEY_ID=\"%s\"" % creds['data']['access_key'])
         print("AWS_SECRET_ACCESS_KEY=\"%s\"" % creds['data']['secret_key'])
         if 'security_token' in creds['data'] \

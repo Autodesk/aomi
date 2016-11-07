@@ -34,9 +34,9 @@ def subdir_file(item, relative):
 
 def in_file(string, search_file):
     """Looks in a file for a string."""
-    h = open(search_file, 'r')
-    for l in h.readlines():
-        if string in l:
+    handle = open(search_file, 'r')
+    for line in handle.readlines():
+        if string in line:
             return True
 
     return False
@@ -67,7 +67,7 @@ def secret_file(filename):
        stat.S_ISLNK(filestat.st_mode) == 0:
         problems("Secret file %s must be a real file or symlink" % filename)
 
-    if (platform.system() != "Windows"):
+    if platform.system() != "Windows":
         if filestat.st_mode & stat.S_IROTH or \
            filestat.st_mode & stat.S_IWOTH or \
            filestat.st_mode & stat.S_IWGRP:
@@ -141,6 +141,20 @@ def tag_check(obj, path, opt):
         return True
 
 
+def specific_path_check(path, opt):
+    """Will make checks against include/exclude to determine if we
+    actually care about the path in question."""
+    if len(opt.exclude) > 0:
+        if path in opt.exclude:
+            return False
+
+    if len(opt.include) > 0:
+        if path not in opt.include:
+            return False
+
+    return True
+
+
 def check_obj(keys, name, obj):
     """Do basic validation on an object"""
     msg = validate_obj(keys, obj)
@@ -174,4 +188,24 @@ def audit_log_obj(obj):
 
 
 def approle_obj(obj):
+    """Do some basic approle validation"""
     check_obj(['name', 'policies'], 'app role', obj)
+
+
+def generated_obj(obj):
+    """Do some basic generated secret validation"""
+    check_obj(['mount', 'path', 'keys'], 'generated secret object', obj)
+    for key in obj['keys']:
+        check_obj(['name', 'method'], 'generated secret entry', key)
+
+
+def sanitize_mount(mount):
+    """Returns a quote-unquote sanitized mount path"""
+    sanitized_mount = mount
+    if sanitized_mount.startswith('/'):
+        sanitized_mount = sanitized_mount[1:]
+
+    if sanitized_mount.endswith('/'):
+        sanitized_mount = sanitized_mount[:-1]
+
+    return sanitized_mount

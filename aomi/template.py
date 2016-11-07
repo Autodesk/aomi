@@ -4,8 +4,8 @@ import os
 from base64 import b64encode, b64decode
 import yaml
 from jinja2 import Environment, FileSystemLoader, meta
-from aomi.helpers import merge_dicts, problems
 import jinja2.nodes
+from aomi.helpers import merge_dicts, problems
 
 
 def grok_default_vars(parsed_content):

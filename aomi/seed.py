@@ -1,31 +1,22 @@
+"""Handles the various kinds of secret seeding which we do"""
 import os
 import re
+from uuid import uuid4
 import yaml
 import hvac
 from aomi.helpers import problems, hard_path, log, \
-    warning, merge_dicts, cli_hash
+    warning, merge_dicts, cli_hash, random_word
 import aomi.validation
+from aomi.validation import sanitize_mount
 from aomi.template import render, load_var_files
-
-
-def sanitize_mount(mount):
-    """Returns a quote-unquote sanitized mount path"""
-    sanitized_mount = mount
-    if sanitized_mount.startswith('/'):
-        sanitized_mount = sanitized_mount[1:]
-
-    if sanitized_mount.endswith('/'):
-        sanitized_mount = sanitized_mount[:-1]
-
-    return sanitized_mount
 
 
 def is_mounted(mount, backends, style):
     """Determine whether a backend of a certain type is mounted"""
-    for m, v in backends.items():
-        b_norm = '/'.join([x for x in m.split('/') if x])
+    for mount_name, values in backends.items():
+        b_norm = '/'.join([x for x in mount_name.split('/') if x])
         m_norm = '/'.join([x for x in mount.split('/') if x])
-        if (m_norm == b_norm) and v['type'] == style:
+        if (m_norm == b_norm) and values['type'] == style:
             return True
 
     return False
@@ -37,13 +28,13 @@ def ensure_mounted(client, backend, mount):
     if not is_mounted(mount, backends, backend):
         try:
             client.enable_secret_backend(backend, mount_point=mount)
-        except hvac.exceptions.InvalidRequest as e:
-            m = re.match('existing mount at (?P<path>.+)', str(e))
-            if m:
+        except hvac.exceptions.InvalidRequest as exception:
+            match = re.match('existing mount at (?P<path>.+)', str(exception))
+            if match:
                 problems("%s has a mountpoint conflict with %s" %
-                         (mount, m.group('path')))
+                         (mount, match.group('path')))
             else:
-                raise e
+                raise exception
 
 
 def ensure_auth(client, auth):
@@ -52,6 +43,19 @@ def ensure_auth(client, auth):
     backends = [x.rstrip('/') for x in backends]
     if auth not in backends:
         client.enable_auth_backend(auth)
+
+
+def validate_entry(obj, path, opt):
+    """Determins whether or not to interpret this particular
+    aomi construct based on combination of tags and what
+    is passed via the CLI"""
+    if not aomi.validation.tag_check(obj, path, opt):
+        return False
+
+    if not aomi.validation.specific_path_check(path, opt):
+        return False
+
+    return True
 
 
 def var_file(client, secret, opt):
@@ -63,7 +67,7 @@ def var_file(client, secret, opt):
     aomi.validation.secret_file(var_file_name)
     varz = yaml.load(open(var_file_name).read())
 
-    if not aomi.validation.tag_check(secret, path, opt):
+    if not validate_entry(secret, path, opt):
         return
 
     ensure_mounted(client, 'generic', my_mount)
@@ -109,7 +113,7 @@ def aws(client, secret, opt):
 
     my_mount = sanitize_mount(secret['mount'])
     aws_path = "%s/config/root" % my_mount
-    if not aomi.validation.tag_check(secret, aws_path, opt):
+    if not validate_entry(secret, aws_path, opt):
         return
 
     ensure_mounted(client, 'aws', my_mount)
@@ -177,6 +181,7 @@ def aws(client, secret, opt):
 
 
 def seed_aws_roles(client, mount, roles, opt):
+    """Handles the seeding of roles associated with an AWS account"""
     for role in roles:
         aomi.validation.aws_role_obj(role)
 
@@ -215,18 +220,66 @@ def app_users(client, app_id, p_users):
         client.write(user_path, **user_obj)
 
 
-def app(client, app_obj, opt):
-    """Seed an app file into Vault"""
-    if 'app_file' not in app_obj:
-        problems("Invalid app definition %s" % app_obj)
-
+def app_id_name(app_obj):
+    """Determines the proper app id name"""
     name = None
     if 'name' in app_obj:
         name = app_obj['name']
     else:
         name = os.path.splitext(os.path.basename(app_obj['app_file']))[0]
 
-    if not aomi.validation.tag_check(app_obj, "app-id/%s" % name, opt):
+    return name
+
+
+def app_id_policy_file(app_obj, data):
+    """Determines the correct policy file name, checking both the
+    proper and legacy location"""
+    policy_file = None
+    if 'policy' in data:
+        warning('Defining policy_name within the app yaml is deprecated')
+        policy_file = data['policy']
+    elif 'policy' in app_obj:
+        policy_file = app_obj['policy']
+
+    return policy_file
+
+
+def app_id_policy_name(app_obj, data):
+    """Determines the policy name, checking both the proper
+    and the legacy location"""
+    policy_name = None
+    if 'policy_name' in data:
+        warning('Defining policy_name within the app yaml is deprecated')
+        policy_name = data['policy_name']
+    elif 'policy_name' in data:
+        policy_name = app_obj['policy_name']
+    else:
+        policy_name = app_id_name(app_obj)
+
+    return policy_name
+
+
+def app_id_itself(app_obj, data):
+    """Determines the application ID to use"""
+    app_id = None
+    if 'app_id' in data:
+        warning('Defining app_id within the app yaml is deprecated')
+        app_id = data['app_id']
+    elif 'app_id' in app_obj:
+        app_id = app_obj['app_id']
+    else:
+        app_id = app_id_name(app_obj)
+
+    return app_id
+
+
+def app(client, app_obj, opt):
+    """Seed an app file into Vault"""
+    if 'app_file' not in app_obj:
+        problems("Invalid app definition %s" % app_obj)
+
+    name = app_id_name(app_obj)
+    if not validate_entry(app_obj, "app-id/%s" % name, opt):
         return
 
     app_file = hard_path(app_obj['app_file'], opt.secrets)
@@ -241,30 +294,9 @@ def app(client, app_obj, opt):
     if 'users' not in data:
         problems("Invalid app file %s" % app_file)
 
-    policy_name = None
-    if 'policy_name' in data:
-        warning('Defining policy_name within the app yaml is deprecated')
-        policy_name = data['policy_name']
-    elif 'policy_name' in app_obj:
-        policy_name = app_obj['policy_name']
-    else:
-        policy_name = name
-
-    app_id = None
-    if 'app_id' in data:
-        warning('Defining app_id within the app yaml is deprecated')
-        app_id = data['app_id']
-    elif 'app_id' in app_obj:
-        app_id = app_obj['app_id']
-    else:
-        app_id = name
-
-    policy_file = None
-    if 'policy' in data:
-        warning('Defining policy_name within the app yaml is deprecated')
-        policy_file = data['policy']
-    elif 'policy' in app_obj:
-        policy_file = app_obj['policy']
+    policy_name = app_id_policy_name(app_obj, data)
+    app_id = app_id_itself(app_obj, data)
+    policy_file = app_id_policy_file(app_obj, data)
 
     if policy_file:
         p_data = policy_data(policy_file, app_obj.get('policy_vars', {}), opt)
@@ -295,25 +327,26 @@ def files(client, secret, opt):
     obj = {}
     my_mount = sanitize_mount(secret['mount'])
     vault_path = "%s/%s" % (my_mount, secret['path'])
-    if not aomi.validation.tag_check(secret, vault_path, opt):
+    if not validate_entry(secret, vault_path, opt):
         return
+
     ensure_mounted(client, 'generic', my_mount)
     if opt.mount_only:
         log("Only mounting %s" % my_mount, opt)
         return
 
-    for f in secret.get('files', []):
-        if 'source' not in f or 'name' not in f:
-            problems("Invalid file specification %s" % f)
+    for sfile in secret.get('files', []):
+        if 'source' not in sfile or 'name' not in sfile:
+            problems("Invalid file specification %s" % sfile)
 
-        filename = hard_path(f['source'], opt.secrets)
+        filename = hard_path(sfile['source'], opt.secrets)
         aomi.validation.secret_file(filename)
         data = open(filename, 'r').read()
-        obj[f['name']] = data
+        obj[sfile['name']] = data
         log('writing file %s into %s/%s' % (
             filename,
             vault_path,
-            f['name']), opt)
+            sfile['name']), opt)
 
     client.write(vault_path, **obj)
 
@@ -338,7 +371,7 @@ def policy(client, secret, opt):
     aomi.validation.policy_obj(secret)
 
     policy_name = secret['name']
-    if not aomi.validation.tag_check(secret, "app-id/%s" % policy_name, opt):
+    if not validate_entry(secret, "policy/%s" % policy_name, opt):
         return
 
     if secret.get('state', 'present') == 'present':
@@ -419,6 +452,7 @@ def users(client, user_obj, opt):
 
 
 def approle(client, approle_obj, opt):
+    """Will seed application role information into a Vault"""
     aomi.validation.approle_obj(approle_obj)
     name = approle_obj['name']
     if not aomi.validation.tag_check(approle_obj,
@@ -447,3 +481,44 @@ def approle(client, approle_obj, opt):
 
     log("creating approle %s" % name, opt)
     client.create_role(name, **role_obj)
+
+
+def generated(client, obj, opt):
+    """Will provision some random strings into vault, as requested"""
+    aomi.validation.generated_obj(obj)
+    my_mount = sanitize_mount(obj['mount'])
+    vault_path = "%s/%s" % (my_mount, obj['path'])
+    if not aomi.validation.tag_check(obj, vault_path, opt):
+        return
+    ensure_mounted(client, 'generic', my_mount)
+    if opt.mount_only:
+        log("Only mounting %s" % my_mount, opt)
+        return
+
+    existing = {}
+    resp = client.read(vault_path)
+    if resp:
+        existing = resp['data']
+
+    secret_obj = {}
+    for key in obj['keys']:
+        key_name = key['name']
+        if key_name in existing and not key.get('overwrite'):
+            log("Not overwriting %s/%s" % (vault_path, key_name), opt)
+            continue
+
+        if key['method'] == 'uuid':
+            log("Setting %s to a uuid" % key_name, opt)
+            secret_obj[key_name] = str(uuid4())
+        elif key['method'] == 'words':
+            log("Setting %s to random words" % key_name, opt)
+            secret_obj[key_name] = random_word()
+        else:
+            problems("Unexpected generated secret method %s" % key['method'])
+
+    genseclen = len(secret_obj.keys())
+    if genseclen > 0:
+        update_msg = "Writing %s generated secrets to %s" % \
+                     (genseclen, vault_path)
+        log(update_msg, opt)
+        client.write(vault_path, **secret_obj)

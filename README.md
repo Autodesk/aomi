@@ -54,6 +54,10 @@ All files containing secrets referenced from the `Secretfile` will be searched f
 
 You may tag individual policies, appids, and secrets. When resources have tags, and the `seed` command is run with the `--tags` option, only matching items will be seeded. If the `--tags` option is not specified, then only things which do not have tags specified will be seeded.
 
+## AdHoc Path Selection
+
+You can include or exclude paths from execution on a one-off basis with the `--include` and `--exclude` options. This can be used to fine tune an aomi `seed` operation without having to permanently modify a `Secretfile` with tags. Note that exclude takes priority over include.
+
 # Vault Constructs
 
 These are the different things which `aomi` may interact with in a Vault instance.
@@ -132,6 +136,27 @@ user: 'foo'
 password: 'bar'
 ```
 
+## Generated Secrets
+
+The aomi tool has the ability to populate a generic Vault path with random secrets. You still specify the mountpoint, path, and keys but not the contents. By default this is a write once operation but you can change this with the `overwrite` attribute. You can generate either random words or a uuid.
+
+----
+
+`Secretfile`
+
+```
+secrets:
+- generated:
+    mount: 'foo'
+    path: 'bar'
+    keys:
+    - name: 'username'
+      method: 'words'
+    - name: 'password'
+      method: 'uuid'
+      overwrite: true
+```
+
 ## Vault Applications
 
 One of the authentication types supported by Vault is that of an Application/UserID combination. You may provision these with `aomi` as well. You may specify an Application ID, a series of User ID's, and a [Vault policy](https://www.vaultproject.io/docs/concepts/policies.html) to apply to resulting tokens. The following example would create an application named `foo` with two users (`bar` and `baz`) who read anything under the `foo/bar` Vault path. In this example the policy will be created _inline_. You may also re-use an existing policy by _only_ specifying a `policy_name`. When creating inline policies, you can _not_ modify the existing policy. This is a safeguard designed to prevent overwriting shared policies. It is recommended that you do not use inline policies for real world deployments.
@@ -167,7 +192,7 @@ path "foo/bar/*" {
 
 ## Policies
 
-You can seed policies separately now. Each policy has a `name` and a source `file` specified. This is recommended over using inline policies. You can specify a state of either `present` (the defaut) or `absent` but this is not required. Policies are also templates and thus subject to the same use of variables as all other templates. You may also specify per-policy variables in the `vars` variable when defining the policy. The following example will provision a simple policy.
+You can seed policies separately now. Each policy has a `name` and a source `file` specified. This is recommended over using inline policies. You can specify a state of either `present` (the defaut) or `absent` but this is not required. The following example will provision a simple policy.
 
 ----
 `Secretfile`
@@ -298,6 +323,20 @@ If your template requires iteration across a bunch of secrets then you may use t
 * `terraform-aws` will render a Terraform AWS `provider` section. Note you will need to pass in the `aws_region` variable as an extra.
 * `json-kv` will render a JSON key-value file.
 * `docker-auth` will render a Docker `config.json` auth snippet. It expects a `user`, `password`, and `url` variable.
+
+## freeze and thaw
+
+The `freeze` action will go through the `Secretfile` and extract specified secrets from the local file system into an encrypted zip file. You can specify tags, or include/exclude paths. In order to make use of `freeze` you _must_ specify a list of either Keybase or GPG fingerprints in the `Secretfile` under the `pgp_keys` section.
+
+----
+
+`Secretfile`
+
+```
+pgp_keys:
+- 'keybase:otakup0pe'
+- 'B1234ABC'
+```
 
 # Test
 

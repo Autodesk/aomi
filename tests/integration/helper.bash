@@ -1,7 +1,6 @@
 # -*- mode: Shell-script;bash -*-
 
 VAULT_LOG="${BATS_TMPDIR}/aomi-vault-log"
-AWS_TIMEOUT="30"
 
 function start_vault() {
     if [ -e "${HOME}/.vault-token" ] ; then
@@ -12,8 +11,7 @@ function start_vault() {
         stop_vault
         start_vault
     else
-        VAULT_PID=$(pgrep vault)
-        export VAULT_PID
+        export VAULT_PID=$(pgrep vault)
         export VAULT_ADDR='http://127.0.0.1:8200'
         VAULT_TOKEN=$(grep -e 'Root Token' "$VAULT_LOG" | cut -f 3 -d ' ')
         export VAULT_TOKEN="$VAULT_TOKEN"
@@ -28,10 +26,7 @@ function stop_vault() {
         kill "$VAULT_PID"
     else
         echo "vault server went away"
-        PIDS=$(pgrep vault)
-        if [ ! -z "$PIDS" ] ; then
-            kill "$PIDS"
-        fi
+        kill "$(pgrep vault)"
     fi
     rm -f "$VAULT_LOG"
 }
@@ -118,19 +113,31 @@ function aws_creds() {
     [ -e "${CIDIR}/.aomi-test/vault-addr" ]
     [ -e "${CIDIR}/.aomi-test/vault-token" ]
     local TMP="/tmp/aomi-int-aws${RANDOM}"
-    VAULT_TOKEN=$(cat "${CIDIR}/.aomi-test/vault-token") VAULT_ADDR=$(cat "${CIDIR}/.aomi-test/vault-addr") aomi aws_environment aomi/aws/creds/travis --export --lease 300s 1> "$TMP" || true
-    if [ "$(cat $TMP)" == "" ] ; then
+    VAULT_TOKEN="$(cat "${CIDIR}/.aomi-test/vault-token")" \
+               VAULT_ADDR=$(cat "${CIDIR}/.aomi-test/vault-addr") \
+               aomi aws_environment \
+               "$VAULT_AWS_PATH" \
+               --export --lease 300s 1> "$TMP" 2> /dev/null || true
+    if [ $? != 0 ] || [ "$(cat $TMP)" == "" ] ; then
         return 1
     fi
-    eval "$(cat $TMP)"
+    source "$TMP"
     rm "$TMP"
     if [ -z "$AWS_ACCESS_KEY_ID" ] || [ -z "$AWS_SECRET_ACCESS_KEY" ] ; then
         return 1
     fi
+    export AWS_DEFAULT_REGION="us-east-1"
     AWS_FILE="${FIXTURE_DIR}/.secrets/aws.yml"
     echo "access_key_id: ${AWS_ACCESS_KEY_ID}" > "$AWS_FILE"
     echo "secret_access_key: ${AWS_SECRET_ACCESS_KEY}" >> "$AWS_FILE"
     chmod og-rwx "$AWS_FILE"
+}
+
+function vault_cfg() {
+    local key="$1"
+    [ -e "${CIDIR}/.aomi-test/vault-addr" ]
+    [ -e "${CIDIR}/.aomi-test/vault-token" ]
+    VAULT_TOKEN=$(cat "${CIDIR}/.aomi-test/vault-token") VAULT_ADDR=$(cat "${CIDIR}/.aomi-test/vault-addr") vault read -field "$key" "$VAULT_SECRET_PATH"
 }
 
 function check_aws {
@@ -141,17 +148,24 @@ function check_aws {
     # first bit of eventual consistency is on the aws creds created
     # by the upstream vault server
     while [ -z "$OK" ] ; do
-        aomi aws_environment "aws/creds/${ROLE}" --lease 30s 1> "$TMP" || true
+        aomi aws_environment "aws/creds/${ROLE}" --lease 60s 1> "$TMP" 2> /dev/null || true
         if [ ! -z "$(cat $TMP)" ] ; then
             OK="ok"
         else
             NOW="$(date +%s)"
             if [ $((NOW - START)) -gt "$AWS_TIMEOUT" ] ; then
-                exit 1
+                echo "Timed out waiting for initial AWS creds"
+                return 1
+            else
+                sleep 5
             fi
         fi
     done
-    eval "$(cat $TMP)"
+    source "$TMP"
+    if [ -z "$AWS_ACCESS_KEY_ID" ] || [ -z "$AWS_SECRET_ACCESS_KEY" ] ; then
+        echo "AWS keys did not get set"
+        return 1
+    fi
     rm "$TMP"
     OK=""
     START="$(date +%s)"
@@ -159,10 +173,11 @@ function check_aws {
     # and now this eventual consistency is on the test vault
     # aws iam credentials
     while [ -z "$OK" ] ; do
-        if ! aws ec2 describe-availability-zones &> /dev/null ; then
+        if ! "${CIDIR}/.ci-env/bin/aws" ec2 describe-availability-zones &> /dev/null ; then
             NOW="$(date +%s)"
             if [ $((NOW - START)) -gt "$AWS_TIMEOUT" ] ; then
-                exit 1
+                echo "Timed out waiting for test AWS creds"                
+                return 1
             else
                 sleep 5
             fi
