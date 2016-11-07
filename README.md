@@ -80,7 +80,7 @@ secrets:
 
 By specifying an appropriately populated `aws_file` you can create [AWS secret backends](https://www.vaultproject.io/docs/secrets/aws/index.html) in Vault. The `aws_file` must point to a valid file, and the base of the AWS credentials will be set by the `mount`.
 
-The AWS file contains the `access_key_id`, and `secret_access_key`. The `region`, and a list of AWS roles that will be loaded by Vault are in the `Secretfile`. Note that you may specify either an inline `policy` _or_ a native AWS `arn`. The `name` of each role will be used to compute the final path for accessing credentials. The policy files are simply JSON IAM Access representations. The following example would create an AWS Vault secret backend at `foo/bar/baz` based on the account and policy information defined in `.secrets/aws.yml`. While `lease` and `lease_max` are provided in this example, they are not strictly required.
+The AWS file contains the `access_key_id`, and `secret_access_key`. The `region`, and a list of AWS roles that will be loaded by Vault are in the `Secretfile`. Note that you may specify either an inline `policy` _or_ a native AWS `arn`. The `name` of each role will be used to compute the final path for accessing credentials. The policy files are simply JSON IAM Access representations. The following example would create an AWS Vault secret backend at `foo/bar/baz` based on the account and policy information defined in `.secrets/aws.yml`. While `lease` and `lease_max` are provided in this example, they are not strictly required. Note that you can also specify a `state` as either `present` (the default) or `absent`.
 
 Note that a previous version had `lease`, `lease_max`, `region`, and the `roles` section located in the `aws_file` itself - this behavior is now considered deprecated. The _only_ thing which should be present in the AWS yaml is the actual secrets.
 
@@ -167,7 +167,7 @@ path "foo/bar/*" {
 
 ## Policies
 
-You can seed policies separately now. Each policy has a `name` and a source `file` specified. This is recommended over using inline policies. The following example will provision a simple policy.
+You can seed policies separately now. Each policy has a `name` and a source `file` specified. This is recommended over using inline policies. You can specify a state of either `present` (the defaut) or `absent` but this is not required. The following example will provision a simple policy.
 
 ----
 `Secretfile`
@@ -184,6 +184,17 @@ policies:
 path "foo/bar/*" {
   policy = "read"
 }
+```
+
+Compare this to the following example which would remove the previously created policy.
+
+----
+`Secretfile`
+
+```
+policies:
+- name: 'foo'
+  state: 'absent'
 ```
 
 # Commands

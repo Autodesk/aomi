@@ -2,8 +2,10 @@ import os
 import re
 import yaml
 import hvac
-from aomi.helpers import problems, hard_path, log, is_tagged, warning
+from aomi.helpers import problems, hard_path, log, \
+    warning, merge_dicts, cli_hash
 import aomi.validation
+from aomi.template import render, load_var_files
 
 
 def sanitize_mount(mount):
@@ -176,16 +178,27 @@ def aws(client, secret, opt):
 
 def seed_aws_roles(client, mount, roles, opt):
     for role in roles:
-        if 'name' not in role or \
-           ('policy' not in role and 'arn' not in role):
-            problems("Invalid role definition %s" % role)
+        aomi.validation.aws_role_obj(role)
 
         role_path = "%s/roles/%s" % (mount, role['name'])
-        if 'policy' in role:
-            data = open(hard_path(role['policy'], opt.policies), 'r').read()
-            client.write(role_path, policy=data)
-        elif 'arn' in role:
-            client.write(role_path, arn=role['arn'])
+        if role.get('state', 'present') == 'present':
+            if 'policy' in role:
+                role_file = hard_path(role['policy'], opt.policies)
+                role_template_obj = role.get('vars', {})
+                cli_obj = merge_dicts(load_var_files(opt),
+                                      cli_hash(opt.extra_vars))
+                obj = merge_dicts(role_template_obj, cli_obj)
+                data = render(role_file, obj)
+                log('writing inline role %s from %s' %
+                    (role['name'], role_file), opt)
+                client.write(role_path, policy=data)
+            elif 'arn' in role:
+                log('writing role %s for %s' %
+                    (role['name'], role['arn']), opt)
+                client.write(role_path, arn=role['arn'])
+        else:
+            log('removing role %s' % role['name'], opt)
+            client.delete(role_path)
 
 
 def app_users(client, app_id, p_users):
@@ -254,14 +267,13 @@ def app(client, app_obj, opt):
         policy_file = app_obj['policy']
 
     if policy_file:
-        policy_data = open(hard_path(policy_file, opt.policies), 'r').read()
+        p_data = policy_data(policy_file, app_obj.get('policy_vars', {}), opt)
         if policy_name in client.list_policies():
-            if policy_data != client.get_policy(policy_name):
+            if p_data != client.get_policy(policy_name):
                 problems("Policy %s already exists and content differs"
                          % policy_name)
 
-        log("Using inline policy %s" % policy_name, opt)
-        client.set_policy(name, policy_data)
+        write_policy(policy_name, p_data, client, opt)
     else:
         if policy_name not in client.list_policies():
             problems("Policy %s is not inline but does not exist"
@@ -306,6 +318,21 @@ def files(client, secret, opt):
     client.write(vault_path, **obj)
 
 
+def policy_data(file_name, policy_vars, opt):
+    """Returns the rendered policy"""
+    policy_path = hard_path(file_name, opt.policies)
+    cli_obj = merge_dicts(load_var_files(opt),
+                          cli_hash(opt.extra_vars))
+    obj = merge_dicts(policy_vars, cli_obj)
+    return render(policy_path, obj)
+
+
+def write_policy(policy_name, data, client, opt):
+    """Actually write a policy to vault (renders as a template first)"""
+    log('writing policy %s' % policy_name, opt)
+    client.set_policy(policy_name, data)
+
+
 def policy(client, secret, opt):
     """Seed a standalone policy into Vault"""
     aomi.validation.policy_obj(secret)
@@ -314,9 +341,12 @@ def policy(client, secret, opt):
     if not aomi.validation.tag_check(secret, "app-id/%s" % policy_name, opt):
         return
 
-    policy_data = open(hard_path(secret['file'], opt.policies), 'r').read()
-    log('writing policy %s' % policy_name, opt)
-    client.set_policy(policy_name, policy_data)
+    if secret.get('state', 'present') == 'present':
+        data = policy_data(secret['file'], secret.get('vars', {}), opt)
+        write_policy(policy_name, data, client, opt)
+    else:
+        log('removing policy %s' % policy_name, opt)
+        client.delete_policy(policy_name)
 
 
 def audit_logs(client, log_obj, opt):
@@ -386,3 +416,34 @@ def users(client, user_obj, opt):
         'policies': ','.join(user_obj['policies'])
     }
     client.write(user_path, **v_obj)
+
+
+def approle(client, approle_obj, opt):
+    aomi.validation.approle_obj(approle_obj)
+    name = approle_obj['name']
+    if not aomi.validation.tag_check(approle_obj,
+                                     "approle/%s" % name,
+                                     opt):
+        return
+
+    ensure_auth(client, 'approle')
+
+    policies = approle_obj['policies']
+
+    role_obj = {
+        'policies': ','.join(policies)
+    }
+
+    if 'cidr_list' in approle_obj:
+        role_obj['bound_cidr_list'] = ','.join(approle_obj['cidr_list'])
+    else:
+        role_obj['bound_cidr_list'] = ''
+
+    if 'secret_uses' in approle_obj:
+        role_obj['secret_id_num_uses'] = approle_obj['secret_uses']
+
+    if 'secret_ttl' in approle_obj:
+        role_obj['secret_id_ttl'] = approle_obj['secret_ttl']
+
+    log("creating approle %s" % name, opt)
+    client.create_role(name, **role_obj)

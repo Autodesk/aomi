@@ -29,6 +29,24 @@ validate_defaults() {
     done
 }
 
+@test "can set a policy variable in secretfile" {
+    run aomi seed --tags bam-var
+    [ "$status" -eq 0 ]
+    check_policy true bam
+    run vault policies bam
+    scan_lines 'path "variable/*" {' "${lines[@]}"
+}
+
+@test "can remove a policy" {
+    run aomi seed --tags bam
+    echo "$output"
+    [ "$status" -eq 0 ]
+    check_policy true bam
+    run aomi seed --tags bam-remove
+    [ "$status" -eq 0 ]
+    check_policy false bam
+}
+
 @test "can seed a simple template" {
     use_fixture jinja2
     run aomi seed

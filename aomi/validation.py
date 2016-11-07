@@ -119,6 +119,13 @@ def aws_secret_obj(filename, obj):
               obj)
 
 
+def aws_role_obj(obj):
+    """Does some validation around an AWS role"""
+    check_obj(['name'], 'aws role', obj)
+    if obj.get('state', 'present') == 'present':
+        check_obj([['policy', 'arn'], 'name'], 'aws role', obj)
+
+
 def file_obj(obj):
     """Basic validation around file objects"""
     check_obj(['mount', 'path'], 'file element', obj)
@@ -143,7 +150,13 @@ def check_obj(keys, name, obj):
 
 def policy_obj(obj):
     """Basic validation around policy objects"""
-    check_obj(['name', 'file'], 'policy', obj)
+    state = obj.get('state', 'present')
+    if state == 'present':
+        check_obj(['name', 'file'], 'policy', obj)
+    elif state == 'absent':
+        check_obj(['name'], 'policy', obj)
+    else:
+        problems("Invalid policy state: %s" % state)
 
 
 def user_obj(obj):
@@ -158,3 +171,7 @@ def audit_log_obj(obj):
     check_obj(['type'], 'audit log object', obj)
     if obj['type'] == 'file':
         check_obj(['file_path'], 'file audit log', obj)
+
+
+def approle_obj(obj):
+    check_obj(['name', 'policies'], 'app role', obj)

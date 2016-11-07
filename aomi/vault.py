@@ -14,6 +14,15 @@ from aomi.template import render, load_var_files
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
 
+def approle_token(vault_client, role_id, secret_id):
+    """Returns a vault token based on the role and seret id"""
+    resp = vault_client.auth_approle(role_id, secret_id)
+    if 'auth' in resp and 'client_token' in resp['auth']:
+        return resp['auth']['client_token']
+    else:
+        problems('Unable to retrieve approle token')
+
+
 def app_token(vault_client, app_id, user_id):
     """Returns a vault token based on the app and user id."""
     resp = vault_client.auth_app_id(app_id, user_id)
@@ -29,6 +38,8 @@ def initial_token(vault_client, opt):
                                 "%s/.vault-token" % os.environ['HOME'])
     app_file = os.environ.get('AOMI_APP_FILE',
                               "%s/.aomi-app-token" % os.environ['HOME'])
+    approle_file = os.environ.get('AOMI_APPROLE_FILE',
+                                  "%s/.aomi-approle" % os.environ['HOME'])
     token_file = os.path.abspath(token_file)
     app_file = os.path.abspath(app_file)
     if 'VAULT_TOKEN' in os.environ and len(os.environ['VAULT_TOKEN']) > 0:
@@ -42,6 +53,15 @@ def initial_token(vault_client, opt):
                           os.environ['VAULT_APP_ID'].strip(),
                           os.environ['VAULT_USER_ID'].strip())
         log("Token derived from VAULT_APP_ID and VAULT_USER_ID", opt)
+        return token
+    elif 'VAULT_ROLE_ID' in os.environ and \
+         'VAULT_SECRET_ID' in os.environ and \
+         len(os.environ['VAULT_ROLE_ID']) > 0 and \
+         len(os.environ['VAULT_SECRET_ID']) > 0:
+        token = approle_token(vault_client,
+                              os.environ['VAULT_ROLE_ID'],
+                              os.environ['VAULT_SECRET_ID'])
+        log("Token derived from VAULT_ROLE_ID and VAULT_SECRET_ID", opt)
         return token
     elif os.path.exists(app_file):
         token = yaml.load(open(app_file).read().strip())
@@ -157,8 +177,11 @@ def seed(vault_client, opt):
         else:
             problems("Invalid app element %s" % app, vault_client)
 
-    for users in config.get('users', []):
-        aomi.seed.users(vault_client, users, opt)
+    for user in config.get('users', []):
+        aomi.seed.users(vault_client, user, opt)
 
     for audit_log in config.get('audit_logs', []):
         aomi.seed.audit_logs(vault_client, audit_log, opt)
+
+    for approle in config.get('approles', []):
+        aomi.seed.approle(vault_client, approle, opt)

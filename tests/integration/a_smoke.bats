@@ -26,6 +26,7 @@ teardown() {
 
 @test "can seed and render environment" {
     run aomi seed
+    echo "$output"
     [ "$status" -eq 0 ]
     run aomi environment foo/bar/bam foo/bar/bang-bang
     echo $output
