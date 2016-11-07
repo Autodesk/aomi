@@ -23,15 +23,16 @@ function stop_vault() {
     if [ -e "${BATS_TMPDIR}/og-token" ] ; then
         mv "${BATS_TMPDIR}/og-token" "${HOME}/.vault-token"
     fi
-    if [ ! -z "$VAULT_PID" ] ; then
-        if ps "$VAULT_PID" &> /dev/null ; then
-            kill "$VAULT_PID"
-        else
-            echo "vault server went away"
-            kill "$(pgrep vault)"
+    if ps "$VAULT_PID" &> /dev/null ; then
+        kill "$VAULT_PID"
+    else
+        echo "vault server went away"
+        PIDS="$(pgrep vault)"
+        if [ ! -z "$PIDS" ] ; then
+            kill "$PIDS"
         fi
-        rm -f "$VAULT_LOG"
     fi
+    rm -f "$VAULT_LOG"
 }
 
 function use_fixture() {
