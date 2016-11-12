@@ -106,7 +106,7 @@ scan_lines() {
     local STRING="$1"
     shift
     while [ ! -z "$1" ] ; do
-        if echo "$1" | grep -E "$STRING" &> /dev/null ; then
+        if [[ "$1" == *"$STRING"* ]] ; then
             return 0
         fi
         shift
@@ -120,12 +120,12 @@ function aws_creds() {
     local TMP="/tmp/aomi-int-aws${RANDOM}"
     VAULT_TOKEN=$(cat "${CIDIR}/.aomi-test/vault-token") VAULT_ADDR=$(cat "${CIDIR}/.aomi-test/vault-addr") aomi aws_environment aomi/aws/creds/travis --export --lease 300s 1> "$TMP" || true
     if [ "$(cat $TMP)" == "" ] ; then
-        return
+        return 1
     fi
     eval "$(cat $TMP)"
     rm "$TMP"
     if [ -z "$AWS_ACCESS_KEY_ID" ] || [ -z "$AWS_SECRET_ACCESS_KEY" ] ; then
-        return
+        return 1
     fi
     AWS_FILE="${FIXTURE_DIR}/.secrets/aws.yml"
     echo "access_key_id: ${AWS_ACCESS_KEY_ID}" > "$AWS_FILE"
