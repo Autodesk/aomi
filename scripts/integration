@@ -61,7 +61,7 @@ if [ -e "${HOME}/.vault-token" ] ; then
 fi
 
 if [ ! -z "$VAULT_TOKEN" ] ; then
-    echo "Vault token found!"
+    echo "Vault token found..."
     TMP="/tmp/aomi-integration-${RANDOM}"
     vault mounts &> "$TMP" || true
     if grep 'aomi/aws' "$TMP" &> /dev/null ; then
