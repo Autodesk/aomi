@@ -104,6 +104,6 @@ if [ ! -z "$TRAVIS" ] && \
        [ ! -z "$CI" ] && \
        [ -e "${CIDIR}/.aomi-test/vault-token" ] ; then
     echo "Tearing up our Vault token"
-    VAULT_TOKEN=$VAULT_TOKEN vault write -f auth/token/revoke-self
+    VAULT_TOKEN=$VAULT_TOKEN vault write -f auth/token/revoke-self &> /dev/null
 fi
 exit "$RC"
