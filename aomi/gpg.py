@@ -104,6 +104,6 @@ def encrypt(source, dest, keys, opt):
 def decrypt(source, dest):
     """Attempts to decrypt a file"""
     cmd = list(flatten([gnupg_bin(), "--output", dest, "--decrypt",
-                   gnupg_home(), passphrase_file(), source]))
+                        gnupg_home(), passphrase_file(), source]))
     subprocess.check_output(cmd, stderr=subprocess.STDOUT)
     return True
