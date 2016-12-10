@@ -26,7 +26,10 @@ function stop_vault() {
         kill "$VAULT_PID"
     else
         echo "vault server went away"
-        kill "$(pgrep vault)"
+        PID=$(pgrep vault || true)
+        if [ ! -z "$PID" ] ; then
+            kill "$(pgrep vault)"
+        fi
     fi
     rm -f "$VAULT_LOG"
 }

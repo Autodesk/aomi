@@ -28,12 +28,12 @@ def gnupg_home():
 
 def gnupg_bin():
     """Return the path to the gpg binary"""
-    cmd = ["which", "gpg"]
+    cmd = ["which", "gpg2"]
     try:
         output = subprocess.check_output(cmd)
         return output.strip()
     except subprocess.CalledProcessError:
-        problems("gpg must be installed")
+        problems("gpg2 must be installed")
 
 
 def massage_key(key):
