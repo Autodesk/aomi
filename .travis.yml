@@ -9,7 +9,7 @@ services:
 addons:
   apt:
     packages:
-    - gpg2
+    - gnupg2
 
 env:
   global:
