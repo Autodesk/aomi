@@ -61,23 +61,28 @@ def passphrase_file():
     """Read passphrase from a file. This should only ever be
     used by our built in integration tests."""
     if 'AOMI_PASSPHRASE_FILE' in os.environ:
-        return ["--batch", "--passphrase-file", os.environ['AOMI_PASSPHRASE_FILE']]
+        return ["--batch", "--passphrase-file",
+                os.environ['AOMI_PASSPHRASE_FILE']]
     else:
         return []
 
+
 def gnupg_home():
+    """Returns appropriate arguments if GNUPGHOME is set"""
     if 'GNUPGHOME' in os.environ:
         return ["--homedir", os.environ['GNUPGHOME']]
     else:
         return []
-    
+
+
 def encrypt(source, dest, keys, opt):
     """Encrypts a file using the given keys"""
     recipients = [["--recipient", key.encode('ASCII')] for key in keys]
     cmd = list(flatten(["/usr/local/bin/gpg", "--armor", "--output", dest,
-                        gnupg_home(), passphrase_file(), recipients, "--encrypt", source]))
+                        gnupg_home(), passphrase_file(), recipients,
+                        "--encrypt", source]))
     try:
-        output = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
+        subprocess.check_output(cmd, stderr=subprocess.STDOUT)
     except subprocess.CalledProcessError, exception:
         log("GPG Command %s" % ' '.join(exception.cmd), opt)
         log("GPG Output %s" % exception.output, opt)
@@ -89,6 +94,6 @@ def encrypt(source, dest, keys, opt):
 def decrypt(source, dest):
     """Attempts to decrypt a file"""
     cmd = flatten(["/usr/local/bin/gpg", "--output", dest, "--decrypt",
-           gnupg_home(), passphrase_file(), source])
+                   gnupg_home(), passphrase_file(), source])
     subprocess.check_output(cmd, stderr=subprocess.STDOUT)
     return True
