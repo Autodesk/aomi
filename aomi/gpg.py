@@ -101,9 +101,15 @@ def encrypt(source, dest, keys, opt):
     return True
 
 
-def decrypt(source, dest):
+def decrypt(source, dest, opt):
     """Attempts to decrypt a file"""
     cmd = list(flatten([gnupg_bin(), "--output", dest, "--decrypt",
                         gnupg_home(), passphrase_file(), source]))
-    subprocess.check_output(cmd, stderr=subprocess.STDOUT)
+    try:
+        subprocess.check_output(cmd, stderr=subprocess.STDOUT)
+    except subprocess.CalledProcessError, exception:
+        log("GPG Command %s" % ' '.join(exception.cmd), opt)
+        log("GPG Output %s" % exception.output, opt)
+        problems("Unable to GPG")
+
     return True

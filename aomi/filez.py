@@ -126,7 +126,7 @@ def thaw_decrypt(src_file, tmp_dir, opt):
         os.mkdir(opt.secrets)
 
     zip_file = "%s/aomi.zip" % tmp_dir
-    if not decrypt(src_file, zip_file):
+    if not decrypt(src_file, zip_file, opt):
         problems("Unable to gpg")
 
     return zip_file
