@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 SCRIPTDIR=$( cd ${0%/*} && pwd)
-TESTS="a_smoke environment exec_context seed template"
+TESTS="a_smoke environment exec_context seed template cold_storage"
 VAULT_TESTS="aws"
 export VAULT_AWS_PATH="travis/aws/creds/aomi"
 export VAULT_SECRET_PATH="secrets/aomi"
