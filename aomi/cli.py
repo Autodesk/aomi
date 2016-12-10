@@ -22,6 +22,8 @@ def usage():
           ' [--secrets ./secrets] [--policies ./vault]')
     print('aomi template <template> <destination> <path>')
     print('aomi token')
+    print('freeze <dest>')
+    print('thaw <src>')
 
 
 def parser_factory(operation):

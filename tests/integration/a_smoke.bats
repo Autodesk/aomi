@@ -70,5 +70,4 @@ teardown() {
     [ "$status" -eq 0 ]
     run vault read foo/bar/bam
     [ "$status" -eq 1 ]
-
 }

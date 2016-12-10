@@ -31,6 +31,35 @@ function stop_vault() {
     rm -f "$VAULT_LOG"
 }
 
+function gpg_fixture() {
+    export GNUPGHOME="${FIXTURE_DIR}/.gnupg"
+    mkdir -p "$GNUPGHOME"
+    echo "use-agent
+always-trust
+verbose
+" > "${FIXTURE_DIR}/.gnupg/gpg.conf"
+    echo "pinentry-program /Users/freedmj/src/autodesk-aomi/scripts/pinentry-dummy.sh" > "${FIXTURE_DIR}/.gnupg/gpg-agent.con"
+    chmod -R og-rwx "$GNUPGHOME"    
+    # https://www.gnupg.org/documentation/manuals/gnupg/Unattended-GPG-key-generation.html
+    PASS="${RANDOM}"
+    echo "$PASS" > "${FIXTURE_DIR}/pass"
+    export AOMI_PASSPHRASE_FILE="${FIXTURE_DIR}/pass"
+    gpg --gen-key --batch <<< "
+%pubring ${FIXTURE_DIR}/.gnupg/pubring.gpg
+%secring ${FIXTURE_DIR}/.gnupg/secring.gpg
+Key-Type: default
+Key-Length: 2048
+Subkey-Type: default
+Subkey-Length: 2048
+Name-Real: aomi test
+Expire-Date: 300
+Passphrase: ${PASS}
+%commit
+"
+    GPGID=$(gpg --list-keys 2>/dev/null | grep -e 'pub   2048' | cut -f 2 -d '/' | cut -f 1 -d ' ')
+    [ ! -z "$GPGID" ]
+}
+
 function use_fixture() {
     FIXTURE="$1"
     if [ ! -z "$2" ] ; then

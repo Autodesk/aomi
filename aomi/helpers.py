@@ -1,5 +1,7 @@
 """ Helpers for aomi that are used throughout the application """
 from __future__ import print_function
+import collections
+import itertools as IT
 import sys
 import os
 import random
@@ -189,3 +191,15 @@ def random_word():
     animal = choose_one(load_word_file("animals.txt"))
     academic = choose_one(load_word_file("academic.txt"))
     return "%s-%s" % (academic, animal)
+
+
+def flatten(iterable):
+    """Flatten iterables"""
+    remainder = iter(iterable)
+    while True:
+        first = next(remainder)
+        if isinstance(first, collections.Iterable) and \
+           not isinstance(first, basestring):
+            remainder = IT.chain(first, remainder)
+        else:
+            yield first

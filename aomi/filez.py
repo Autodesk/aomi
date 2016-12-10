@@ -6,47 +6,36 @@ import shutil
 import time
 import datetime
 import zipfile
-import gnupg
-from keybase import keybase
 
-from aomi.helpers import problems, warning, hard_path, log, get_password
+from aomi.helpers import problems, warning, hard_path, \
+    log
 from aomi.vault import get_secretfile
+from aomi.gpg import key_from_keybase, has_gpg_key, \
+    import_gpg_key, encrypt, decrypt
 
 
-def haz_key(key, gpg):
-    """Will determine if a given key ID is know to our
-    local GPG instance"""
-    key_ids = [x['keyid'][-8:] for x in gpg.list_keys()]
-    return key in key_ids
-
-
-def from_keybase(username, gpg, opt):
+def from_keybase(username, opt):
     """Will attempt to retrieve a GPG public key from
     Keybase, importing if neccesary"""
-    kbase = keybase.Keybase(username)
-    if not kbase:
-        problems("Unknown keybase user %s" % username)
-
-    public_key = kbase.get_public_key()
-    key = public_key.key_fingerprint[-8:].upper().encode('ascii')
-    if not haz_key(key, gpg):
+    public_key = key_from_keybase(username)
+    key = public_key['fingerprint'][-8:].upper().encode('ascii')
+    if not has_gpg_key(key):
         log("Importing gpg key for %s" % username, opt)
-        res = gpg.import_keys(public_key.ascii)
-        if not res.results[0]['status'].startswith('Entirely new'):
+        if not import_gpg_key(key):
             problems("Unable to import key for %s" % username)
 
     return key
 
 
-def grok_keys(gpg, config, opt):
+def grok_keys(config, opt):
     """Will retrieve a GPG key from either Keybase or GPG directly"""
     key_ids = []
     for key in config['pgp_keys']:
         if key.startswith('keybase:'):
-            key_id = from_keybase(key[8:], gpg, opt)
+            key_id = from_keybase(key[8:], opt)
             log("Encrypting for keybase user %s" % key[8:], opt)
         else:
-            if not haz_key(key, gpg):
+            if not has_gpg_key(key):
                 problems("Do not actually have key %s" % key)
 
             log("Encrypting for gpg id %s" % key, opt)
@@ -62,7 +51,7 @@ def freeze_secret(src, dest, flav, tmp_dir, opt):
     src_file = hard_path(src, opt.secrets)
     dest_file = "%s/%s" % (tmp_dir, dest)
     shutil.copyfile(src_file, dest_file)
-    log("Froze %s %s" % flav, opt)
+    log("Froze %s %s" % (flav, src), opt)
 
 
 def freeze_files(config, tmp_dir, opt):
@@ -71,7 +60,7 @@ def freeze_files(config, tmp_dir, opt):
         freeze_secret(app['app_file'], app['app_file'], 'app', tmp_dir, opt)
 
     for user in config.get('users', []):
-        pfile = user['password_file'],
+        pfile = user['password_file']
         freeze_secret(pfile, pfile, 'user', tmp_dir, opt)
 
     for secret in config.get('secrets', []):
@@ -98,25 +87,14 @@ def freeze_archive(tmp_dir, dest_prefix):
     return zip_filename
 
 
-def freeze_encrypt(dest_dir, zip_filename, tmp_dir, config, opt):
+def freeze_encrypt(dest_dir, zip_filename, config, opt):
     """Encrypts the zip file"""
-    gpg = gnupg.GPG(homedir="%s/.gnupg" % os.environ['HOME'],
-                    binary='/usr/local/bin/gpg')
-
-    pgp_keys = grok_keys(gpg, config, opt)
-
-    handle = open(zip_filename, 'r')
-    zip_data = handle.read()
-    handle.close()
-    shutil.rmtree(tmp_dir)
+    pgp_keys = grok_keys(config, opt)
     ice_handle = os.path.basename(os.path.dirname(opt.secretfile))
     timestamp = time.strftime("%H%M%S-%m-%d-%Y",
                               datetime.datetime.now().timetuple())
     ice_file = "%s/aomi-%s-%s.ice" % (dest_dir, ice_handle, timestamp)
-    enc_resp = gpg.encrypt(zip_data,
-                           *pgp_keys,
-                           output=ice_file)
-    if not enc_resp.ok:
+    if not encrypt(zip_filename, ice_file, pgp_keys, opt):
         problems("Unable to encrypt zipfile")
 
     return ice_file
@@ -133,40 +111,23 @@ def freeze(dest_dir, opt):
     os.mkdir(dest_prefix)
     config = get_secretfile(opt)
 
-    freeze_files(config, tmp_dir, opt)
+    freeze_files(config, dest_prefix, opt)
     zip_filename = freeze_archive(tmp_dir, dest_prefix)
-    ice_file = freeze_encrypt(dest_dir, zip_filename, tmp_dir, config, opt)
+    ice_file = freeze_encrypt(dest_dir, zip_filename, config, opt)
+    shutil.rmtree(tmp_dir)
     print("Generated file is %s" % ice_file)
 
 
 def thaw_decrypt(src_file, tmp_dir, opt):
     """Decrypts the encrypted ice file"""
-    gpg = gnupg.GPG(homedir="%s/.gnupg" % os.environ['HOME'],
-                    binary='/usr/local/bin/gpg')
 
     if not os.path.isdir(opt.secrets):
         warning("Creating secret directory %s" % opt.secrets)
         os.mkdir(opt.secrets)
 
-    zip_file = "%s/aomi.zip" % tmp_dir,
-    ice_handle = open(src_file, 'r')
-    resp = gpg.decrypt_file(ice_handle, output=zip_file)
-    ice_handle.close()
-    if not resp.ok:
-        if resp.stderr.find('NEED_PASSPHRASE') != -1:
-            log("No keyless gpg keys available, requesting password", opt)
-            passphrase = get_password(opt, confirm=False)
-            ice_handle = open(src_file, 'r')
-            resp = gpg.decrypt_file(ice_handle,
-                                    output=zip_file,
-                                    passphrase=passphrase)
-            ice_handle.close()
-        else:
-            log("GPG STDERR %s" % resp.stderr, opt)
-            problems("Unable to GPG")
-
-    if not resp.ok:
-        problems("Unable to decrypt %s" % src_file)
+    zip_file = "%s/aomi.zip" % tmp_dir
+    if not decrypt(src_file, zip_file):
+        problems("Unable to gpg")
 
     return zip_file
 
