@@ -42,7 +42,7 @@ verbose
     chmod -R og-rwx "$GNUPGHOME"    
     # https://www.gnupg.org/documentation/manuals/gnupg/Unattended-GPG-key-generation.html
     PASS="${RANDOM}"
-    echo "$PASS" > "${FIXTURE_DIR}/pass"
+    echo -n "$PASS" > "${FIXTURE_DIR}/pass"
     export AOMI_PASSPHRASE_FILE="${FIXTURE_DIR}/pass"
     gpg --gen-key --batch <<< "
 %pubring ${FIXTURE_DIR}/.gnupg/pubring.gpg
