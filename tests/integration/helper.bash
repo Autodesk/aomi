@@ -47,9 +47,9 @@ verbose
     gpg --gen-key --batch <<< "
 %pubring ${FIXTURE_DIR}/.gnupg/pubring.gpg
 %secring ${FIXTURE_DIR}/.gnupg/secring.gpg
-Key-Type: RSA-2048
+Key-Type: default
 Key-Length: 2048
-Subkey-Type: RSA-2048
+Subkey-Type: default
 Subkey-Length: 2048
 Name-Real: aomi test
 Expire-Date: 300
