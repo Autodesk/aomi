@@ -3,3 +3,5 @@ avakas
 nose2
 shyaml
 ipdb
+awscli
+pylint

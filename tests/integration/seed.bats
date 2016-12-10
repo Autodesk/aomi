@@ -34,12 +34,11 @@ validate_defaults() {
     [ "$status" -eq 0 ]
     check_policy true bam
     run vault policies bam
-    scan_lines 'path "variable/*" {' "${lines[@]}"
+    scan_lines 'path.+variable.+' "${lines[@]}"
 }
 
 @test "can remove a policy" {
     run aomi seed --tags bam
-    echo "$output"
     [ "$status" -eq 0 ]
     check_policy true bam
     run aomi seed --tags bam-remove
@@ -50,7 +49,6 @@ validate_defaults() {
 @test "can seed a simple template" {
     use_fixture jinja2
     run aomi seed
-    echo "$output"
     [ "$status" -eq 0 ]
     validate_defaults
 }
@@ -58,7 +56,6 @@ validate_defaults() {
 @test "can seed a complex template" {
     use_fixture jinja2-complex
     run aomi seed --extra-vars-file vars.yml --extra-vars username=foo
-    echo "$output"
     [ "$status" -eq 0 ]
     validate_defaults
 }
@@ -68,7 +65,6 @@ validate_defaults() {
     run aomi seed --secretfile Secretfile-alt \
         --secrets .secrets-alt \
         --policies vault-alt
-    echo "$output"
     [ "$status" -eq 0 ]
     validate_defaults
 }

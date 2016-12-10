@@ -4,6 +4,8 @@ import sys
 from setuptools import setup
 from pkg_resources import resource_filename
 
+# depending on your execution context the version file
+# may be located in a different place!
 vsn_path = resource_filename(__name__, 'aomi/version')
 if not os.path.exists(vsn_path):
     vsn_path = resource_filename(__name__, 'version')
@@ -24,5 +26,5 @@ setup(name='aomi',
       entry_points={
           'console_scripts': ['aomi = aomi.cli:main']
       },
-      package_data={'aomi':['version', 'templates/*.j2']}
+      package_data={'aomi':['version', 'templates/*.j2', 'words/*.txt']}
 )

@@ -54,6 +54,10 @@ All files containing secrets referenced from the `Secretfile` will be searched f
 
 You may tag individual policies, appids, and secrets. When resources have tags, and the `seed` command is run with the `--tags` option, only matching items will be seeded. If the `--tags` option is not specified, then only things which do not have tags specified will be seeded.
 
+## AdHoc Path Selection
+
+You can include or exclude paths from execution on a one-off basis with the `--include` and `--exclude` options. This can be used to fine tune an aomi `seed` operation without having to permanently modify a `Secretfile` with tags. Note that exclude takes priority over include.
+
 # Vault Constructs
 
 These are the different things which `aomi` may interact with in a Vault instance.
@@ -130,6 +134,27 @@ secrets:
 ```
 user: 'foo'
 password: 'bar'
+```
+
+## Generated Secrets
+
+The aomi tool has the ability to populate a generic Vault path with random secrets. You still specify the mountpoint, path, and keys but not the contents. By default this is a write once operation but you can change this with the `overwrite` attribute. You can generate either random words or a uuid.
+
+----
+
+`Secretfile`
+
+```
+secrets:
+- generated:
+    mount: 'foo'
+    path: 'bar'
+    keys:
+    - name: 'username'
+      method: 'words'
+    - name: 'password'
+      method: 'uuid'
+      overwrite: true
 ```
 
 ## Vault Applications
@@ -298,6 +323,20 @@ If your template requires iteration across a bunch of secrets then you may use t
 * `terraform-aws` will render a Terraform AWS `provider` section. Note you will need to pass in the `aws_region` variable as an extra.
 * `json-kv` will render a JSON key-value file.
 * `docker-auth` will render a Docker `config.json` auth snippet. It expects a `user`, `password`, and `url` variable.
+
+## freeze and thaw
+
+The `freeze` action will go through the `Secretfile` and extract specified secrets from the local file system into an encrypted zip file. You can specify tags, or include/exclude paths. In order to make use of `freeze` you _must_ specify a list of either Keybase or GPG fingerprints in the `Secretfile` under the `pgp_keys` section.
+
+----
+
+`Secretfile`
+
+```
+pgp_keys:
+- 'keybase:otakup0pe'
+- 'B1234ABC'
+```
 
 # Test
 

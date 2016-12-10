@@ -38,8 +38,6 @@ def initial_token(vault_client, opt):
                                 "%s/.vault-token" % os.environ['HOME'])
     app_file = os.environ.get('AOMI_APP_FILE',
                               "%s/.aomi-app-token" % os.environ['HOME'])
-    approle_file = os.environ.get('AOMI_APPROLE_FILE',
-                                  "%s/.aomi-approle" % os.environ['HOME'])
     token_file = os.path.abspath(token_file)
     app_file = os.path.abspath(app_file)
     if 'VAULT_TOKEN' in os.environ and len(os.environ['VAULT_TOKEN']) > 0:
@@ -90,13 +88,13 @@ def token_meta(operation, opt):
     if opt.metadata:
         meta_bits = opt.metadata.split(',')
         for meta_bit in meta_bits:
-            k, v = meta_bit.split('=')
+            key, value = meta_bit.split('=')
 
-        if k not in meta:
-            meta[k] = v
+        if key not in meta:
+            meta[key] = value
 
-    for k, v in meta.items():
-        log("Token metadata %s %s" % (k, v), opt)
+    for key, value in meta.items():
+        log("Token metadata %s %s" % (key, value), opt)
 
     return meta
 
@@ -156,6 +154,8 @@ def seed_secrets(config, vault_client, opt):
             aomi.seed.aws(vault_client, secret, opt)
         elif 'files' in secret:
             aomi.seed.files(vault_client, secret, opt)
+        elif 'generated' in secret:
+            aomi.seed.generated(vault_client, secret['generated'], opt)
         else:
             problems("Invalid secret element %s" % secret, vault_client)
 
@@ -166,16 +166,10 @@ def seed(vault_client, opt):
     seed_secrets(config, vault_client, opt)
 
     for policy in config.get('policies', []):
-        if 'name' in policy:
-            aomi.seed.policy(vault_client, policy, opt)
-        else:
-            problems('Invalid policy %s' % policy, vault_client)
+        aomi.seed.policy(vault_client, policy, opt)
 
     for app in config.get('apps', []):
-        if 'app_file' in app:
-            aomi.seed.app(vault_client, app, opt)
-        else:
-            problems("Invalid app element %s" % app, vault_client)
+        aomi.seed.app(vault_client, app, opt)
 
     for user in config.get('users', []):
         aomi.seed.users(vault_client, user, opt)

@@ -1,2 +1,3 @@
 include aomi/version
 include aomi/templates/*.j2
+include aomi/words/*.txt

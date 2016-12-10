@@ -11,27 +11,35 @@ class OpParserTest(unittest.TestCase):
             self.assertFalse(aomi.cli.parser_factory(op).has_option(option))
 
     def test_secretfile_option(self):
-        self.enabled_options(['seed'], '--secretfile')
+        self.enabled_options(['seed', 'freeze', 'thaw'], '--secretfile')
         self.disabled_options(['environment',
                                'extract_file',
                                'aws_environment',
-                               'template'], '--secretfile')
+                               'template',
+                               'set_password',
+                               'token'], '--secretfile')
 
 
     def test_policies_option(self):
-        self.enabled_options(['seed'], '--policies')
+        self.enabled_options(['seed',
+                              'thaw',
+                              'freeze'], '--policies')
         self.disabled_options(['environment',
                                'extract_file',
                                'aws_environment',
-                               'template'], '--policies')
+                               'template',
+                               'set_password',
+                               'token'], '--policies')
 
 
     def test_secrets_option(self):
-        self.enabled_options(['seed'], '--secrets')
+        self.enabled_options(['seed', 'freeze', 'thaw'], '--secrets')
         self.disabled_options(['environment',
                                'extract_file',
                                'aws_environment',
-                               'template'], '--secrets')
+                               'template',
+                               'set_password',
+                               'token'], '--secrets')
 
 
     def test_mount_only_option(self):
@@ -39,7 +47,11 @@ class OpParserTest(unittest.TestCase):
         self.disabled_options(['environment',
                                'extract_file',
                                'aws_environment',
-                               'template'], '--mount-only')
+                               'template',
+                               'token',
+                               'set_password',
+                               'freeze',
+                               'thaw'], '--mount-only')
 
 
     def test_prefix_option(self):
@@ -47,7 +59,11 @@ class OpParserTest(unittest.TestCase):
         self.disabled_options(['seed',
                                'aws_environment',
                                'template'
-                               'extract_file'], '--prefix')
+                               'extract_file',
+                               'set_password',
+                               'freeze',
+                               'thaw',
+                               'token'], '--prefix')
 
 
     def test_prefix_option(self):
@@ -55,14 +71,22 @@ class OpParserTest(unittest.TestCase):
                               'template'], '--add-prefix')
         self.disabled_options(['seed',
                                'extract_file',
-                               'aws_environment'], '--add-prefix')
+                               'aws_environment',
+                               'freeze',
+                               'thaw',
+                               'set_password',
+                               'token'], '--add-prefix')
 
     def test_suffix_option(self):
         self.enabled_options(['environment',
                               'template'], '--add-suffix')
         self.disabled_options(['seed',
                                'extract_file',
-                               'aws_environment'], '--add-suffix')
+                               'aws_environment',
+                               'freeze',
+                               'thaw',
+                               'set_password',
+                               'token'], '--add-suffix')
 
 
     def test_merge_path_option(self):
@@ -70,7 +94,11 @@ class OpParserTest(unittest.TestCase):
                               'template'], '--merge-path')
         self.disabled_options(['seed',
                                'extract_file',
-                               'aws_environment'], '--merge-path')
+                               'aws_environment',
+                               'freeze',
+                               'thaw',
+                               'set_password',
+                               'token'], '--merge-path')
 
 
     def test_no_merge_path_option(self):
@@ -78,7 +106,11 @@ class OpParserTest(unittest.TestCase):
                               'template'], '--no-merge-path')
         self.disabled_options(['seed',
                                'extract_file',
-                               'aws_environment'], '--no-merge-path')
+                               'aws_environment',
+                               'freeze',
+                               'thaw',
+                               'set_password',
+                               'token'], '--no-merge-path')
 
     def test_verbose_option(self):
         self.enabled_options(['environment',
@@ -92,29 +124,51 @@ class OpParserTest(unittest.TestCase):
                               'seed',
                               'extract_file',
                               'aws_environment',
-                              'template'], '--metadata')
+                              'template',
+                              'freeze',
+                              'thaw',
+                              'set_password',
+                              'token'], '--metadata')
 
     def test_lease_option(self):
         self.enabled_options(['environment',
                               'seed',
                               'extract_file',
                               'aws_environment',
-                              'template'], '--lease')
+                              'template',
+                              'set_password',
+                              'token'], '--lease')
+        self.disabled_options(['freeze', 'thaw'], '--export')
+
 
     def test_export_option(self):
         self.enabled_options(['environment', 'aws_environment'], '--export')
         self.disabled_options(['seed',
                                'extract_file',
-                               'template'], '--export')
+                               'template',
+                               'set_password',
+                               'token',
+                               'freeze',
+                               'thaw'], '--export')
         
     def test_extra_vars_option(self):
-        self.enabled_options(['template', 'seed'], '--extra-vars')
+        self.enabled_options(['template',
+                              'seed',
+                              'freeze',
+                              'thaw'], '--extra-vars')
         self.disabled_options(['environment',
                                'extract_file',
-                               'aws_environment'], '--extra-vars')
+                               'aws_environment',
+                               'set_password',
+                               'token'], '--extra-vars')
 
     def test_extra_vars_file_option(self):
-        self.enabled_options(['template', 'seed'], '--extra-vars-file')
+        self.enabled_options(['template',
+                              'seed',
+                              'freeze',
+                              'thaw'], '--extra-vars-file')
         self.disabled_options(['environment',
                                'extract_file',
-                               'aws_environment'], '--extra-vars-file')
+                               'aws_environment',
+                               'set_password',
+                               'token'], '--extra-vars-file')

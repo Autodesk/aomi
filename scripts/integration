@@ -1,5 +1,11 @@
 #!/usr/bin/env bash
 
+SCRIPTDIR=$( cd ${0%/*} && pwd)
+TESTS="a_smoke environment exec_context seed template cold_storage"
+VAULT_TESTS="aws"
+export VAULT_AWS_PATH="travis/aws/creds/aomi"
+export VAULT_SECRET_PATH="secrets/aomi"
+
 VAULT_VERSION="0.6.1"
 
 set -e
@@ -44,9 +50,60 @@ if [ ! -d "${CIDIR}/.vault" ] ; then
     export PATH
 fi
 
-export CIDIR
-if [ -z "$TEST" ] ; then
-    "${CIDIR}/.bats/bin/bats" "${CIDIR}"/tests/integration/*.bats
-else
-    "${CIDIR}/.bats/bin/bats" "${CIDIR}/tests/integration/${TEST}.bats"
+if [ ! -z "$TRAVIS" ] && [ ! -z "$CI" ] ; then
+    echo "Looking under couch for Vault token"
+    "${SCRIPTDIR}/get-vault-token" || true
 fi
+
+export CIDIR
+
+EXEC_TESTS=""
+for a_test in $TESTS ; do
+    EXEC_TESTS="${EXEC_TESTS} ${CIDIR}/tests/integration/${a_test}.bats"
+done
+CI_TOKEN="${CIDIR}/.aomi-test/vault-token"
+if [ -e "$CI_TOKEN" ] ; then
+    VAULT_TOKEN=$(cat "$CI_TOKEN")
+fi
+if [ -e "${HOME}/.vault-token" ] ; then
+    VAULT_TOKEN=$(cat "${HOME}/.vault-token")
+fi
+
+if [ ! -z "$VAULT_TOKEN" ] && \
+       [ ! -z "$VAULT_ADDR" ] ; then
+    echo "Vault detected..."
+    if VAULT_TOKEN=$VAULT_TOKEN vault read -field=refresh_interval "$VAULT_SECRET_PATH" &> /dev/null ; then
+        echo "Vault server seems legit..."
+        if [ ! -d "${CIDIR}/.aomi-test" ] ; then
+            mkdir -p "${CIDIR}/.aomi-test"
+        fi
+        echo "$VAULT_TOKEN" > "$CI_TOKEN"
+        for a_test in $VAULT_TESTS ; do
+            EXEC_TESTS="${EXEC_TESTS} ${CIDIR}/tests/integration/${a_test}.bats"
+        done
+        echo "$VAULT_ADDR" > "${CIDIR}/.aomi-test/vault-addr"
+    fi
+fi
+
+if [ ! -e "${CIDIR}/.aomi-test/vault-token" ] ; then
+    echo "WARNING: Skipping AWS tests!"
+fi
+
+cmd="${CIDIR}/.bats/bin/bats"
+if [ -z "$TEST" ] ; then
+    cmd="${cmd} ${EXEC_TESTS}"
+else
+    cmd="${cmd} ${CIDIR}/tests/integration/${TEST}.bats"
+fi
+RC=0
+if ! $cmd ; then
+    RC=1
+fi
+
+if [ ! -z "$TRAVIS" ] && \
+       [ ! -z "$CI" ] && \
+       [ -e "${CIDIR}/.aomi-test/vault-token" ] ; then
+    echo "Tearing up our Vault token"
+    VAULT_TOKEN=$VAULT_TOKEN vault write -f auth/token/revoke-self &> /dev/null
+fi
+exit "$RC"

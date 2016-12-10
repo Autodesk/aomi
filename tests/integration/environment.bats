@@ -17,19 +17,16 @@ teardown() {
 
 @test "can render a base secret" {
     run aomi environment foo/bar --no-merge-path
-    echo $output
     scan_lines "SECRET=\"${FILE_SECRET1}\"" "${lines[@]}"
 }
 
 @test "can render a base secret with prefix" {
     run aomi environment foo/bar --no-merge-path --add-prefix aaa
-    echo $output
     scan_lines "AAASECRET=\"${FILE_SECRET1}\"" "${lines[@]}"
 }
 
 @test "can render a base secret with suffix" {
     run aomi environment foo/bar --no-merge-path --add-suffix bbb
-    echo $output
     scan_lines "SECRETBBB=\"${FILE_SECRET1}\"" "${lines[@]}"
 }
 
@@ -37,7 +34,6 @@ teardown() {
     run aomi environment foo/bar --no-merge-path \
         --add-prefix aaa \
         --add-suffix bbb
-    echo $output
     scan_lines "AAASECRETBBB=\"${FILE_SECRET1}\"" "${lines[@]}"
 }
 

@@ -26,9 +26,41 @@ function stop_vault() {
         kill "$VAULT_PID"
     else
         echo "vault server went away"
-        kill "$(pgrep vault)"
+        PID=$(pgrep vault || true)
+        if [ ! -z "$PID" ] ; then
+            kill "$(pgrep vault)"
+        fi
     fi
     rm -f "$VAULT_LOG"
+}
+
+function gpg_fixture() {
+    export GNUPGHOME="${FIXTURE_DIR}/.gnupg"
+    mkdir -p "$GNUPGHOME"
+    echo "use-agent
+always-trust
+verbose
+" > "${FIXTURE_DIR}/.gnupg/gpg.conf"
+    echo "pinentry-program /Users/freedmj/src/autodesk-aomi/scripts/pinentry-dummy.sh" > "${FIXTURE_DIR}/.gnupg/gpg-agent.con"
+    chmod -R og-rwx "$GNUPGHOME"    
+    # https://www.gnupg.org/documentation/manuals/gnupg/Unattended-GPG-key-generation.html
+    PASS="${RANDOM}"
+    echo -n "$PASS" > "${FIXTURE_DIR}/pass"
+    export AOMI_PASSPHRASE_FILE="${FIXTURE_DIR}/pass"
+    gpg --gen-key --batch <<< "
+%pubring ${FIXTURE_DIR}/.gnupg/pubring.gpg
+%secring ${FIXTURE_DIR}/.gnupg/secring.gpg
+Key-Type: RSA
+Key-Length: 2048
+Subkey-Type: RSA
+Subkey-Length: 2048
+Name-Real: aomi test
+Expire-Date: 300
+Passphrase: ${PASS}
+%commit
+"
+    GPGID=$(gpg --list-keys 2>/dev/null | grep -e 'pub   2048' | cut -f 2 -d '/' | cut -f 1 -d ' ')
+    [ ! -z "$GPGID" ]
 }
 
 function use_fixture() {
@@ -101,10 +133,88 @@ scan_lines() {
     local STRING="$1"
     shift
     while [ ! -z "$1" ] ; do
-        if [ "$1" == "$STRING" ] ; then
+        if grep -qE "$STRING" <<< "$1" ; then
             return 0
         fi
         shift
     done
     return 1
+}
+
+function aws_creds() {
+    [ -e "${CIDIR}/.aomi-test/vault-addr" ]
+    [ -e "${CIDIR}/.aomi-test/vault-token" ]
+    local TMP="/tmp/aomi-int-aws${RANDOM}"
+    VAULT_TOKEN="$(cat "${CIDIR}/.aomi-test/vault-token")" \
+               VAULT_ADDR=$(cat "${CIDIR}/.aomi-test/vault-addr") \
+               aomi aws_environment \
+               "$VAULT_AWS_PATH" \
+               --export --lease 300s 1> "$TMP" 2> /dev/null || true
+    if [ $? != 0 ] || [ "$(cat $TMP)" == "" ] ; then
+        return 1
+    fi
+    source "$TMP"
+    rm "$TMP"
+    if [ -z "$AWS_ACCESS_KEY_ID" ] || [ -z "$AWS_SECRET_ACCESS_KEY" ] ; then
+        return 1
+    fi
+    export AWS_DEFAULT_REGION="us-east-1"
+    AWS_FILE="${FIXTURE_DIR}/.secrets/aws.yml"
+    echo "access_key_id: ${AWS_ACCESS_KEY_ID}" > "$AWS_FILE"
+    echo "secret_access_key: ${AWS_SECRET_ACCESS_KEY}" >> "$AWS_FILE"
+    chmod og-rwx "$AWS_FILE"
+}
+
+function vault_cfg() {
+    local key="$1"
+    [ -e "${CIDIR}/.aomi-test/vault-addr" ]
+    [ -e "${CIDIR}/.aomi-test/vault-token" ]
+    VAULT_TOKEN=$(cat "${CIDIR}/.aomi-test/vault-token") VAULT_ADDR=$(cat "${CIDIR}/.aomi-test/vault-addr") vault read -field "$key" "$VAULT_SECRET_PATH"
+}
+
+function check_aws {
+    TMP="/tmp/aomi-int${RANDOM}"
+    ROLE="$1"
+    OK=""
+    START="$(date +%s)"
+    # first bit of eventual consistency is on the aws creds created
+    # by the upstream vault server
+    while [ -z "$OK" ] ; do
+        aomi aws_environment "aws/creds/${ROLE}" --lease 60s 1> "$TMP" 2> /dev/null || true
+        if [ ! -z "$(cat $TMP)" ] ; then
+            OK="ok"
+        else
+            NOW="$(date +%s)"
+            if [ $((NOW - START)) -gt "$AWS_TIMEOUT" ] ; then
+                echo "Timed out waiting for initial AWS creds"
+                return 1
+            else
+                sleep 5
+            fi
+        fi
+    done
+    source "$TMP"
+    if [ -z "$AWS_ACCESS_KEY_ID" ] || [ -z "$AWS_SECRET_ACCESS_KEY" ] ; then
+        echo "AWS keys did not get set"
+        return 1
+    fi
+    rm "$TMP"
+    OK=""
+    START="$(date +%s)"
+    sleep 5
+    # and now this eventual consistency is on the test vault
+    # aws iam credentials
+    while [ -z "$OK" ] ; do
+        if ! "${CIDIR}/.ci-env/bin/aws" ec2 describe-availability-zones &> /dev/null ; then
+            NOW="$(date +%s)"
+            if [ $((NOW - START)) -gt "$AWS_TIMEOUT" ] ; then
+                echo "Timed out waiting for test AWS creds"                
+                return 1
+            else
+                sleep 5
+            fi
+        else
+            OK="ok"
+        fi
+    done
 }

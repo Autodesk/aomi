@@ -1,0 +1,70 @@
+#!/usr/bin/env python
+
+import sys
+import os
+import json
+import re
+import requests
+from lxml import html
+
+ACADEMIC_WORDS_URL = "http://www.newgeneralservicelist.org/s/NAWL_Headwords.txt"
+ANIMAL_NAMES_URL = "https://en.wikipedia.org/w/api.php?format=json&" \
+                   "action=parse&page=List_of_animal_names"
+
+def problems(msg):
+    """Terrible error handling I know"""
+    print("Problem: %s" % msg)
+    exit(1)
+
+
+def data_directory():
+    """We need the actual aomi data directory"""
+    script_dir = os.path.abspath(os.path.dirname(sys.argv[0]))
+    project_dir = os.path.dirname(script_dir)
+    return "%s/aomi/words" % project_dir
+
+
+def save_academic_words():
+    """Downloads and saves the list of words"""
+    response = requests.get(ACADEMIC_WORDS_URL, allow_redirects=True)
+    if response.status_code != 200:
+        problems("Unable to fetch list of academic words")
+
+    filename = "%s/%s" % (data_directory(), "academic.txt")
+    handle = open(filename, 'w')
+    handle.write(response.content)
+    handle.close()
+
+
+def save_animal_names():
+    """Downloads and saves a list of animal names"""
+    response = requests.get(ANIMAL_NAMES_URL)
+    if response.status_code != 200:
+        problems('Unable to fetch animal names')
+
+    obj = json.loads(response.content)
+    tree = html.fromstring(obj['parse']['text']['*'])
+    heading = tree.xpath('//span[@id="Terms_by_species_or_taxon"]')[0]
+    table = heading.getparent().getnext()
+    names = list(set([x.text.lower() for x in table.xpath('//td/a')]))
+    filename = "%s/%s" % (data_directory(), "animals.txt")
+    handle = open(filename, 'w')
+    for name in names:
+        # this handles the fact that we sometimes get unicode
+        # or punctuation from these names
+        # wikipedia is after all user created content eh
+        if re.search('^[a-z]+$', name):
+            handle.write("%s\n" % name)
+
+    handle.close()
+
+
+def main():
+    """Dat entrypoint"""
+    save_academic_words()
+    save_animal_names()
+    exit(0)
+
+
+if __name__ == '__main__':
+    main()

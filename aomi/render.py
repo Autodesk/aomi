@@ -1,7 +1,8 @@
 """ Secret rendering """
+from __future__ import print_function
 import os
 from pkg_resources import resource_filename
-from aomi.helpers import problems, warning, cli_hash, merge_dicts
+from aomi.helpers import problems, warning, cli_hash, merge_dicts, path_pieces
 from aomi.template import render, load_var_files
 
 
@@ -100,9 +101,7 @@ def template(client, src, dest, paths, opt):
 
 def raw_file(client, src, dest, opt):
     """Write the contents of a vault path/key to a file"""
-    path_bits = src.split('/')
-    path = '/'.join(path_bits[0:len(path_bits) - 1])
-    key = path_bits[len(path_bits) - 1]
+    path, key = path_pieces(src)
     resp = client.read(path)
     if not resp:
         problems("Unable to retrieve %s" % path, client)
