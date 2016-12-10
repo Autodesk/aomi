@@ -115,7 +115,7 @@ def freeze(dest_dir, opt):
     zip_filename = freeze_archive(tmp_dir, dest_prefix)
     ice_file = freeze_encrypt(dest_dir, zip_filename, config, opt)
     shutil.rmtree(tmp_dir)
-    print("Generated file is %s" % ice_file)
+    log("Generated file is %s" % ice_file, opt)
 
 
 def thaw_decrypt(src_file, tmp_dir, opt):

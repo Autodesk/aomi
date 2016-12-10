@@ -8,6 +8,34 @@ import requests
 from aomi.helpers import problems, flatten, log
 
 
+def passphrase_file():
+    """Read passphrase from a file. This should only ever be
+    used by our built in integration tests."""
+    if 'AOMI_PASSPHRASE_FILE' in os.environ:
+        return ["--batch", "--passphrase-file",
+                os.environ['AOMI_PASSPHRASE_FILE']]
+    else:
+        return []
+
+
+def gnupg_home():
+    """Returns appropriate arguments if GNUPGHOME is set"""
+    if 'GNUPGHOME' in os.environ:
+        return ["--homedir", os.environ['GNUPGHOME']]
+    else:
+        return []
+
+
+def gnupg_bin():
+    """Return the path to the gpg binary"""
+    cmd = ["which", "gpg"]
+    try:
+        output = subprocess.check_output(cmd)
+        return output.strip()
+    except subprocess.CalledProcessError:
+        problems("gpg must be installed")
+
+
 def massage_key(key):
     """Massage the keybase return for only what we care about"""
     return {
@@ -38,7 +66,7 @@ def has_gpg_key(fingerprint):
         fingerprint = fingerprint[-8:]
 
     fingerprint = fingerprint.upper()
-    cmd = flatten(["/usr/local/bin/gpg", gnupg_home(), "--list-public-keys"])
+    cmd = list(flatten([gnupg_bin(), gnupg_home(), "--list-public-keys"]))
     keys = subprocess.check_output(cmd)
     lines = keys.split('\n')
     pub_keys = [line for line in lines if line.startswith('pub')]
@@ -51,34 +79,16 @@ def import_gpg_key(key):
     key_handle = os.fdopen(key_fd, 'w')
     key_handle.write(key)
     key_handle.close()
-    cmd = ["/usr/local/bin/gpg", gnupg_home(), "--import", key_filename],
+    cmd = [gnupg_bin(), gnupg_home(), "--import", key_filename],
     output = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
     msg = 'gpg: Total number processed: 1'
     return len([line for line in output.split('\n') if line == msg]) == 1
 
 
-def passphrase_file():
-    """Read passphrase from a file. This should only ever be
-    used by our built in integration tests."""
-    if 'AOMI_PASSPHRASE_FILE' in os.environ:
-        return ["--batch", "--passphrase-file",
-                os.environ['AOMI_PASSPHRASE_FILE']]
-    else:
-        return []
-
-
-def gnupg_home():
-    """Returns appropriate arguments if GNUPGHOME is set"""
-    if 'GNUPGHOME' in os.environ:
-        return ["--homedir", os.environ['GNUPGHOME']]
-    else:
-        return []
-
-
 def encrypt(source, dest, keys, opt):
     """Encrypts a file using the given keys"""
     recipients = [["--recipient", key.encode('ASCII')] for key in keys]
-    cmd = list(flatten(["/usr/local/bin/gpg", "--armor", "--output", dest,
+    cmd = list(flatten([gnupg_bin(), "--armor", "--output", dest,
                         gnupg_home(), passphrase_file(), recipients,
                         "--encrypt", source]))
     try:
@@ -93,7 +103,7 @@ def encrypt(source, dest, keys, opt):
 
 def decrypt(source, dest):
     """Attempts to decrypt a file"""
-    cmd = flatten(["/usr/local/bin/gpg", "--output", dest, "--decrypt",
-                   gnupg_home(), passphrase_file(), source])
+    cmd = list(flatten([gnupg_bin(), "--output", dest, "--decrypt",
+                   gnupg_home(), passphrase_file(), source]))
     subprocess.check_output(cmd, stderr=subprocess.STDOUT)
     return True
