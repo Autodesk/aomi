@@ -15,10 +15,10 @@ test: version
 	./scripts/integration
 
 clean:
-	rm -rf aomi.egg-info dist .aomi-test
+	rm -rf aomi.egg-info dist .aomi-test tests/*.pyc aomi/*.pyc
 
 distclean: clean
-	rm -rf build .ci-env aomi/version .vault .bats
+	rm -rf build .ci-env aomi/version .vault .bats .bats-git
 
 container:
 	./scripts/container
