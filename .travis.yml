@@ -31,6 +31,6 @@ deploy:
 install:
 - 'if [ "$TRAVIS_PULL_REQUEST" = "false" ]; then docker login --email $DOCKER_HUB_EMAIL --username=$DOCKER_HUB_USERNAME --password=$DOCKER_HUB_PASSWORD; fi'
 before_deploy:
-- "ls build/lib/aomi/"
-- "cat build/lib/aomi/version version"
-- "tar -tzvf $(ls -1 dist/aomi-*.tar.gz)"
+- "ls ${TRAVIS_BUILD_DIR}/build/lib/aomi/"
+- "cat ${TRAVIS_BUILD_DIR}/build/lib/aomi/version version"
+- "tar -tzvf $(ls -1 ${TRAVIS_BUILD_DIR}/dist/aomi-*.tar.gz)"
