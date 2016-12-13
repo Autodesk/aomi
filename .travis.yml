@@ -1,6 +1,6 @@
 sudo: false
 language: python
-script: 'if [ "$TRAVIS_PULL_REQUEST" = "false" ]; then make test container ; else make test ; fi'
+script: 'if [ "$TRAVIS_PULL_REQUEST" = "false" ]; then make test package container ; else make test ; fi'
 python:
 - '2.7'
 - '3.5'
