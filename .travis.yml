@@ -5,8 +5,8 @@ script:
 - "make test package"
 - "pwd"
 - "ls -R ${TRAVIS_BUILD_DIR}"
-- "ls ${TRAVIS_BUILD_DIR}/build/lib/aomi/"
-- "cat ${TRAVIS_BUILD_DIR}/build/lib/aomi/version version"
+- "ls ${TRAVIS_BUILD_DIR}/build/lib*/aomi/"
+- "cat ${TRAVIS_BUILD_DIR}/build/lib*/aomi/version version"
 - "tar -tzvf $(ls -1 ${TRAVIS_BUILD_DIR}/dist/aomi-*.tar.gz)"
 python:
 - '2.7'
@@ -40,6 +40,6 @@ install:
 before_deploy:
 - "pwd"
 - "ls -R ${TRAVIS_BUILD_DIR}"
-- "ls ${TRAVIS_BUILD_DIR}/build/lib/aomi/"
-- "cat ${TRAVIS_BUILD_DIR}/build/lib/aomi/version version"
+- "ls ${TRAVIS_BUILD_DIR}/build/lib*/aomi/"
+- "cat ${TRAVIS_BUILD_DIR}/build/lib*/aomi/version version"
 - "tar -tzvf $(ls -1 ${TRAVIS_BUILD_DIR}/dist/aomi-*.tar.gz)"
