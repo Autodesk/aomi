@@ -182,3 +182,6 @@ def seed(vault_client, opt):
 
     for mount in config.get('mounts', []):
         aomi.seed.mount_path(vault_client, mount, opt)
+
+    for duo in config.get('duo', []):
+        aomi.seed.duo(vault_client, duo, opt)

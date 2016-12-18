@@ -50,11 +50,16 @@ def actually_mount(client, backend, mount):
             raise exception
 
 
-def ensure_auth(client, auth):
-    """Will ensure a particular auth endpoint is mounted"""
+def is_auth_backend(client, backend):
+    """Checks to see if an auth backend exists yet"""
     backends = client.list_auth_backends().keys()
     backends = [x.rstrip('/') for x in backends]
-    if auth not in backends:
+    return backend in backends
+
+
+def ensure_auth(client, auth):
+    """Will ensure a particular auth endpoint is mounted"""
+    if not is_auth_backend(client, auth):
         client.enable_auth_backend(auth)
 
 
@@ -597,3 +602,58 @@ def mount_path(client, obj, opt):
         if mounted:
             unmount(client, 'generic', path)
             log("Mounted %s" % (path), opt)
+
+
+def duo_enable(client, backend, opt):
+    """Set the MFA type to DUO"""
+    obj = {
+        'type': 'duo'
+    }
+    path = "auth/%s/mfa_config" % backend
+    existing = client.read(path)
+    if existing \
+       and 'data' in existing \
+       and 'type' in existing['data'] \
+       and existing['data']['type'] == 'duo':
+        log("Auth backend %s already configured for DUO" % backend, opt)
+    else:
+        client.write(path, **obj)
+        log("Auth backend %s now configured for DUO" % backend, opt)
+
+
+def duo_access(client, obj, opt):
+    """Sets the DUO access configuration"""
+    creds_file_name = hard_path(obj['creds'], opt.secrets)
+    aomi.validation.secret_file(creds_file_name)
+    creds = yaml.load(open(creds_file_name).read())
+    duo_obj = {
+        'ikey': creds['key'],
+        'skey': creds['secret'],
+        'host': obj['host']
+    }
+    path = "auth/%s/duo/access" % obj['backend']
+    client.write(path, **duo_obj)
+
+
+def duo(client, obj, opt):
+    """Manage DUO MFA on Auth endpoints"""
+    aomi.validation.duo_obj(obj)
+    backend = obj['backend']
+    if not aomi.validation.tag_check(obj,
+                                     "duo/%s" % backend,
+                                     opt):
+        return
+
+    if obj.get('state', 'present') == 'present':
+        if not is_auth_backend(client, backend):
+            problems("Backend %s not found when configuring duo" % backend)
+
+        duo_enable(client, backend, opt)
+        duo_access(client, obj, opt)
+    else:
+        if not is_auth_backend(client, backend):
+            return
+
+        client.write("auth/%s/mfa_config" % backend, **{})
+        client.write("auth/%s/duo/access" % backend, **{})
+        log("Removed DUO MFA support from %s" % backend, opt)
