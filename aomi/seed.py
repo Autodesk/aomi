@@ -521,6 +521,25 @@ def approle(client, approle_obj, opt):
     client.create_role(name, **role_obj)
 
 
+def generated_key(key, opt):
+    """Create the proper generated key value"""
+    key_name = key['name']
+    if key['method'] == 'uuid':
+        log("Setting %s to a uuid" % key_name, opt)
+        return str(uuid4())
+    elif key['method'] == 'words':
+        log("Setting %s to random words" % key_name, opt)
+        return random_word()
+    elif key['method'] == 'static':
+        if 'value' not in key.keys():
+            problems("Missing static value")
+            log("Setting %s to a static value" % key_name, opt)
+            return key['value']
+    else:
+        problems("Unexpected generated secret method %s"
+                 % key['method'])
+
+
 def generated(client, obj, opt):
     """Will provision some random strings into vault, as requested"""
     aomi.validation.generated_obj(obj)
@@ -548,20 +567,7 @@ def generated(client, obj, opt):
                 log("Not overwriting %s/%s" % (vault_path, key_name), opt)
                 continue
 
-            if key['method'] == 'uuid':
-                log("Setting %s to a uuid" % key_name, opt)
-                secret_obj[key_name] = str(uuid4())
-            elif key['method'] == 'words':
-                log("Setting %s to random words" % key_name, opt)
-                secret_obj[key_name] = random_word()
-            elif key['method'] == 'static':
-                if not 'value' in key.keys():
-                    problems("Must specify a value for static generated secrets")
-                log("Setting %s to a static value" % key_name, opt)
-                secret_obj[key_name] = key['value']
-            else:
-                problems("Unexpected generated secret method %s"
-                         % key['method'])
+            secret_obj[key_name] = generated_key(key, opt)
 
         genseclen = len(secret_obj.keys())
         if genseclen > 0:
