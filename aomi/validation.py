@@ -209,3 +209,8 @@ def sanitize_mount(mount):
         sanitized_mount = sanitized_mount[:-1]
 
     return sanitized_mount
+
+
+def mount_obj(mount):
+    """validates a mountpoint object"""
+    check_obj(['path'], 'mount object', mount)

@@ -179,3 +179,6 @@ def seed(vault_client, opt):
 
     for approle in config.get('approles', []):
         aomi.seed.approle(vault_client, approle, opt)
+
+    for mount in config.get('mounts', []):
+        aomi.seed.mount_path(vault_client, mount, opt)

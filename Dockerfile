@@ -1,4 +1,4 @@
-FROM python:2.7
+FROM python:2.7-alpine
 
 MAINTAINER 'Jonathan Freedman <jonathan.freedman@autodesk.com>'
 ARG VERSION=0.0.0

@@ -6,8 +6,7 @@ load helper
 setup() {
     start_vault
     use_fixture minimal
-    run aomi seed
-    [ "$status" -eq 0 ]
+    aomi_seed
 }
 
 teardown() {

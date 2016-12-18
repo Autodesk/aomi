@@ -129,6 +129,24 @@ function check_policy() {
     fi
 }
 
+function aomi_seed() {
+    run aomi seed --verbose "$@"
+    echo "$output"
+    [ "$status" -eq 0 ]
+}
+
+function check_mount() {
+    local rc=1
+    if [ "$1" == "true" ] ; then
+        rc=0
+    fi
+    run vault mounts
+    [ "$status" == "0" ]
+    if [ "$rc" == "0" ] ; then
+        scan_lines "^${2}.+$" "${lines[@]}"
+    fi
+}
+
 scan_lines() {
     local STRING="$1"
     shift

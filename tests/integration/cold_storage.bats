@@ -18,8 +18,7 @@ teardown() {
 
 @test "can freeze and thaw" {
     gpg --list-keys
-    run aomi seed --extra-vars pgp_key="$GPGID" --verbose
-    [ "$status" -eq 0 ]
+    aomi_seed --extra-vars pgp_key="$GPGID"
     run aomi freeze --extra-vars pgp_key="$GPGID" --verbose "${BATS_TMPDIR}/cold"
     echo "$output"
     [ "$status" -eq 0 ]

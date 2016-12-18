@@ -18,8 +18,7 @@ teardown() {
     [ -e "${FIXTURE_DIR}/.secrets/aws.yml" ]
     ACCOUNT=$(vault_cfg aws_account)
     [ ! -z "$ACCOUNT" ]
-    run aomi seed --verbose --extra-vars "aws_account=${ACCOUNT}"
-    [ "$status" -eq 0 ]
+    aomi_seed --extra-vars "aws_account=${ACCOUNT}"
     run vault mounts
     scan_lines "aws/.+aws.+" "${lines[@]}"
     check_aws "inline"
