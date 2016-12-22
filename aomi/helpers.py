@@ -7,7 +7,7 @@ import os
 import random
 from getpass import getpass
 from pkg_resources import resource_string, resource_filename
-
+from future.utils import iteritems
 
 def my_version():
     """Return the version, checking both packaged and development locations"""
@@ -92,14 +92,14 @@ def cli_hash(list_of_kv):
 def merge_dicts(dict_a, dict_b):
     """Deep merge of two dicts"""
     obj = {}
-    for key, value in dict_a.iteritems():
+    for key, value in iteritems(dict_a):
         if key in dict_b:
             if isinstance(dict_b[key], dict):
                 obj[key] = merge_dicts(value, dict_b.pop(key))
         else:
             obj[key] = value
 
-    for key, value in dict_b.iteritems():
+    for key, value in iteritems(dict_b):
         obj[key] = value
 
     return obj
