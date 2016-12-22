@@ -9,6 +9,7 @@ from getpass import getpass
 from pkg_resources import resource_string, resource_filename
 from future.utils import iteritems
 
+
 def my_version():
     """Return the version, checking both packaged and development locations"""
     if os.path.exists(resource_filename(__name__, 'version')):
