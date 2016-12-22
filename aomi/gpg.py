@@ -93,7 +93,7 @@ def encrypt(source, dest, keys, opt):
                         "--encrypt", source]))
     try:
         subprocess.check_output(cmd, stderr=subprocess.STDOUT)
-    except subprocess.CalledProcessError, exception:
+    except subprocess.CalledProcessError as exception:
         log("GPG Command %s" % ' '.join(exception.cmd), opt)
         log("GPG Output %s" % exception.output, opt)
         problems("Unable to GPG")
@@ -107,7 +107,7 @@ def decrypt(source, dest, opt):
                         gnupg_home(), passphrase_file(), source]))
     try:
         subprocess.check_output(cmd, stderr=subprocess.STDOUT)
-    except subprocess.CalledProcessError, exception:
+    except subprocess.CalledProcessError as exception:
         log("GPG Command %s" % ' '.join(exception.cmd), opt)
         log("GPG Output %s" % exception.output, opt)
         problems("Unable to GPG")
