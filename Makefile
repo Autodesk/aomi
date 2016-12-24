@@ -6,9 +6,11 @@ version:
 package: version
 	python setup.py sdist
 
-test: version
-	test -d .ci-env || ( mkdir .ci-env && virtualenv .ci-env )
+testenv:
+	test -z $(TRAVIS) && (test -d .ci-env || ( mkdir .ci-env && virtualenv .ci-env ))
 	.ci-env/bin/pip install -r requirements.txt -r requirements-dev.txt
+
+test: version testenv
 	.ci-env/bin/pep8 aomi
 	.ci-env/bin/pylint --rcfile=/dev/null aomi
 	.ci-env/bin/nose2
