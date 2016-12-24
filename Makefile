@@ -8,9 +8,12 @@ package: version
 
 testenv:
 	test -z $(TRAVIS) && (test -d .ci-env || ( mkdir .ci-env && virtualenv .ci-env )) || true
-	.ci-env/bin/pip install -r requirements.txt -r requirements-dev.txt
+	test -z $(TRAVIS) && \
+		.ci-env/bin/pip install -r requirements.txt -r requirements-dev.txt || \
+		pip instll -r requirements.txt -r requirements-dev.txt
 
 test: version testenv
+	./scripts/ci
 	.ci-env/bin/pep8 aomi
 	.ci-env/bin/pylint --rcfile=/dev/null aomi
 	.ci-env/bin/nose2
