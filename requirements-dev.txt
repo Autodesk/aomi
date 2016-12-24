@@ -5,3 +5,5 @@ shyaml
 ipdb
 awscli
 pylint
+future
+
