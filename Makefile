@@ -7,7 +7,7 @@ package: version
 	python setup.py sdist
 
 testenv:
-	test -z $(TRAVIS) && (test -d .ci-env || ( mkdir .ci-env && virtualenv .ci-env ))
+	test -z $(TRAVIS) && (test -d .ci-env || ( mkdir .ci-env && virtualenv .ci-env )) || true
 	.ci-env/bin/pip install -r requirements.txt -r requirements-dev.txt
 
 test: version testenv
