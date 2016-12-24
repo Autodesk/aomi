@@ -14,9 +14,6 @@ testenv:
 
 test: version testenv
 	./scripts/ci
-	.ci-env/bin/pep8 aomi
-	.ci-env/bin/pylint --rcfile=/dev/null aomi
-	.ci-env/bin/nose2
 	./scripts/integration
 
 clean:
