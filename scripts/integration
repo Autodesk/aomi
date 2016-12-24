@@ -21,7 +21,9 @@ SCRIPT_DIR=$(cd ${0%/*} && pwd)
 CIDIR=${SCRIPT_DIR%/*}
 BATSGIT="${CIDIR}/.bats-git"
 BATSBIN="${CIDIR}/.bats"
-. "${CIDIR}/.ci-env/bin/activate"
+if [ -z "$TRAVIS" ] ; then
+    . "${CIDIR}/.ci-env/bin/activate"
+fi
 OWD="$PWD"
 cd "$CIDIR"
 python setup.py install
