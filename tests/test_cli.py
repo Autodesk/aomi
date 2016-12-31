@@ -66,7 +66,7 @@ class OpParserTest(unittest.TestCase):
                                'token'], '--prefix')
 
 
-    def test_prefix_option(self):
+    def test_add_prefix_option(self):
         self.enabled_options(['environment',
                               'template'], '--add-prefix')
         self.disabled_options(['seed',
