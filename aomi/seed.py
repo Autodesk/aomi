@@ -29,7 +29,7 @@ def is_mounted(mount, backends, style):
     return False
 
 
-def ensure_mounted(client, backend, mount, opt):
+def maybe_mount(client, backend, mount, opt):
     """Will ensure a mountpoint exists, or bail with a polite error"""
     backends = client.list_secret_backends()
     if not is_mounted(mount, backends, backend):
@@ -88,7 +88,7 @@ def var_file(client, secret, opt):
     if not validate_entry(secret, path, opt):
         return
 
-    ensure_mounted(client, 'generic', my_mount, opt)
+    maybe_mount(client, 'generic', my_mount, opt)
 
     if opt.mount_only:
         log("Only mounting %s" % my_mount, opt)
@@ -143,7 +143,7 @@ def aws(client, secret, opt):
         log("Unmounted AWS %s" % aws_path, opt)
         return
     else:
-        ensure_mounted(client, 'aws', my_mount, opt)
+        maybe_mount(client, 'aws', my_mount, opt)
 
     if opt.mount_only:
         log("Only mounting %s" % my_mount, opt)
@@ -363,7 +363,7 @@ def files(client, secret, opt):
     if not validate_entry(secret, vault_path, opt):
         return
 
-    ensure_mounted(client, 'generic', my_mount, opt)
+    maybe_mount(client, 'generic', my_mount, opt)
 
     if opt.mount_only:
         log("Only mounting %s" % my_mount, opt)
@@ -553,7 +553,7 @@ def generated(client, obj, opt):
     if not aomi.validation.tag_check(obj, vault_path, opt):
         return
 
-    ensure_mounted(client, 'generic', my_mount, opt)
+    maybe_mount(client, 'generic', my_mount, opt)
 
     if opt.mount_only:
         log("Only mounting %s" % my_mount, opt)
