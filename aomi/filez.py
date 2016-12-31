@@ -75,6 +75,10 @@ def freeze_files(config, tmp_dir, opt):
                 sfile = a_secret['source']
                 freeze_secret(sfile, sfile, 'file', tmp_dir, opt)
 
+    for duo in config.get('duo', []):
+        d_file = duo['creds']
+        freeze_secret(d_file, d_file, 'duo', tmp_dir, opt)
+
 
 def freeze_archive(tmp_dir, dest_prefix):
     """Generates a ZIP file of secrets"""
@@ -169,30 +173,48 @@ def thaw(src_file, opt):
 
     for secret in config.get('secrets', []):
         if 'var_file' in secret:
-            dest_file = "%s/%s" % (opt.secrets, secret['var_file'])
-            var_file = os.path.basename(dest_file)
-            src_file = "%s/%s" % (tmp_dir, var_file)
-            if not os.path.exists(src_file):
-                problems("Var file %s missing" % var_file)
-
-            shutil.copyfile(src_file, dest_file)
-            log("Thawed var_file %s" % var_file, opt)
+            thaw_var_file(secret, tmp_dir, opt)
         elif 'aws_file' in secret:
-            dest_file = "%s/%s" % (opt.secrets, secret['aws_file'])
-            aws_file = os.path.basename(dest_file)
-            src_file = "%s/%s" % (tmp_dir, aws_file)
-            if not os.path.exists(src_file):
-                problems("AWS file %s missing" % var_file)
-
-            shutil.copyfile(src_file, dest_file)
-            log("Thawed aws_file %s" % aws_file, opt)
+            thaw_aws_file(secret, tmp_dir, opt)
         elif 'files' in secret:
-            for a_secret in secret['files']:
-                dest_file = "%s/%s" % (opt.secrets, a_secret['source'])
-                filename = os.path.basename(dest_file)
-                src_file = "%s/%s" % (tmp_dir, filename)
-                if not os.path.exists(src_file):
-                    problems("File %s missing" % filename)
+            thaw_files(secret, tmp_dir, opt)
 
-                shutil.copyfile(src_file, dest_file)
-                log("Thawed file %s" % filename, opt)
+    for duo in config.get('duo', []):
+        thaw_secret(duo['creds'], tmp_dir, 'DUO', opt)
+
+
+def thaw_var_file(secret, tmp_dir, opt):
+    """Thaw the contents of a var file"""
+    dest_file = "%s/%s" % (opt.secrets, secret['var_file'])
+    var_file = os.path.basename(dest_file)
+    src_file = "%s/%s" % (tmp_dir, var_file)
+    if not os.path.exists(src_file):
+        problems("Var file %s missing" % var_file)
+
+    shutil.copyfile(src_file, dest_file)
+    log("Thawed var_file %s" % var_file, opt)
+
+
+def thaw_aws_file(secret, tmp_dir, opt):
+    """Thaw the contents of an AWS file"""
+    dest_file = "%s/%s" % (opt.secrets, secret['aws_file'])
+    aws_file = os.path.basename(dest_file)
+    src_file = "%s/%s" % (tmp_dir, aws_file)
+    if not os.path.exists(src_file):
+        problems("AWS file %s missing" % aws_file)
+
+    shutil.copyfile(src_file, dest_file)
+    log("Thawed aws_file %s" % aws_file, opt)
+
+
+def thaw_files(secret, tmp_dir, opt):
+    """Thaw some files"""
+    for a_secret in secret['files']:
+        dest_file = "%s/%s" % (opt.secrets, a_secret['source'])
+        filename = os.path.basename(dest_file)
+        src_file = "%s/%s" % (tmp_dir, filename)
+        if not os.path.exists(src_file):
+            problems("File %s missing" % filename)
+
+        shutil.copyfile(src_file, dest_file)
+        log("Thawed file %s" % filename, opt)

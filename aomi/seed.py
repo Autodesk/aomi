@@ -11,6 +11,13 @@ from aomi.validation import sanitize_mount
 from aomi.template import render, load_var_files
 
 
+def unmount(client, backend, path):
+    """Unmount a given mountpoint"""
+    backends = client.list_secret_backends()
+    if is_mounted(path, backends, backend):
+        client.disable_secret_backend(path)
+
+
 def is_mounted(mount, backends, style):
     """Determine whether a backend of a certain type is mounted"""
     for mount_name, values in backends.items():
@@ -22,31 +29,42 @@ def is_mounted(mount, backends, style):
     return False
 
 
-def ensure_mounted(client, backend, mount):
+def maybe_mount(client, backend, mount, opt):
     """Will ensure a mountpoint exists, or bail with a polite error"""
     backends = client.list_secret_backends()
     if not is_mounted(mount, backends, backend):
-        try:
-            client.enable_secret_backend(backend, mount_point=mount)
-        except hvac.exceptions.InvalidRequest as exception:
-            match = re.match('existing mount at (?P<path>.+)', str(exception))
-            if match:
-                problems("%s has a mountpoint conflict with %s" %
-                         (mount, match.group('path')))
-            else:
-                raise exception
+        log("Specifying a inline mountpoint is deprecated", opt)
+        actually_mount(client, backend, mount)
+
+
+def actually_mount(client, backend, mount):
+    """Actually mount something in Vault"""
+    try:
+        client.enable_secret_backend(backend, mount_point=mount)
+    except hvac.exceptions.InvalidRequest as exception:
+        match = re.match('existing mount at (?P<path>.+)', str(exception))
+        if match:
+            problems("%s has a mountpoint conflict with %s" %
+                     (mount, match.group('path')))
+        else:
+            raise exception
+
+
+def is_auth_backend(client, backend):
+    """Checks to see if an auth backend exists yet"""
+    backends = client.list_auth_backends().keys()
+    backends = [x.rstrip('/') for x in backends]
+    return backend in backends
 
 
 def ensure_auth(client, auth):
     """Will ensure a particular auth endpoint is mounted"""
-    backends = client.list_auth_backends().keys()
-    backends = [x.rstrip('/') for x in backends]
-    if auth not in backends:
+    if not is_auth_backend(client, auth):
         client.enable_auth_backend(auth)
 
 
 def validate_entry(obj, path, opt):
-    """Determins whether or not to interpret this particular
+    """Determines whether or not to interpret this particular
     aomi construct based on combination of tags and what
     is passed via the CLI"""
     if not aomi.validation.tag_check(obj, path, opt):
@@ -70,17 +88,21 @@ def var_file(client, secret, opt):
     if not validate_entry(secret, path, opt):
         return
 
-    ensure_mounted(client, 'generic', my_mount)
+    maybe_mount(client, 'generic', my_mount, opt)
 
     if opt.mount_only:
         log("Only mounting %s" % my_mount, opt)
         return
 
-    client.write(path, **varz)
-    log('wrote var_file %s into %s/%s' % (
-        var_file_name,
-        my_mount,
-        secret['path']), opt)
+    if secret.get('state', 'present') == 'present':
+        client.write(path, **varz)
+        log('wrote var_file %s into %s' % (
+            var_file_name,
+            path), opt)
+    else:
+        client.delete(path)
+        log('deleted var_file %s from %s' % (
+            var_file_name, path), opt)
 
 
 def aws_region(secret, aws_obj):
@@ -116,7 +138,12 @@ def aws(client, secret, opt):
     if not validate_entry(secret, aws_path, opt):
         return
 
-    ensure_mounted(client, 'aws', my_mount)
+    if secret.get('state', 'mount') == 'unmount':
+        unmount(client, 'aws', my_mount)
+        log("Unmounted AWS %s" % aws_path, opt)
+        return
+    else:
+        maybe_mount(client, 'aws', my_mount, opt)
 
     if opt.mount_only:
         log("Only mounting %s" % my_mount, opt)
@@ -140,6 +167,18 @@ def aws(client, secret, opt):
         aws_file_path,
         aws_path), opt)
 
+    ttl_obj, lease_msg = grok_ttl(secret, aws_obj)
+    if ttl_obj:
+        client.write("%s/config/lease" % (secret['mount']), **ttl_obj)
+        log("Updated lease for %s %s" % (secret['mount'], lease_msg), opt)
+
+    roles = aws_roles(secret, aws_obj)
+
+    seed_aws_roles(client, secret['mount'], roles, opt)
+
+
+def grok_ttl(secret, aws_obj):
+    """Parses the TTL information, keeping in mind old format"""
     ttl_obj = {}
     lease_msg = ''
     if 'lease' in secret:
@@ -171,13 +210,7 @@ def aws(client, secret, opt):
     if 'lease_max' in ttl_obj:
         lease_msg = "%s lease_max:%s" % (lease_msg, ttl_obj['lease_max'])
 
-    if ttl_obj:
-        client.write("%s/config/lease" % (secret['mount']), **ttl_obj)
-        log("Updated lease for %s %s" % (secret['mount'], lease_msg), opt)
-
-    roles = aws_roles(secret, aws_obj)
-
-    seed_aws_roles(client, secret['mount'], roles, opt)
+    return ttl_obj, lease_msg
 
 
 def seed_aws_roles(client, mount, roles, opt):
@@ -330,25 +363,32 @@ def files(client, secret, opt):
     if not validate_entry(secret, vault_path, opt):
         return
 
-    ensure_mounted(client, 'generic', my_mount)
+    maybe_mount(client, 'generic', my_mount, opt)
+
     if opt.mount_only:
         log("Only mounting %s" % my_mount, opt)
         return
 
-    for sfile in secret.get('files', []):
-        if 'source' not in sfile or 'name' not in sfile:
-            problems("Invalid file specification %s" % sfile)
+    if secret.get('state', 'present') == 'present':
+        for sfile in secret.get('files', []):
+            if 'source' not in sfile or 'name' not in sfile:
+                problems("Invalid file specification %s" % sfile)
 
-        filename = hard_path(sfile['source'], opt.secrets)
-        aomi.validation.secret_file(filename)
-        data = open(filename, 'r').read()
-        obj[sfile['name']] = data
-        log('writing file %s into %s/%s' % (
-            filename,
-            vault_path,
-            sfile['name']), opt)
+            filename = hard_path(sfile['source'], opt.secrets)
+            aomi.validation.secret_file(filename)
+            data = open(filename, 'r').read()
+            obj[sfile['name']] = data
+            log('writing file %s into %s/%s' % (
+                filename,
+                vault_path,
+                sfile['name']), opt)
 
-    client.write(vault_path, **obj)
+        client.write(vault_path, **obj)
+    else:
+        rmfiles = ','.join([f['source'] for f in secret.get('files', [])])
+        log("Removing files %s from %s" % (
+            rmfiles, vault_path), opt)
+        client.delete(vault_path)
 
 
 def policy_data(file_name, policy_vars, opt):
@@ -444,11 +484,14 @@ def users(client, user_obj, opt):
     ensure_auth(client, 'userpass')
 
     user_path = "auth/userpass/users/%s" % name
-    v_obj = {
-        'password': password,
-        'policies': ','.join(user_obj['policies'])
-    }
-    client.write(user_path, **v_obj)
+    if user_obj.get('state', 'present') == 'present':
+        v_obj = {
+            'password': password,
+            'policies': ','.join(user_obj['policies'])
+        }
+        client.write(user_path, **v_obj)
+    else:
+        client.delete(user_path)
 
 
 def approle(client, approle_obj, opt):
@@ -483,6 +526,25 @@ def approle(client, approle_obj, opt):
     client.create_role(name, **role_obj)
 
 
+def generated_key(key, opt):
+    """Create the proper generated key value"""
+    key_name = key['name']
+    if key['method'] == 'uuid':
+        log("Setting %s to a uuid" % key_name, opt)
+        return str(uuid4())
+    elif key['method'] == 'words':
+        log("Setting %s to random words" % key_name, opt)
+        return random_word()
+    elif key['method'] == 'static':
+        if 'value' not in key.keys():
+            problems("Missing static value")
+            log("Setting %s to a static value" % key_name, opt)
+            return key['value']
+    else:
+        problems("Unexpected generated secret method %s"
+                 % key['method'])
+
+
 def generated(client, obj, opt):
     """Will provision some random strings into vault, as requested"""
     aomi.validation.generated_obj(obj)
@@ -490,7 +552,9 @@ def generated(client, obj, opt):
     vault_path = "%s/%s" % (my_mount, obj['path'])
     if not aomi.validation.tag_check(obj, vault_path, opt):
         return
-    ensure_mounted(client, 'generic', my_mount)
+
+    maybe_mount(client, 'generic', my_mount, opt)
+
     if opt.mount_only:
         log("Only mounting %s" % my_mount, opt)
         return
@@ -500,25 +564,96 @@ def generated(client, obj, opt):
     if resp:
         existing = resp['data']
 
-    secret_obj = {}
-    for key in obj['keys']:
-        key_name = key['name']
-        if key_name in existing and not key.get('overwrite'):
-            log("Not overwriting %s/%s" % (vault_path, key_name), opt)
-            continue
+    if obj.get('state', 'present') == 'present':
+        secret_obj = {}
+        for key in obj['keys']:
+            key_name = key['name']
+            if key_name in existing and not key.get('overwrite'):
+                log("Not overwriting %s/%s" % (vault_path, key_name), opt)
+                continue
 
-        if key['method'] == 'uuid':
-            log("Setting %s to a uuid" % key_name, opt)
-            secret_obj[key_name] = str(uuid4())
-        elif key['method'] == 'words':
-            log("Setting %s to random words" % key_name, opt)
-            secret_obj[key_name] = random_word()
-        else:
-            problems("Unexpected generated secret method %s" % key['method'])
+            secret_obj[key_name] = generated_key(key, opt)
 
-    genseclen = len(secret_obj.keys())
-    if genseclen > 0:
-        update_msg = "Writing %s generated secrets to %s" % \
-                     (genseclen, vault_path)
-        log(update_msg, opt)
-        client.write(vault_path, **secret_obj)
+        genseclen = len(secret_obj.keys())
+        if genseclen > 0:
+            update_msg = "Writing %s generated secrets to %s" % \
+                         (genseclen, vault_path)
+            log(update_msg, opt)
+            client.write(vault_path, **secret_obj)
+    else:
+        log("Removing generated secret at %s" % vault_path, opt)
+        client.delete(vault_path)
+
+
+def mount_path(client, obj, opt):
+    """Manage a Vault mountpoint"""
+    aomi.validation.mount_obj(obj)
+    path = obj['path']
+    if not validate_entry(obj, path, opt):
+        return
+
+    backends = client.list_secret_backends()
+    mounted = is_mounted(path, backends, 'generic')
+    if obj.get('state', 'present') == 'present':
+        if not mounted:
+            actually_mount(client, 'generic', path)
+            log("Mounted %s" % (path), opt)
+    else:
+        if mounted:
+            unmount(client, 'generic', path)
+            log("Mounted %s" % (path), opt)
+
+
+def duo_enable(client, backend, opt):
+    """Set the MFA type to DUO"""
+    obj = {
+        'type': 'duo'
+    }
+    path = "auth/%s/mfa_config" % backend
+    existing = client.read(path)
+    if existing \
+       and 'data' in existing \
+       and 'type' in existing['data'] \
+       and existing['data']['type'] == 'duo':
+        log("Auth backend %s already configured for DUO" % backend, opt)
+    else:
+        client.write(path, **obj)
+        log("Auth backend %s now configured for DUO" % backend, opt)
+
+
+def duo_access(client, obj, opt):
+    """Sets the DUO access configuration"""
+    creds_file_name = hard_path(obj['creds'], opt.secrets)
+    aomi.validation.secret_file(creds_file_name)
+    creds = yaml.load(open(creds_file_name).read())
+    duo_obj = {
+        'ikey': creds['key'],
+        'skey': creds['secret'],
+        'host': obj['host']
+    }
+    path = "auth/%s/duo/access" % obj['backend']
+    client.write(path, **duo_obj)
+
+
+def duo(client, obj, opt):
+    """Manage DUO MFA on Auth endpoints"""
+    aomi.validation.duo_obj(obj)
+    backend = obj['backend']
+    if not aomi.validation.tag_check(obj,
+                                     "duo/%s" % backend,
+                                     opt):
+        return
+
+    if obj.get('state', 'present') == 'present':
+        if not is_auth_backend(client, backend):
+            problems("Backend %s not found when configuring duo" % backend)
+
+        duo_enable(client, backend, opt)
+        duo_access(client, obj, opt)
+    else:
+        if not is_auth_backend(client, backend):
+            return
+
+        client.write("auth/%s/mfa_config" % backend, **{})
+        client.write("auth/%s/duo/access" % backend, **{})
+        log("Removed DUO MFA support from %s" % backend, opt)

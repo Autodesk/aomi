@@ -14,8 +14,7 @@ teardown() {
 }
 
 @test "can seed and extract a file" {
-    run aomi seed --tags bar
-    [ "$status" -eq 0 ]
+    aomi_seed --tags bar
     run aomi extract_file \
         foo/bar/baz/secret \
         "${BATS_TMPDIR}/secret.txt"
@@ -24,8 +23,7 @@ teardown() {
 }
 
 @test "can seed and render environment" {
-    run aomi seed
-    [ "$status" -eq 0 ]
+    aomi_seed
     run aomi environment foo/bar/bam foo/bar/bang-bang
     scan_lines "FOO_BAR_BAM_SECRET=\"${YAML_SECRET1}\"" "${lines[@]}"
     scan_lines "FOO_BAR_BANG-BANG_SECRET=\"${YAML_SECRET2}\"" "${lines[@]}"
@@ -39,8 +37,7 @@ teardown() {
 @test "can seed and render a template" {
     SECRET1=$(shyaml get-value secret < ${FIXTURE_DIR}/.secrets/secret.yml)
     SECRET2=$(shyaml get-value secret < ${FIXTURE_DIR}/.secrets/secret2.yml)
-    run aomi seed
-    [ "$status" -eq 0 ]
+    aomi_seed
     echo -n '{{foo_bar_bam_secret}}{{foo_bar_bang_bang_secret}}' > "${BATS_TMPDIR}/tpl"
     run aomi template "${BATS_TMPDIR}/tpl" "${BATS_TMPDIR}/render" "foo/bar/bam" "foo/bar/bang-bang"
     [ "$status" -eq 0 ]
@@ -48,22 +45,19 @@ teardown() {
 }
 
 @test "can seed a policy" {
-    run aomi seed
-    [ "$status" -eq 0 ]
+    aomi_seed
     run vault policies foo
     [ "$status" -eq 0 ]
 }
 
 @test "can seed an app and user with builtin policy" {
-    run aomi seed
-    [ "$status" -eq 0 ]
+    aomi_seed
     run vault read -field=key auth/app-id/map/app-id/test
     [ "$status" -eq 0 ]
 }
 
 @test "respects tags when seeding" {
-    run aomi seed --tags bar
-    [ "$status" -eq 0 ]
+    aomi_seed --tags bar
     run vault read foo/bar/bof
     [ "$status" -eq 1 ]
     run vault read foo/bar/baz
