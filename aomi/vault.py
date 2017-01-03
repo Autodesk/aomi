@@ -35,7 +35,7 @@ def app_token(vault_client, app_id, user_id):
 def initial_token(vault_client, opt):
     """Generate our first token based on workstation configuration"""
     home = os.environ['HOME'] if 'HOME' in os.environ else \
-           os.environ['USERPROFILE']
+        os.environ['USERPROFILE']
 
     token_file = os.environ.get('VAULT_TOKEN_FILE',
                                 os.path.join(home, ".vault-token"))
