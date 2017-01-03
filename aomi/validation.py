@@ -209,3 +209,15 @@ def sanitize_mount(mount):
         sanitized_mount = sanitized_mount[:-1]
 
     return sanitized_mount
+
+
+def mount_obj(mount):
+    """validates a mountpoint object"""
+    check_obj(['path'], 'mount object', mount)
+
+
+def duo_obj(obj):
+    """Validates a duo obj"""
+    check_obj(['host', 'creds', 'backend'], 'duo object', obj)
+    if obj['backend'] != 'userpass':
+        problems('Invalid duo backend selected')

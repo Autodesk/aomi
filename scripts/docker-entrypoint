@@ -1,8 +1,8 @@
-#!/usr/bin/env bash
+#!/bin/sh
 
 set -e
 
-function problems {
+problems() {
     echo "Error: ${1}"
     exit 1
 }
