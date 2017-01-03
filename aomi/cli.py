@@ -47,15 +47,15 @@ def parser_factory(operation):
         parser.add_option('--secrets',
                           dest='secrets',
                           help='Path where secrets are stored',
-                          default="%s/.secrets" % os.getcwd())
+                          default=os.path.join(os.getcwd(), ".secrets"))
         parser.add_option('--policies',
                           dest='policies',
                           help='Path where policies are stored',
-                          default="%s/vault" % os.getcwd())
+                          default=os.path.join(os.getcwd(), "vault"))
         parser.add_option('--secretfile',
                           dest='secretfile',
                           help='Secretfile to use',
-                          default="%s/Secretfile" % os.getcwd())
+                          default=os.path.join(os.getcwd(), "Secretfile"))
         parser.add_option('--tags',
                           dest='tags',
                           help='Tags of things to seed',
