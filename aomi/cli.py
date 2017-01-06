@@ -14,12 +14,13 @@ from aomi.helpers import VERSION as version
 
 def usage():
     """Real Time Help"""
+    dict_obj = {'sep': os.sep}
     print("aomi version (%s)" % version)
     print('aomi extract_file <vault path> <file path>')
     print('aomi environment <vault path>')
     print('aomi aws_environment <vault path>')
-    print('aomi seed [--secretfile ./Secretfile]'
-          ' [--secrets ./secrets] [--policies ./vault]')
+    print('aomi seed [--secretfile .%(sep)sSecretfile]'
+          ' [--secrets .%(sep)ssecrets] [--policies .%(sep)svault]' % dict_obj)
     print('aomi template <template> <destination> <path>')
     print('aomi token')
     print('freeze <dest>')
@@ -51,7 +52,7 @@ def parser_factory(operation):
         parser.add_option('--policies',
                           dest='policies',
                           help='Path where policies are stored',
-                          default=os.path.join(os.getcwd(), "vault"))
+                          default=os.path.join(os.getcwd(), "vault", ""))
         parser.add_option('--secretfile',
                           dest='secretfile',
                           help='Secretfile to use',
