@@ -1,0 +1,2 @@
+name: Terraform variable file
+help: This template will iterate over all known variables and generate a map suitable for inclusion on the Terraform command line with the --tfvars option

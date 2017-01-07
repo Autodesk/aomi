@@ -1,0 +1,2 @@
+name: JSON key value file
+help: This template will iterate over all known variables and generate a simple Json key value map. It can be used for things like Packer configuration.

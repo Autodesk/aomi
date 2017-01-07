@@ -1,0 +1,7 @@
+name: Configuration for pypi repositories
+help: This template provides the configuration file needed to upload Python packages to a Pypi repository
+args:
+  repository: The colloquial name of the repository. Defaults to 'private'
+  user: The user.
+  password: The password.
+  url: The URL of the Pypi repository

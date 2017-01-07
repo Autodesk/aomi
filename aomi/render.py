@@ -1,6 +1,8 @@
 """ Secret rendering """
 from __future__ import print_function
 import os
+# Python 2/3 compat
+from future.utils import iteritems  # pylint: disable=E0401
 from pkg_resources import resource_filename
 from aomi.helpers import problems, warning, cli_hash, merge_dicts, path_pieces
 from aomi.template import render, load_var_files
@@ -68,7 +70,7 @@ def blend_vars(secrets, opt):
     extra_obj = merge_dicts(load_var_files(opt),
                             cli_hash(opt.extra_vars))
     merged = merge_dicts(extra_obj, secrets)
-    template_obj = dict((k, v) for k, v in merged.iteritems() if v)
+    template_obj = dict((k, v) for k, v in iteritems(merged) if v)
     # give templates something to iterate over
     template_obj['aomi_items'] = template_obj.copy()
     return template_obj

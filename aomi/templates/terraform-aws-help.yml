@@ -1,0 +1,6 @@
+name: A terraform AWS snippet
+help: This file provides an AWS provider snippet for Terraform. It is meant to be used as a drop-in for the Vault AWS secret provider.
+args:
+  aws_region: The AWS region.
+  access_key: The AWS access key.
+  secret_key: The AWS secret key.

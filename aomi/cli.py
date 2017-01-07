@@ -2,139 +2,250 @@
 from __future__ import print_function
 import os
 import sys
-
-from optparse import OptionParser
+from argparse import ArgumentParser
 import aomi.vault
 import aomi.render
+import aomi.template
 import aomi.validation
 import aomi.util
 import aomi.filez
 from aomi.helpers import VERSION as version
 
 
-def usage():
-    """Real Time Help"""
-    print("aomi version (%s)" % version)
-    print('aomi extract_file <vault path> <file path>')
-    print('aomi environment <vault path>')
-    print('aomi aws_environment <vault path>')
-    print('aomi seed [--secretfile ./Secretfile]'
-          ' [--secrets ./secrets] [--policies ./vault]')
-    print('aomi template <template> <destination> <path>')
-    print('aomi token')
-    print('freeze <dest>')
-    print('thaw <src>')
+def extract_file_args(subparsers):
+    """Add the command line options for the extract_file operation"""
+    extract_parser = subparsers.add_parser('extract_file')
+    extract_parser.add_argument('vault_path',
+                                help='Full path (including key) to secret')
+    extract_parser.add_argument('destination',
+                                help='Location of destination file')
+    base_args(extract_parser)
 
 
-def parser_factory(operation):
+def mapping_args(parser):
+    """Add various variable mapping command line options to the parser"""
+    parser.add_argument('--add-prefix',
+                        dest='add_prefix',
+                        help='Specify a prefix to use when '
+                        'generating secret key names')
+    parser.add_argument('--add-suffix',
+                        dest='add_suffix',
+                        help='Specify a suffix to use when '
+                        'generating secret key names')
+    parser.add_argument('--merge-path',
+                        dest='merge_path',
+                        action='store_true',
+                        default=True,
+                        help='merge vault path and key name')
+    parser.add_argument('--no-merge-path',
+                        dest='merge_path',
+                        action='store_false',
+                        default=True,
+                        help='do not merge vault path and key name')
+    parser.add_argument('--key-map',
+                        dest='key_map',
+                        action='append',
+                        type=str,
+                        default=[])
+
+
+def export_arg(parser):
+    """Add the export argument to a parser"""
+    parser.add_argument('--export',
+                        dest='export',
+                        help='Export declared variables',
+                        action='store_true')
+
+
+def aws_env_args(subparsers):
+    """Add command line options for the aws_environment operation"""
+    env_parser = subparsers.add_parser('aws_environment')
+    env_parser.add_argument('vault_path',
+                            help='Full path(s) to the AWS secret')
+    export_arg(env_parser)
+    base_args(env_parser)
+
+
+def environment_args(subparsers):
+    """Add command line options for the environment operation"""
+    env_parser = subparsers.add_parser('environment')
+    env_parser.add_argument('vault_paths',
+                            help='Full path(s) to secret',
+                            nargs='+')
+    env_parser.add_argument('--prefix',
+                            dest='prefix',
+                            help='Old style prefix to use when'
+                            'generating secret key names')
+    export_arg(env_parser)
+    mapping_args(env_parser)
+    base_args(env_parser)
+
+
+def template_args(subparsers):
+    """Add command line options for the template operation"""
+    template_parser = subparsers.add_parser('template')
+    template_parser.add_argument('template',
+                                 help='Template source',
+                                 nargs='?')
+    template_parser.add_argument('destination',
+                                 help='Path to write rendered template',
+                                 nargs='?')
+    template_parser.add_argument('vault_paths',
+                                 help='Full path(s) to secret',
+                                 nargs='*')
+    template_parser.add_argument('--builtin-list',
+                                 dest='builtin_list',
+                                 help='Display a list of builtin templates',
+                                 action='store_true',
+                                 default=False)
+    template_parser.add_argument('--builtin-info',
+                                 dest='builtin_info',
+                                 help='Display information on a '
+                                 'particular builtin template')
+    vars_args(template_parser)
+    mapping_args(template_parser)
+    base_args(template_parser)
+
+
+def secretfile_args(parser):
+    """Add Secretfile management command line arguments to parser"""
+    parser.add_argument('--secrets',
+                        dest='secrets',
+                        help='Path where secrets are stored',
+                        default="%s/.secrets" % os.getcwd())
+    parser.add_argument('--policies',
+                        dest='policies',
+                        help='Path where policies are stored',
+                        default="%s/vault" % os.getcwd())
+    parser.add_argument('--secretfile',
+                        dest='secretfile',
+                        help='Secretfile to use',
+                        default="%s/Secretfile" % os.getcwd())
+    parser.add_argument('--tags',
+                        dest='tags',
+                        help='Tags of things to seed',
+                        default=[],
+                        type=str,
+                        action='append')
+    parser.add_argument('--include',
+                        dest='include',
+                        help='Specify paths to include',
+                        default=[],
+                        type=str,
+                        action='append')
+    parser.add_argument('--exclude',
+                        dest='exclude',
+                        help='Specify paths to exclude',
+                        default=[],
+                        type=str,
+                        action='append')
+
+
+def base_args(parser):
+    """Add the generic command line options"""
+    parser.add_argument('--verbose',
+                        dest='verbose',
+                        help='Verbose output',
+                        action='store_true')
+    parser.add_argument('--metadata',
+                        dest='metadata',
+                        help='A series of key=value pairs for token metadata.',
+                        default='')
+    parser.add_argument('--lease',
+                        dest='lease',
+                        help='Lease time for intermediary token.',
+                        default='10s')
+
+
+def seed_args(subparsers):
+    """Add command line options for the seed operation"""
+    seed_parser = subparsers.add_parser('seed')
+    secretfile_args(seed_parser)
+    vars_args(seed_parser)
+    seed_parser.add_argument('--mount-only',
+                             dest='mount_only',
+                             help='Only mount paths if needed',
+                             default=False,
+                             action='store_true')
+    base_args(seed_parser)
+
+
+def archive_args(parser):
+    """Add the command line options for archive related operations"""
+    parser.add_argument('icefile',
+                        help='Path to the encrypted archive'
+                        'file of frozen secrets')
+
+
+def thaw_args(subparsers):
+    """Add command line options for the thaw operation"""
+    thaw_parser = subparsers.add_parser('thaw')
+    secretfile_args(thaw_parser)
+    archive_args(thaw_parser)
+    vars_args(thaw_parser)
+    base_args(thaw_parser)
+
+
+def freeze_args(subparsers):
+    """Add command line options for the freeze operation"""
+    freeze_parser = subparsers.add_parser('freeze')
+    secretfile_args(freeze_parser)
+    archive_args(freeze_parser)
+    vars_args(freeze_parser)
+    base_args(freeze_parser)
+
+
+def password_args(subparsers):
+    """Add command line options for the set_password operation"""
+    password_parser = subparsers.add_parser('set_password')
+    password_parser.add_argument('vault_path',
+                                 help='Path which contains password'
+                                 'secret to be udpated')
+    base_args(password_parser)
+
+
+def vars_args(parser):
+    """Add various command line options for external vars"""
+    parser.add_argument('--extra-vars',
+                        dest='extra_vars',
+                        help='Extra template variables',
+                        default=[],
+                        type=str,
+                        action='append')
+    parser.add_argument('--extra-vars-file',
+                        dest='extra_vars_file',
+                        help='YAML files full of variables',
+                        default=[],
+                        type=str,
+                        action='append')
+
+
+def token_args(subparsers):
+    """Add the CLI options for the token operation"""
+    token_parser = subparsers.add_parser('token')
+    base_args(token_parser)
+
+
+def parser_factory(fake_args=None):
     """Return a proper contextual OptionParser"""
-    parser = OptionParser()
+    parser = ArgumentParser(description='aomi')
+    subparsers = parser.add_subparsers(dest='operation',
+                                       help='aomi operation')
+    extract_file_args(subparsers)
+    environment_args(subparsers)
+    aws_env_args(subparsers)
+    seed_args(subparsers)
+    freeze_args(subparsers)
+    thaw_args(subparsers)
+    template_args(subparsers)
+    password_args(subparsers)
+    token_args(subparsers)
+    subparsers.add_parser('help')
 
-    parser.add_option('--verbose',
-                      dest='verbose',
-                      help='Verbose output',
-                      action='store_true')
-    parser.add_option('--metadata',
-                      dest='metadata',
-                      help='A series of key=value pairs for token metadata.',
-                      default='')
-    parser.add_option('--lease',
-                      dest='lease',
-                      help='Lease time for intermediary token.',
-                      default='10s')
-
-    if operation == 'seed' or operation == 'freeze' or operation == 'thaw':
-        parser.add_option('--secrets',
-                          dest='secrets',
-                          help='Path where secrets are stored',
-                          default="%s/.secrets" % os.getcwd())
-        parser.add_option('--policies',
-                          dest='policies',
-                          help='Path where policies are stored',
-                          default="%s/vault" % os.getcwd())
-        parser.add_option('--secretfile',
-                          dest='secretfile',
-                          help='Secretfile to use',
-                          default="%s/Secretfile" % os.getcwd())
-        parser.add_option('--tags',
-                          dest='tags',
-                          help='Tags of things to seed',
-                          default=[],
-                          type=str,
-                          action='append')
-        parser.add_option('--include',
-                          dest='include',
-                          help='Specify paths to include',
-                          default=[],
-                          type=str,
-                          action='append')
-        parser.add_option('--exclude',
-                          dest='exclude',
-                          help='Specify paths to exclude',
-                          default=[],
-                          type=str,
-                          action='append')
-
-    if operation == 'seed':
-        parser.add_option('--mount-only',
-                          dest='mount_only',
-                          help='Only mount paths if needed',
-                          default=False,
-                          action='store_true')
-
-    if operation == 'environment' or operation == 'template':
-        parser.add_option('--add-prefix',
-                          dest='add_prefix',
-                          help='Specify a prefix to use when '
-                          'generating secret key names')
-        parser.add_option('--add-suffix',
-                          dest='add_suffix',
-                          help='Specify a suffix to use when '
-                          'generating secret key names')
-        parser.add_option('--merge-path',
-                          dest='merge_path',
-                          action='store_true',
-                          default=True,
-                          help='merge vault path and key name')
-        parser.add_option('--no-merge-path',
-                          dest='merge_path',
-                          action='store_false',
-                          default=True,
-                          help='do not merge vault path and key name')
-        parser.add_option('--key-map',
-                          dest='key_map',
-                          action='append',
-                          type=str,
-                          default=[])
-
-    if operation == 'template' or operation == 'seed' or \
-       operation == 'freeze' or operation == 'thaw':
-        parser.add_option('--extra-vars',
-                          dest='extra_vars',
-                          help='Extra template variables',
-                          default=[],
-                          type=str,
-                          action='append')
-        parser.add_option('--extra-vars-file',
-                          dest='extra_vars_file',
-                          help='YAML files full of variables',
-                          default=[],
-                          type=str,
-                          action='append')
-
-    if operation == 'environment' or operation == 'aws_environment':
-        parser.add_option('--export',
-                          dest='export',
-                          help='Export declared variables',
-                          action='store_true')
-
-    if operation == 'environment':
-        parser.add_option('--prefix',
-                          dest='prefix',
-                          help='Old style prefix to use when '
-                          'generating secret key names')
-
-    return parser
+    if fake_args is None:
+        return parser, parser.parse_args()
+    else:
+        return parser, parser.parse_args(fake_args)
 
 
 def parse_extra_vars(extra_vars):
@@ -147,56 +258,66 @@ def parse_extra_vars(extra_vars):
     return ev_obj
 
 
-def action_runner(operation):
+def template_runner(client, parser, args):
+    """Executes template related operations"""
+    if args.builtin_list:
+        aomi.template.builtin_list()
+    elif args.builtin_info:
+        aomi.template.builtin_info(args.builtin_info)
+    elif args.template and args.destination and args.vault_paths:
+        aomi.render.template(client, args.template,
+                             args.destination,
+                             args.vault_paths,
+                             args)
+    else:
+        parser.print_usage()
+        sys.exit(2)
+
+    sys.exit(0)
+
+
+def action_runner(parser, args):
     """Run appropriate action, or throw help"""
 
-    parser = parser_factory(operation)
-    (opt, args) = parser.parse_args()
-    if operation == 'help':
-        usage()
+    if args.operation == 'help':
+        print("aomi v%s" % version)
+        parser.print_help()
         sys.exit(0)
 
-    client = aomi.vault.client(operation, opt)
-    if operation == 'extract_file' and len(args) == 3:
-        aomi.render.raw_file(client, args[1], args[2], opt)
+    client = aomi.vault.client(args.operation, args)
+    if args.operation == 'extract_file':
+        aomi.render.raw_file(client, args.vault_path, args.destination, args)
         sys.exit(0)
-    elif operation == 'environment' and len(args) >= 2:
-        paths = args[1:]
-        aomi.render.env(client, paths, opt)
+    elif args.operation == 'environment':
+        aomi.render.env(client, args.vault_paths, args)
         sys.exit(0)
-    elif operation == 'aws_environment' and len(args) == 2:
-        aomi.render.aws(client, args[1], opt)
+    elif args.operation == 'aws_environment':
+        aomi.render.aws(client, args.vault_path, args)
         sys.exit(0)
-    elif operation == 'seed' and len(args) == 1:
-        aomi.validation.gitignore(opt)
-        aomi.vault.seed(client, opt)
+    elif args.operation == 'seed':
+        aomi.validation.gitignore(args)
+        aomi.vault.seed(client, args)
         sys.exit(0)
-    elif operation == 'template' and len(args) >= 4:
-        paths = args[3:]
-        aomi.render.template(client, args[1], args[2], paths, opt)
-        sys.exit(0)
-    elif operation == 'token' and len(args) == 1:
+    elif args.operation == 'template':
+        template_runner(client, parser, args)
+    elif args.operation == 'token':
         print(client.token)
         sys.exit(0)
-    elif operation == 'set_password' and len(args) == 2:
-        aomi.util.password(client, args[1], opt)
+    elif args.operation == 'set_password':
+        aomi.util.password(client, args.vault_path, args)
         sys.exit(0)
-    elif operation == 'freeze' and len(args) == 2:
-        aomi.filez.freeze(args[1], opt)
+    elif args.operation == 'freeze':
+        aomi.filez.freeze(args.icefile, args)
         sys.exit(0)
-    elif operation == 'thaw' and len(args) == 2:
-        aomi.filez.thaw(args[1], opt)
+    elif args.operation == 'thaw':
+        aomi.filez.thaw(args.icefile, args)
         sys.exit(0)
 
-    usage()
-    sys.exit(1)
+    parser.print_usage()
+    sys.exit(2)
 
 
 def main():
     """Entrypoint, sweet Entrypoint"""
-    if len(sys.argv) < 2:
-        usage()
-        sys.exit(1)
-
-    operation = sys.argv[1]
-    action_runner(operation)
+    parser, args = parser_factory()
+    action_runner(parser, args)

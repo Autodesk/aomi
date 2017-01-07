@@ -7,7 +7,8 @@ import os
 import random
 from getpass import getpass
 from pkg_resources import resource_string, resource_filename
-from future.utils import iteritems
+# Python 2/3 compat
+from future.utils import iteritems  # pylint: disable=E0401
 
 
 def my_version():
@@ -199,6 +200,11 @@ def flatten(iterable):
     remainder = iter(iterable)
     while True:
         first = next(remainder)
+        try:
+            basestring
+        except NameError:
+            # Python 2/3 compat
+            basestring = str  # pylint: disable=W0622
         if isinstance(first, collections.Iterable) and \
            not isinstance(first, basestring):
             remainder = IT.chain(first, remainder)
