@@ -2,6 +2,10 @@
 
 VAULT_LOG="${BATS_TMPDIR}/aomi-vault-log"
 
+if [ -z "$AWS_TIMEOUT" ] ; then
+    AWS_TIMEOUT=15
+fi
+
 function start_vault() {
     if [ -e "${HOME}/.vault-token" ] ; then
         mv "${HOME}/.vault-token" "${BATS_TMPDIR}/og-token"
@@ -11,7 +15,8 @@ function start_vault() {
         stop_vault
         start_vault
     else
-        export VAULT_PID=$(pgrep vault)
+        VAULT_PID=$(pgrep vault)
+        export VAULT_PID
         export VAULT_ADDR='http://127.0.0.1:8200'
         VAULT_TOKEN=$(grep -e 'Root Token' "$VAULT_LOG" | cut -f 3 -d ' ')
         export VAULT_TOKEN="$VAULT_TOKEN"
@@ -41,7 +46,7 @@ function gpg_fixture() {
 always-trust
 verbose
 " > "${FIXTURE_DIR}/.gnupg/gpg.conf"
-    echo "pinentry-program /Users/freedmj/src/autodesk-aomi/scripts/pinentry-dummy.sh" > "${FIXTURE_DIR}/.gnupg/gpg-agent.con"
+    echo "pinentry-program /Users/freedmj/src/autodesk-aomi/scripts/pinentry-dummy.sh" > "${FIXTURE_DIR}/.gnupg/gpg-agent.conf"
     chmod -R og-rwx "$GNUPGHOME"    
     # https://www.gnupg.org/documentation/manuals/gnupg/Unattended-GPG-key-generation.html
     PASS="${RANDOM}"
@@ -91,10 +96,16 @@ function use_fixture() {
     chmod -R g-w "${SECRET_DIR}"
     export FILE_SECRET1="$(cat "${SECRET_DIR}/secret.txt")"
     export FILE_SECRET2="$(cat "${SECRET_DIR}/secret2.txt")"
-    export YAML_SECRET1=$(shyaml get-value secret < "${SECRET_DIR}/secret.yml")
-    export YAML_SECRET2=$(shyaml get-value secret < "${SECRET_DIR}/secret2.yml")
-    export YAML_SECRET1_2=$(shyaml get-value secret2 < "${SECRET_DIR}/secret.yml")
-    export YAML_SECRET2_2=$(shyaml get-value secret2 < "${SECRET_DIR}/secret2.yml")
+    export YAML_SECRET1=$(shyaml get-value secret < "${SECRET_DIR}/secret.yml" 2> /dev/null)
+    export YAML_SECRET2=$(shyaml get-value secret < "${SECRET_DIR}/secret2.yml" 2> /dev/null)
+    export YAML_SECRET1_2=$(shyaml get-value secret2 < "${SECRET_DIR}/secret.yml" 2> /dev/null)
+    export YAML_SECRET2_2=$(shyaml get-value secret2 < "${SECRET_DIR}/secret2.yml" 2> /dev/null)
+    [ ! -z "$FILE_SECRET1" ] && \
+        [ ! -z "$FILE_SECRET2" ] && \
+        [ ! -z "$YAML_SECRET1" ] && \
+        [ ! -z "$YAML_SECRET2" ] && \
+        [ ! -z "$YAML_SECRET1_2" ] && \
+        [ ! -z "$YAML_SECRET2_2" ]
 }
 
 function check_secret() {
@@ -163,15 +174,18 @@ function aws_creds() {
     [ -e "${CIDIR}/.aomi-test/vault-addr" ]
     [ -e "${CIDIR}/.aomi-test/vault-token" ]
     local TMP="/tmp/aomi-int-aws${RANDOM}"
+    set +e
     VAULT_TOKEN="$(cat "${CIDIR}/.aomi-test/vault-token")" \
                VAULT_ADDR=$(cat "${CIDIR}/.aomi-test/vault-addr") \
                aomi aws_environment \
                "$VAULT_AWS_PATH" \
-               --export --lease 300s 1> "$TMP" 2> /dev/null || true
-    if [ $? != 0 ] || [ "$(cat $TMP)" == "" ] ; then
+               --export --lease 300s 1> "$TMP"
+    RC="$?"
+    set -e
+    if [ "$RC" != 0 ] || [ "$(cat $TMP)" == "" ] ; then
         return 1
     fi
-    source "$TMP"
+    . "$TMP"
     rm "$TMP"
     if [ -z "$AWS_ACCESS_KEY_ID" ] || [ -z "$AWS_SECRET_ACCESS_KEY" ] ; then
         return 1
@@ -193,13 +207,15 @@ function vault_cfg() {
 function check_aws {
     TMP="/tmp/aomi-int${RANDOM}"
     ROLE="$1"
-    OK=""
     START="$(date +%s)"
     # first bit of eventual consistency is on the aws creds created
     # by the upstream vault server
     while [ -z "$OK" ] ; do
-        aomi aws_environment "aws/creds/${ROLE}" --lease 60s 1> "$TMP" 2> /dev/null || true
-        if [ ! -z "$(cat $TMP)" ] ; then
+        set +e
+        aomi aws_environment "aws/creds/${ROLE}" --lease 60s --verbose 1> "$TMP"
+        RC=$?
+        set -e
+        if [ "$RC" == "0" ] && [ ! -z "$(cat $TMP)" ] ; then
             OK="ok"
         else
             NOW="$(date +%s)"
@@ -211,7 +227,7 @@ function check_aws {
             fi
         fi
     done
-    source "$TMP"
+    . "$TMP"
     if [ -z "$AWS_ACCESS_KEY_ID" ] || [ -z "$AWS_SECRET_ACCESS_KEY" ] ; then
         echo "AWS keys did not get set"
         return 1
@@ -223,12 +239,29 @@ function check_aws {
     # and now this eventual consistency is on the test vault
     # aws iam credentials
     while [ -z "$OK" ] ; do
+        if ! aws ec2 describe-availability-zones &> /dev/null ; then
+            NOW="$(date +%s)"
+            if [ $((NOW - START)) -gt "$AWS_TIMEOUT" ] ; then
+                echo "Timed out waiting for test AWS creds"                
+                return 1
+            else
+                echo "AWS check failed! Time out in $((AWS_TIMEOUT - (NOW - START)))"
+                sleep 5
+            fi
+        else
+            OK="ok"
+        fi
+    done
+    # and now this eventual consistency is on the test vault
+    # aws iam credentials
+    while [ -z "$OK" ] ; do
         if ! "${CIDIR}/.ci-env/bin/aws" ec2 describe-availability-zones &> /dev/null ; then
             NOW="$(date +%s)"
             if [ $((NOW - START)) -gt "$AWS_TIMEOUT" ] ; then
                 echo "Timed out waiting for test AWS creds"                
                 return 1
             else
+                echo "AWS check failed! Time out in $((AWS_TIMEOUT - (NOW - START)))"
                 sleep 5
             fi
         else

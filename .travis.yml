@@ -6,10 +6,6 @@ python:
 - '3.5'
 services:
 - docker
-addons:
-  apt:
-    packages:
-    - gnupg2
 env:
   global:
   - GUDRUN_TRAVIS_URL="https://project.yolo.computer/gudrun_travis/"
