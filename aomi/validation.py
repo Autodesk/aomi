@@ -11,7 +11,7 @@ def find_file(name, directory):
     path_bits = directory.split(os.sep)
     for i in range(0, len(path_bits) - 1):
         check_path = path_bits[0:len(path_bits) - i]
-        check_file = "%s/%s" % (os.sep.join(check_path), name)
+        check_file = "%s%s%s" % (os.sep.join(check_path), os.sep, name)
         if os.path.exists(check_file):
             return abspath(check_file)
 
