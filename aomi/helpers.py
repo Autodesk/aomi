@@ -16,7 +16,8 @@ def my_version():
     if os.path.exists(resource_filename(__name__, 'version')):
         return resource_string(__name__, 'version')
     else:
-        return open("%s/../version" % os.path.dirname(__file__)).read()
+        return open(os.path.join(os.path.dirname(__file__),
+                                 "..", "version")).read()
 
 VERSION = my_version()
 

@@ -34,10 +34,13 @@ def app_token(vault_client, app_id, user_id):
 
 def initial_token(vault_client, opt):
     """Generate our first token based on workstation configuration"""
+    home = os.environ['HOME'] if 'HOME' in os.environ else \
+        os.environ['USERPROFILE']
+
     token_file = os.environ.get('VAULT_TOKEN_FILE',
-                                "%s/.vault-token" % os.environ['HOME'])
+                                os.path.join(home, ".vault-token"))
     app_file = os.environ.get('AOMI_APP_FILE',
-                              "%s/.aomi-app-token" % os.environ['HOME'])
+                              os.path.join(home, ".aomi-app-token"))
     token_file = os.path.abspath(token_file)
     app_file = os.path.abspath(app_file)
     if 'VAULT_TOKEN' in os.environ and len(os.environ['VAULT_TOKEN']) > 0:

@@ -112,15 +112,15 @@ def secretfile_args(parser):
     parser.add_argument('--secrets',
                         dest='secrets',
                         help='Path where secrets are stored',
-                        default="%s/.secrets" % os.getcwd())
+                        default=os.path.join(os.getcwd(), ".secrets"))
     parser.add_argument('--policies',
                         dest='policies',
                         help='Path where policies are stored',
-                        default="%s/vault" % os.getcwd())
+                        default=os.path.join(os.getcwd(), "vault", ""))
     parser.add_argument('--secretfile',
                         dest='secretfile',
                         help='Secretfile to use',
-                        default="%s/Secretfile" % os.getcwd())
+                        default=os.path.join(os.getcwd(), "Secretfile"))
     parser.add_argument('--tags',
                         dest='tags',
                         help='Tags of things to seed',
