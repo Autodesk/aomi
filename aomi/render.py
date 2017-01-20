@@ -1,10 +1,10 @@
 """ Secret rendering """
 from __future__ import print_function
-import os
 # Python 2/3 compat
 from future.utils import iteritems  # pylint: disable=E0401
 from pkg_resources import resource_filename
-from aomi.helpers import problems, warning, cli_hash, merge_dicts, path_pieces
+from aomi.helpers import problems, warning, cli_hash, merge_dicts, \
+    path_pieces, abspath
 from aomi.template import render, load_var_files
 
 
@@ -58,7 +58,7 @@ def secret_key_name(path, key, opt):
 def grok_template_file(src):
     """Determine the real deal template file"""
     if not src.startswith('builtin:'):
-        return os.path.abspath(src)
+        return abspath(src)
     else:
         builtin = src.split(':')[1]
         builtin = "templates/%s.j2" % builtin
@@ -98,7 +98,7 @@ def template(client, src, dest, paths, opt):
     template_obj = blend_vars(obj, opt)
     output = render(grok_template_file(src),
                     template_obj)
-    open(os.path.abspath(dest), 'w').write(output)
+    open(abspath(dest), 'w').write(output)
 
 
 def raw_file(client, src, dest, opt):
@@ -113,7 +113,7 @@ def raw_file(client, src, dest, opt):
             if is_aws(resp['data']):
                 renew_secret(client, resp, opt)
 
-            open(os.path.abspath(dest), 'w').write(secret)
+            open(abspath(dest), 'w').write(secret)
         else:
             problems("Key %s not found in %s" % (key, path), client)
 

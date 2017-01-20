@@ -7,7 +7,7 @@ from pkg_resources import resource_listdir, resource_filename
 import yaml
 from jinja2 import Environment, FileSystemLoader, meta
 import jinja2.nodes
-from aomi.helpers import merge_dicts, problems
+from aomi.helpers import merge_dicts, problems, abspath
 # Python 2/3 compat
 from future.utils import iteritems  # pylint: disable=E0401
 
@@ -25,7 +25,7 @@ def grok_default_vars(parsed_content):
 
 def render(filename, obj):
     """Render a template, maybe mixing in extra variables"""
-    template_path = os.path.abspath(filename)
+    template_path = abspath(filename)
     fs_loader = FileSystemLoader(os.path.dirname(template_path))
     env = Environment(loader=fs_loader)
     env.filters['b64encode'] = portable_b64encode
@@ -68,7 +68,7 @@ def load_var_files(opt):
     """Load variable files, merge, return contents"""
     obj = {}
     for var_file in opt.extra_vars_file:
-        yamlz = yaml.load(open(os.path.abspath(var_file)).read())
+        yamlz = yaml.load(open(abspath(var_file)).read())
         obj = merge_dicts(obj.copy(), yamlz)
 
     return obj
@@ -96,7 +96,7 @@ def load_template_help(builtin):
 
 def builtin_list():
     """Show a listing of all our builtin templates"""
-    for template in resource_listdir(__name__, "templates/"):
+    for template in abspath(resource_listdir(__name__, "templates")):
         builtin, ext = os.path.splitext(os.path.basename(template))
         if ext == '.yml':
             continue
