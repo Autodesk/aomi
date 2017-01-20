@@ -1,0 +1,7 @@
+name: Python pip configuration
+help: The pip configuration file is used when installing packages from a pypi repository which requires authentication.
+args:
+  proto: Either http or https (the default).
+  user: The user.
+  password: The password.
+  url_suffix: The host and path portions of the URL

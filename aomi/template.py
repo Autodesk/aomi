@@ -1,11 +1,15 @@
 """ Render our templates """
+from __future__ import print_function
 import sys
 import os
 from base64 import b64encode, b64decode
+from pkg_resources import resource_listdir, resource_filename
 import yaml
 from jinja2 import Environment, FileSystemLoader, meta
 import jinja2.nodes
-from aomi.helpers import merge_dicts, problems
+from aomi.helpers import merge_dicts, problems, abspath
+# Python 2/3 compat
+from future.utils import iteritems  # pylint: disable=E0401
 
 
 def grok_default_vars(parsed_content):
@@ -21,7 +25,7 @@ def grok_default_vars(parsed_content):
 
 def render(filename, obj):
     """Render a template, maybe mixing in extra variables"""
-    template_path = os.path.abspath(filename)
+    template_path = abspath(filename)
     fs_loader = FileSystemLoader(os.path.dirname(template_path))
     env = Environment(loader=fs_loader)
     env.filters['b64encode'] = portable_b64encode
@@ -64,7 +68,55 @@ def load_var_files(opt):
     """Load variable files, merge, return contents"""
     obj = {}
     for var_file in opt.extra_vars_file:
-        yamlz = yaml.load(open(os.path.abspath(var_file)).read())
+        yamlz = yaml.load(open(abspath(var_file)).read())
         obj = merge_dicts(obj.copy(), yamlz)
 
     return obj
+
+
+def load_template_help(builtin):
+    """Loads the help for a given template"""
+
+    help_file = "templates/%s-help.yml" % builtin
+    help_file = resource_filename(__name__, help_file)
+    help_obj = {}
+    if os.path.exists(help_file):
+        help_data = yaml.load(open(help_file))
+        if 'name' in help_data:
+            help_obj['name'] = help_data['name']
+
+        if 'help' in help_data:
+            help_obj['help'] = help_data['help']
+
+        if 'args' in help_data:
+            help_obj['args'] = help_data['args']
+
+    return help_obj
+
+
+def builtin_list():
+    """Show a listing of all our builtin templates"""
+    for template in abspath(resource_listdir(__name__, "templates")):
+        builtin, ext = os.path.splitext(os.path.basename(template))
+        if ext == '.yml':
+            continue
+
+        help_obj = load_template_help(builtin)
+        if 'name' in help_obj:
+            print("%-*s %s" % (20, builtin, help_obj['name']))
+        else:
+            print("%s" % builtin)
+
+
+def builtin_info(builtin):
+    """Show information on a particular builtin template"""
+    help_obj = load_template_help(builtin)
+    if help_obj.get('name') and help_obj.get('help'):
+        print("The %s template" % (help_obj['name']))
+        print(help_obj['help'])
+    else:
+        print("No help for %s" % builtin)
+
+    if help_obj.get('args'):
+        for arg, arg_help in iteritems(help_obj['args']):
+            print("  %-*s %s" % (20, arg, arg_help))

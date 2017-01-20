@@ -1,3 +1,4 @@
 include aomi/version
 include aomi/templates/*.j2
+include aomi/templates/*.yml
 include aomi/words/*.txt

@@ -1,0 +1,6 @@
+name: Docker Repository configuration
+help: This template is used to generate login credentials for a single Docker repository. You can then probably merge this into your existing docker repository config with jq or something.
+args:
+  url: "The URL of the Docker repository"
+  user: "The user"
+  password: "The password"

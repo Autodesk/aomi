@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+
+set -e
+if [ -z "$TRAVIS" ] ; then
+    PREFIX=".ci-env/bin/"
+fi
+
+"${PREFIX}pep8" aomi
+"${PREFIX}pylint" --rcfile=/dev/null aomi
+"${PREFIX}nose2"

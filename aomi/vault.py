@@ -7,7 +7,7 @@ import yaml
 # need to override those SSL warnings
 import requests
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
-from aomi.helpers import problems, log, cli_hash, merge_dicts
+from aomi.helpers import problems, log, cli_hash, merge_dicts, abspath
 import aomi.seed
 from aomi.template import render, load_var_files
 
@@ -41,8 +41,8 @@ def initial_token(vault_client, opt):
                                 os.path.join(home, ".vault-token"))
     app_file = os.environ.get('AOMI_APP_FILE',
                               os.path.join(home, ".aomi-app-token"))
-    token_file = os.path.abspath(token_file)
-    app_file = os.path.abspath(app_file)
+    token_file = abspath(token_file)
+    app_file = abspath(app_file)
     if 'VAULT_TOKEN' in os.environ and len(os.environ['VAULT_TOKEN']) > 0:
         log('Token derived from VAULT_TOKEN environment variable', opt)
         return os.environ['VAULT_TOKEN'].strip()
@@ -142,7 +142,7 @@ def client(operation, opt):
 
 def get_secretfile(opt):
     """Renders, YAMLs, and returns the Secretfile construct"""
-    secretfile_path = os.path.abspath(opt.secretfile)
+    secretfile_path = abspath(opt.secretfile)
     obj = merge_dicts(load_var_files(opt),
                       cli_hash(opt.extra_vars))
     return yaml.load(render(secretfile_path, obj))

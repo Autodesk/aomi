@@ -20,11 +20,14 @@ setup(name='aomi',
       author_email='jonathan.freedman@autodesk.com',
       license='MIT',
       url='https://github.com/autodesk/aomi',
-      install_requires=['PyYAML', 'hvac', 'jinja2'],
+      install_requires=['PyYAML', 'hvac', 'jinja2', 'future'],
       include_package_data=True,
       packages=['aomi'],
       entry_points={
           'console_scripts': ['aomi = aomi.cli:main']
       },
-      package_data={'aomi':['version', 'templates/*.j2', 'words/*.txt']}
+      package_data={'aomi':['version',
+                            'templates/*.j2',
+                            'templates/*.yml',
+                            'words/*.txt']}
 )

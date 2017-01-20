@@ -1,0 +1,6 @@
+name: Bundler configuration
+help: This template is used to ensure Bundler can download from a Ruby gem repository whichi requires authentication.
+args:
+  bundle_url: "The URL of your Gem repository"
+  user: "The user"
+  password: "The password"
