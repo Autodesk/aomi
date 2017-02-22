@@ -84,9 +84,10 @@ def write(client, path, varz, opt):
     """Write to Vault while handling non-surprising errors."""
     try:
         client.write(path, **varz)
-    except hvac.exceptions.InvalidRequest as vault_exception:
+    except (hvac.exceptions.InvalidRequest,
+            hvac.exceptions.Forbidden) as vault_exception:
         client.revoke_self_token()
-        if vault_exception.message == 'permission denied':
+        if vault_exception.errors[0] == 'permission denied':
             error_output("Permission denied writing to %s" % path, opt)
         else:
             raise vault_exception
@@ -96,9 +97,10 @@ def delete(client, path, opt):
     """Delete from Vault while handling non-surprising errors."""
     try:
         client.delete(path)
-    except hvac.exceptions.InvalidRequest as vault_exception:
+    except (hvac.exceptions.InvalidRequest,
+            hvac.exceptions.Forbidden) as vault_exception:
         client.revoke_self_token()
-        if vault_exception.message == 'permission denied':
+        if vault_exception.errors[0] == 'permission denied':
             error_output("Permission denied deleting %s" % path, opt)
         else:
             raise vault_exception

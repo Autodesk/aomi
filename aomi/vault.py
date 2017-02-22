@@ -10,6 +10,7 @@ from requests.packages.urllib3.exceptions import InsecureRequestWarning
 from aomi.helpers import log, cli_hash, merge_dicts, abspath
 import aomi.seed
 from aomi.template import render, load_var_files
+from aomi.error import output as error_output
 import aomi.error
 import aomi.exceptions
 
@@ -111,7 +112,15 @@ def operational_token(vault_client, operation, opt):
         'display_name': 'aomi token',
         'meta': token_meta(operation, opt)
     }
-    token = vault_client.create_token(**args)
+    try:
+        token = vault_client.create_token(**args)
+    except (hvac.exceptions.InvalidRequest,
+            hvac.exceptions.Forbidden) as vault_exception:
+        if vault_exception.errors[0] == 'permission denied':
+            error_output("Permission denied creating operational token", opt)
+        else:
+            raise vault_exception
+
     log("Using lease of %s" % opt.lease, opt)
     return token['auth']['client_token']
 
