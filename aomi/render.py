@@ -3,9 +3,10 @@ from __future__ import print_function
 # Python 2/3 compat
 from future.utils import iteritems  # pylint: disable=E0401
 from pkg_resources import resource_filename
-from aomi.helpers import problems, warning, cli_hash, merge_dicts, \
+from aomi.helpers import warning, cli_hash, merge_dicts, \
     path_pieces, abspath
 from aomi.template import render, load_var_files
+import aomi.exceptions
 
 
 def grok_seconds(lease):
@@ -30,13 +31,15 @@ def renew_secret(client, creds, opt):
     """Renews a secret if neccesary"""
     seconds = grok_seconds(opt.lease)
     if not seconds:
-        problems("Passed in invalid lease type %s" % opt.lease, client)
+        raise aomi.exceptions.AomiCommand("invalid lease %s" % opt.lease)
 
     renew = client.renew_secret(creds['lease_id'], seconds)
     # sometimes it takes a bit for vault to respond
     # if we are within 5s then we are fine
     if seconds - renew['lease_duration'] >= 5:
-        problems('Unable to renew secret with desired lease', client)
+        client.revoke_self_token()
+        e_msg = 'Unable to renew with desired lease'
+        raise aomi.exceptions.VaultConstraint(e_msg)
 
 
 def secret_key_name(path, key, opt):
@@ -106,7 +109,8 @@ def raw_file(client, src, dest, opt):
     path, key = path_pieces(src)
     resp = client.read(path)
     if not resp:
-        problems("Unable to retrieve %s" % path, client)
+        client.revoke_self_token()
+        raise aomi.exceptions.VaultData("Unable to retrieve %s" % path)
     else:
         if 'data' in resp and key in resp['data']:
             secret = resp['data'][key]
@@ -115,7 +119,9 @@ def raw_file(client, src, dest, opt):
 
             open(abspath(dest), 'w').write(secret)
         else:
-            problems("Key %s not found in %s" % (key, path), client)
+            client.revoke_self_token()
+            e_msg = "Key %s not found in %s" % (key, path)
+            raise aomi.exceptions.VaultData(e_msg)
 
 
 def env(client, paths, opt):
@@ -168,7 +174,9 @@ def aws(client, path, opt):
             token = creds['data']['security_token']
             print("AWS_SECURITY_TOKEN=\"%s\"" % token)
     else:
-        problems("Unable to generate AWS credentials from %s" % path, client)
+        client.revoke_self_token()
+        e_msg = "Unable to generate AWS credentials from %s" % path
+        raise aomi.exceptions.VaultData(e_msg)
 
     if opt.export:
         print("export AWS_ACCESS_KEY_ID")

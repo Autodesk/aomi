@@ -7,9 +7,11 @@ import yaml
 # need to override those SSL warnings
 import requests
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
-from aomi.helpers import problems, log, cli_hash, merge_dicts, abspath
+from aomi.helpers import log, cli_hash, merge_dicts, abspath
 import aomi.seed
 from aomi.template import render, load_var_files
+import aomi.error
+import aomi.exceptions
 
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
@@ -20,7 +22,7 @@ def approle_token(vault_client, role_id, secret_id):
     if 'auth' in resp and 'client_token' in resp['auth']:
         return resp['auth']['client_token']
     else:
-        problems('Unable to retrieve approle token')
+        raise aomi.exceptions.AomiCredentials('invalid approle')
 
 
 def app_token(vault_client, app_id, user_id):
@@ -29,7 +31,7 @@ def app_token(vault_client, app_id, user_id):
     if 'auth' in resp and 'client_token' in resp['auth']:
         return resp['auth']['client_token']
     else:
-        problems('Unable to retrieve app token')
+        raise aomi.exceptions.AomiCredentials('invalid apptoken')
 
 
 def initial_token(vault_client, opt):
@@ -76,7 +78,7 @@ def initial_token(vault_client, opt):
         log("Token derived from %s" % token_file, opt)
         return open(token_file, 'r').read().strip()
     else:
-        problems('Unable to determine vault authentication method')
+        raise aomi.exceptions.AomiCredentials('unknown method')
 
 
 def token_meta(operation, opt):
@@ -117,7 +119,7 @@ def operational_token(vault_client, operation, opt):
 def client(operation, opt):
     """Return a vault client"""
     if 'VAULT_ADDR' not in os.environ:
-        problems('VAULT_ADDR must be defined')
+        raise aomi.exceptions.AomiError('VAULT_ADDR must be defined')
 
     vault_host = os.environ['VAULT_ADDR']
 
@@ -131,11 +133,11 @@ def client(operation, opt):
     vault_client = hvac.Client(vault_host, verify=ssl_verify)
     vault_client.token = initial_token(vault_client, opt)
     if not vault_client.is_authenticated():
-        problems("Unable to retrieve initial token")
+        raise aomi.exceptions.AomiCredentials('initial token')
 
     vault_client.token = operational_token(vault_client, operation, opt)
     if not vault_client.is_authenticated():
-        problems("Unable to retrieve operational token")
+        raise aomi.exceptions.AomiCredentials('operational token')
 
     return vault_client
 
@@ -160,7 +162,7 @@ def seed_secrets(config, vault_client, opt):
         elif 'generated' in secret:
             aomi.seed.generated(vault_client, secret['generated'], opt)
         else:
-            problems("Invalid secret element %s" % secret, vault_client)
+            raise aomi.exceptions.AomiData("secret element %s" % secret)
 
 
 def seed(vault_client, opt):

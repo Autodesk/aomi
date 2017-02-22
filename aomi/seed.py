@@ -4,9 +4,11 @@ import re
 from uuid import uuid4
 import yaml
 import hvac
-from aomi.helpers import problems, hard_path, log, \
+import aomi.exceptions
+from aomi.helpers import hard_path, log, \
     warning, merge_dicts, cli_hash, random_word
 import aomi.validation
+from aomi.error import output as error_output
 from aomi.validation import sanitize_mount
 from aomi.template import render, load_var_files
 
@@ -42,10 +44,12 @@ def actually_mount(client, backend, mount):
     try:
         client.enable_secret_backend(backend, mount_point=mount)
     except hvac.exceptions.InvalidRequest as exception:
+        client.revoke_self_token()
         match = re.match('existing mount at (?P<path>.+)', str(exception))
         if match:
-            problems("%s has a mountpoint conflict with %s" %
-                     (mount, match.group('path')))
+            e_msg = "%s has a mountpoint conflict with %s" % \
+                    (mount, match.group('path'))
+            raise aomi.exceptions.VaultConstraint(e_msg)
         else:
             raise exception
 
@@ -76,6 +80,30 @@ def validate_entry(obj, path, opt):
     return True
 
 
+def write(client, path, varz, opt):
+    """Write to Vault while handling non-surprising errors."""
+    try:
+        client.write(path, **varz)
+    except hvac.exceptions.InvalidRequest as vault_exception:
+        client.revoke_self_token()
+        if vault_exception.message == 'permission denied':
+            error_output("Permission denied writing to %s" % path, opt)
+        else:
+            raise vault_exception
+
+
+def delete(client, path, opt):
+    """Delete from Vault while handling non-surprising errors."""
+    try:
+        client.delete(path)
+    except hvac.exceptions.InvalidRequest as vault_exception:
+        client.revoke_self_token()
+        if vault_exception.message == 'permission denied':
+            error_output("Permission denied deleting %s" % path, opt)
+        else:
+            raise vault_exception
+
+
 def var_file(client, secret, opt):
     """Seed a var_file into Vault"""
     aomi.validation.var_file_obj(secret)
@@ -95,12 +123,12 @@ def var_file(client, secret, opt):
         return
 
     if secret.get('state', 'present') == 'present':
-        client.write(path, **varz)
+        write(client, path, varz, opt)
         log('wrote var_file %s into %s' % (
             var_file_name,
             path), opt)
     else:
-        client.delete(path)
+        delete(client, path, opt)
         log('deleted var_file %s from %s' % (
             var_file_name, path), opt)
 
@@ -109,24 +137,20 @@ def aws_region(secret, aws_obj):
     """Return the AWS region with appropriate output"""
     if 'region' in secret:
         return secret['region']
-    elif 'region' in aws_obj:
+    else:
         # see https://github.com/Autodesk/aomi/issues/40
         warning('Defining region in the AWS yaml is deprecated')
         return aws_obj['region']
-    else:
-        problems('AWS region is not defined')
 
 
 def aws_roles(secret, aws_obj):
     """Return the AWS roles with appropriate output"""
     if 'roles' in secret:
         return secret['roles']
-    elif 'roles' in aws_obj:
+    else:
         # see https://github.com/Autodesk/aomi/issues/40
         warning('Defining roles within the AWS yaml is deprecated')
         return aws_obj['roles']
-    else:
-        problems('No AWS roles defined')
 
 
 def aws(client, secret, opt):
@@ -138,7 +162,7 @@ def aws(client, secret, opt):
     if not validate_entry(secret, aws_path, opt):
         return
 
-    if secret.get('state', 'mount') == 'unmount':
+    if secret.get('state', 'present') == 'absent':
         unmount(client, 'aws', my_mount)
         log("Unmounted AWS %s" % aws_path, opt)
         return
@@ -156,23 +180,32 @@ def aws(client, secret, opt):
     aomi.validation.aws_secret_obj(aws_file_path, aws_obj)
 
     region = aws_region(secret, aws_obj)
+    if region is None:
+        client.revoke_self_token()
+        raise aomi.exceptions.AomiData('missing aws region')
+
+    roles = aws_roles(secret, aws_obj)
+    if roles is None:
+        client.revoke_self_token()
+        raise aomi.exceptions.AomiData('missing aws roles')
 
     obj = {
         'access_key': aws_obj['access_key_id'],
         'secret_key': aws_obj['secret_access_key'],
         'region': region
     }
-    client.write(aws_path, **obj)
+    write(client, aws_path, obj, opt)
     log('wrote aws secrets %s into %s' % (
         aws_file_path,
         aws_path), opt)
 
     ttl_obj, lease_msg = grok_ttl(secret, aws_obj)
     if ttl_obj:
-        client.write("%s/config/lease" % (secret['mount']), **ttl_obj)
+        write(client,
+              "%s/config/lease" % (secret['mount']),
+              ttl_obj,
+              opt)
         log("Updated lease for %s %s" % (secret['mount'], lease_msg), opt)
-
-    roles = aws_roles(secret, aws_obj)
 
     seed_aws_roles(client, secret['mount'], roles, opt)
 
@@ -229,28 +262,32 @@ def seed_aws_roles(client, mount, roles, opt):
                 data = render(role_file, obj)
                 log('writing inline role %s from %s' %
                     (role['name'], role_file), opt)
-                client.write(role_path, policy=data)
+                write(client, role_path, {'policy': data}, opt)
             elif 'arn' in role:
                 log('writing role %s for %s' %
                     (role['name'], role['arn']), opt)
-                client.write(role_path, arn=role['arn'])
+                write(client, role_path, {'arn': role['arn']}, opt)
         else:
             log('removing role %s' % role['name'], opt)
-            client.delete(role_path)
+            delete(client, role_path, opt)
 
 
-def app_users(client, app_id, p_users):
+def app_users(client, app_id, p_users, opt):
     """Write out users for an application"""
     for user in p_users:
         if 'id' not in user:
-            problems("Invalid user definition %s" % user)
+            client.revoke_self_token()
+            raise aomi.exceptions.AomiData("Invalid user definition %s" % user)
 
         user_path = "auth/app-id/map/user-id/%s" % user['id']
-        user_obj = {'value': app_id}
-        if 'cidr' in user:
-            user_obj['cidr_block'] = user['cidr']
+        if user.get('state', 'present') == 'absent':
+            delete(client, user_path, opt)
+        else:
+            user_obj = {'value': app_id}
+            if 'cidr' in user:
+                user_obj['cidr_block'] = user['cidr']
 
-        client.write(user_path, **user_obj)
+            write(client, user_path, user_obj, opt)
 
 
 def app_id_name(app_obj):
@@ -306,10 +343,33 @@ def app_id_itself(app_obj, data):
     return app_id
 
 
+def app_policy(client, policy_name, policy_file, app_obj, opt):
+    """Ensures the policy portion of an app is correct"""
+
+    if policy_file:
+        p_data = policy_data(policy_file, app_obj.get('policy_vars', {}), opt)
+        if policy_name in client.list_policies():
+            if p_data != client.get_policy(policy_name):
+                client.revoke_self_token()
+                e_msg = "Policy %s already exists " \
+                        "and content differs" % policy_name
+                raise aomi.exceptions.AomiData(e_msg)
+
+        write_policy(policy_name, p_data, client, opt)
+    else:
+        if policy_name not in client.list_policies():
+            client.revoke_self_token()
+            e_msg = "Policy %s is not inline but does not exist" % policy_name
+            raise aomi.exceptions.AomiData(e_msg)
+
+        log("Using existing policy %s" % policy_name, opt)
+
+
 def app(client, app_obj, opt):
     """Seed an app file into Vault"""
     if 'app_file' not in app_obj:
-        problems("Invalid app definition %s" % app_obj)
+        client.revoke_self_token()
+        raise aomi.exceptions.AomiData("Invalid app definition %s" % app_obj)
 
     name = app_id_name(app_obj)
     if not validate_entry(app_obj, "app-id/%s" % name, opt):
@@ -318,40 +378,30 @@ def app(client, app_obj, opt):
     app_file = hard_path(app_obj['app_file'], opt.secrets)
     aomi.validation.secret_file(app_file)
     data = yaml.load(open(app_file).read())
-
-    ensure_auth(client, 'app-id')
-    if opt.mount_only:
-        log("Only enabling app-id", opt)
-        return
-
-    if 'users' not in data:
-        problems("Invalid app file %s" % app_file)
-
-    policy_name = app_id_policy_name(app_obj, data)
     app_id = app_id_itself(app_obj, data)
-    policy_file = app_id_policy_file(app_obj, data)
-
-    if policy_file:
-        p_data = policy_data(policy_file, app_obj.get('policy_vars', {}), opt)
-        if policy_name in client.list_policies():
-            if p_data != client.get_policy(policy_name):
-                problems("Policy %s already exists and content differs"
-                         % policy_name)
-
-        write_policy(policy_name, p_data, client, opt)
-    else:
-        if policy_name not in client.list_policies():
-            problems("Policy %s is not inline but does not exist"
-                     % policy_name)
-
-        log("Using existing policy %s" % policy_name, opt)
-
     app_path = "auth/app-id/map/app-id/%s" % app_id
-    app_obj = {'value': policy_name, 'display_name': name}
-    client.write(app_path, **app_obj)
-    r_users = data.get('users', [])
-    app_users(client, app_id, r_users)
-    log('created %d users in application %s' % (len(r_users), name), opt)
+
+    if app_obj.get('state', 'present') == 'absent':
+        delete(client, app_path, opt)
+    else:
+        ensure_auth(client, 'app-id')
+        if opt.mount_only:
+            log("Only enabling app-id", opt)
+            return
+
+        if 'users' not in data:
+            client.revoke_self_token()
+            raise aomi.exceptions.AomiData("Invalid app file %s" % app_file)
+
+        policy_name = app_id_policy_name(app_obj, data)
+        policy_file = app_id_policy_file(app_obj, data)
+        app_policy(client, policy_name, policy_file, app_obj, opt)
+
+        app_obj = {'value': policy_name, 'display_name': name}
+        write(client, app_path, app_obj, opt)
+        r_users = data.get('users', [])
+        app_users(client, app_id, r_users, opt)
+        log('created %d users in application %s' % (len(r_users), name), opt)
 
 
 def files(client, secret, opt):
@@ -372,7 +422,9 @@ def files(client, secret, opt):
     if secret.get('state', 'present') == 'present':
         for sfile in secret.get('files', []):
             if 'source' not in sfile or 'name' not in sfile:
-                problems("Invalid file specification %s" % sfile)
+                client.revoke_self_token()
+                e_msg = "Invalid file specification %s" % sfile
+                raise aomi.exceptions.AomiData(e_msg)
 
             filename = hard_path(sfile['source'], opt.secrets)
             aomi.validation.secret_file(filename)
@@ -383,12 +435,12 @@ def files(client, secret, opt):
                 vault_path,
                 sfile['name']), opt)
 
-        client.write(vault_path, **obj)
+        write(client, vault_path, obj, opt)
     else:
         rmfiles = ','.join([f['source'] for f in secret.get('files', [])])
         log("Removing files %s from %s" % (
             rmfiles, vault_path), opt)
-        client.delete(vault_path)
+        delete(client, vault_path, opt)
 
 
 def policy_data(file_name, policy_vars, opt):
@@ -437,7 +489,9 @@ def audit_logs(client, log_obj, opt):
             log("audit log %s already exists" % vault_path, opt)
             return
         else:
-            problems("conflicting audit log at %s" % vault_path)
+            client.revoke_self_token()
+            e_msg = "conflicting audit log at %s" % vault_path
+            raise aomi.exceptions.VaultConstraint(e_msg)
 
     obj = {
         'type': log_obj['type']
@@ -489,9 +543,9 @@ def users(client, user_obj, opt):
             'password': password,
             'policies': ','.join(user_obj['policies'])
         }
-        client.write(user_path, **v_obj)
+        write(client, user_path, v_obj, opt)
     else:
-        client.delete(user_path)
+        delete(client, user_path, opt)
 
 
 def approle(client, approle_obj, opt):
@@ -537,12 +591,13 @@ def generated_key(key, opt):
         return random_word()
     elif key['method'] == 'static':
         if 'value' not in key.keys():
-            problems("Missing static value")
-            log("Setting %s to a static value" % key_name, opt)
-            return key['value']
+            raise aomi.exceptions.AomiData("Missing static value")
+
+        log("Setting %s to a static value" % key_name, opt)
+        return key['value']
     else:
-        problems("Unexpected generated secret method %s"
-                 % key['method'])
+        raise aomi.exceptions.AomiData("Unexpected generated secret method %s"
+                                       % key['method'])
 
 
 def generated(client, obj, opt):
@@ -579,10 +634,10 @@ def generated(client, obj, opt):
             update_msg = "Writing %s generated secrets to %s" % \
                          (genseclen, vault_path)
             log(update_msg, opt)
-            client.write(vault_path, **secret_obj)
+            write(client, vault_path, secret_obj, opt)
     else:
         log("Removing generated secret at %s" % vault_path, opt)
-        client.delete(vault_path)
+        delete(client, vault_path, opt)
 
 
 def mount_path(client, obj, opt):
@@ -617,7 +672,7 @@ def duo_enable(client, backend, opt):
        and existing['data']['type'] == 'duo':
         log("Auth backend %s already configured for DUO" % backend, opt)
     else:
-        client.write(path, **obj)
+        write(client, path, obj, opt)
         log("Auth backend %s now configured for DUO" % backend, opt)
 
 
@@ -632,7 +687,7 @@ def duo_access(client, obj, opt):
         'host': obj['host']
     }
     path = "auth/%s/duo/access" % obj['backend']
-    client.write(path, **duo_obj)
+    write(client, path, duo_obj, opt)
 
 
 def duo(client, obj, opt):
@@ -646,7 +701,8 @@ def duo(client, obj, opt):
 
     if obj.get('state', 'present') == 'present':
         if not is_auth_backend(client, backend):
-            problems("Backend %s not found when configuring duo" % backend)
+            e_msg = "Backend %s not found when configuring duo" % backend
+            aomi.exceptions.VaultConstraint(e_msg)
 
         duo_enable(client, backend, opt)
         duo_access(client, obj, opt)
@@ -654,6 +710,6 @@ def duo(client, obj, opt):
         if not is_auth_backend(client, backend):
             return
 
-        client.write("auth/%s/mfa_config" % backend, **{})
-        client.write("auth/%s/duo/access" % backend, **{})
+        write(client, "auth/%s/mfa_config" % backend, {}, opt)
+        write(client, "auth/%s/duo/access" % backend, {}, opt)
         log("Removed DUO MFA support from %s" % backend, opt)

@@ -5,7 +5,8 @@ import json
 from tempfile import mkstemp
 import subprocess
 import requests
-from aomi.helpers import problems, flatten, log
+from aomi.helpers import flatten, log
+import aomi.exceptions
 
 
 def passphrase_file():
@@ -33,7 +34,7 @@ def gnupg_bin():
         output = subprocess.check_output(cmd)
         return output.strip()
     except subprocess.CalledProcessError:
-        problems("gpg2 must be installed")
+        raise aomi.exceptions.GPG("gpg2 must be installed")
 
 
 def massage_key(key):
@@ -66,7 +67,7 @@ def has_gpg_key(fingerprint):
         fingerprint = fingerprint[-8:]
 
     fingerprint = fingerprint.upper()
-    cmd = list(flatten([gnupg_bin(), gnupg_home(), "--list-public-keys"]))
+    cmd = flatten([gnupg_bin(), gnupg_home(), "--list-public-keys"])
     keys = subprocess.check_output(cmd)
     lines = keys.split('\n')
     pub_keys = [line for line in lines if line.startswith('pub')]
@@ -79,7 +80,7 @@ def import_gpg_key(key):
     key_handle = os.fdopen(key_fd, 'w')
     key_handle.write(key)
     key_handle.close()
-    cmd = [gnupg_bin(), gnupg_home(), "--import", key_filename],
+    cmd = flatten([gnupg_bin(), gnupg_home(), "--import", key_filename])
     output = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
     msg = 'gpg: Total number processed: 1'
     return len([line for line in output.split('\n') if line == msg]) == 1
@@ -88,28 +89,28 @@ def import_gpg_key(key):
 def encrypt(source, dest, keys, opt):
     """Encrypts a file using the given keys"""
     recipients = [["--recipient", key.encode('ASCII')] for key in keys]
-    cmd = list(flatten([gnupg_bin(), "--armor", "--output", dest,
-                        gnupg_home(), passphrase_file(), recipients,
-                        "--encrypt", source]))
+    cmd = flatten([gnupg_bin(), "--armor", "--output", dest,
+                   gnupg_home(), passphrase_file(), recipients,
+                   "--encrypt", source])
     try:
         subprocess.check_output(cmd, stderr=subprocess.STDOUT)
     except subprocess.CalledProcessError as exception:
         log("GPG Command %s" % ' '.join(exception.cmd), opt)
         log("GPG Output %s" % exception.output, opt)
-        problems("Unable to GPG")
+        raise aomi.exceptions.GPG()
 
     return True
 
 
 def decrypt(source, dest, opt):
     """Attempts to decrypt a file"""
-    cmd = list(flatten([gnupg_bin(), "--output", dest, "--decrypt",
-                        gnupg_home(), passphrase_file(), source]))
+    cmd = flatten([gnupg_bin(), "--output", dest, "--decrypt",
+                   gnupg_home(), passphrase_file(), source])
     try:
         subprocess.check_output(cmd, stderr=subprocess.STDOUT)
     except subprocess.CalledProcessError as exception:
         log("GPG Command %s" % ' '.join(exception.cmd), opt)
         log("GPG Output %s" % exception.output, opt)
-        problems("Unable to GPG")
+        raise aomi.exceptions.GPG()
 
     return True

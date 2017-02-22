@@ -9,3 +9,4 @@ dist
 build
 aomi/version
 .aomi-test
+docs/.sass-cache/

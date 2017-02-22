@@ -3,7 +3,8 @@ from __future__ import print_function
 import os
 import platform
 import stat
-from aomi.helpers import problems, abspath, is_tagged, log
+from aomi.helpers import abspath, is_tagged, log
+import aomi.exceptions
 
 
 def find_file(name, directory):
@@ -27,7 +28,8 @@ def subdir_file(item, relative):
             return os.sep.join(item_bits[i:])
         else:
             if item_bits[i] != relative_bits[i]:
-                problems("gitignore and secrets paths diverge!")
+                e_msg = "gitignore and secrets paths diverge!"
+                raise aomi.exceptions.AomiFile(e_msg)
 
     return None
 
@@ -50,13 +52,15 @@ def gitignore(opt):
     if gitignore_file:
         secrets_path = subdir_file(abspath(opt.secrets), gitignore_file)
         if not secrets_path:
-            problems("Unable to determine relative location of secretfile")
+            e_msg = "Unable to determine relative location of secretfile"
+            raise aomi.exceptions.AomiFile(e_msg)
 
         if not in_file(secrets_path, gitignore_file):
-            problems("The path %s was not found in %s" %
-                     (secrets_path, gitignore_file))
+            e_msg = "The path %s was not found in %s" \
+                    % (secrets_path, gitignore_file)
+            raise aomi.exceptions.AomiFile(e_msg)
     else:
-        problems("You should really have a .gitignore")
+        raise aomi.exceptions.AomiFile("You should really have a .gitignore")
 
 
 def secret_file(filename):
@@ -65,13 +69,15 @@ def secret_file(filename):
     filestat = os.stat(abspath(filename))
     if stat.S_ISREG(filestat.st_mode) == 0 and \
        stat.S_ISLNK(filestat.st_mode) == 0:
-        problems("Secret file %s must be a real file or symlink" % filename)
+        e_msg = "Secret file %s must be a real file or symlink" % filename
+        raise aomi.exceptions.AomiFile(e_msg)
 
     if platform.system() != "Windows":
         if filestat.st_mode & stat.S_IROTH or \
            filestat.st_mode & stat.S_IWOTH or \
            filestat.st_mode & stat.S_IWGRP:
-            problems("Secret file %s has too loose permissions" % filename)
+            e_msg = "Secret file %s has too loose permissions" % filename
+            raise aomi.exceptions.AomiFile(e_msg)
 
 
 def validate_obj(keys, obj):
@@ -159,7 +165,7 @@ def check_obj(keys, name, obj):
     """Do basic validation on an object"""
     msg = validate_obj(keys, obj)
     if len(msg) > 0:
-        problems("%s in %s" % (msg, name))
+        raise aomi.exceptions.AomiData("object check : %s in %s" % (msg, name))
 
 
 def policy_obj(obj):
@@ -170,7 +176,7 @@ def policy_obj(obj):
     elif state == 'absent':
         check_obj(['name'], 'policy', obj)
     else:
-        problems("Invalid policy state: %s" % state)
+        raise aomi.exceptions.AomiData("Invalid policy state: %s" % state)
 
 
 def user_obj(obj):
@@ -220,4 +226,4 @@ def duo_obj(obj):
     """Validates a duo obj"""
     check_obj(['host', 'creds', 'backend'], 'duo object', obj)
     if obj['backend'] != 'userpass':
-        problems('Invalid duo backend selected')
+        raise aomi.exceptions.AomiData('Invalid duo backend selected')

@@ -10,6 +10,7 @@ import aomi.validation
 import aomi.util
 import aomi.filez
 from aomi.helpers import VERSION as version
+from aomi.error import unhandled
 
 
 def extract_file_args(subparsers):
@@ -320,4 +321,11 @@ def action_runner(parser, args):
 def main():
     """Entrypoint, sweet Entrypoint"""
     parser, args = parser_factory()
-    action_runner(parser, args)
+    try:
+        action_runner(parser, args)
+
+    # this is our uncaught handler so yes we want to actually
+    # catch every error. the format may vary based on the error handler tho
+    except Exception as uncaught:  # pylint: disable=broad-except
+        unhandled(uncaught, args)
+        sys.exit(1)

@@ -9,6 +9,7 @@ from getpass import getpass
 from pkg_resources import resource_string, resource_filename
 # Python 2/3 compat
 from future.utils import iteritems  # pylint: disable=E0401
+import aomi.exceptions
 
 
 def my_version():
@@ -31,16 +32,6 @@ def log(msg, opt):
 def warning(msg):
     """Print a warning message to stderr"""
     print("Warning {0}".format(msg), file=sys.stderr)
-
-
-def problems(msg, client=None):
-    """Simple give-up and error out function."""
-    if client:
-        client.revoke_self_token()
-
-    print("Problem: %s" % msg,
-          file=sys.stderr)
-    exit(1)
 
 
 def abspath(raw):
@@ -114,14 +105,14 @@ def get_tty_password(opt, confirm):
     log("Reading password from TTY", opt)
     new_password = getpass('Enter Password: ', stream=sys.stderr)
     if not new_password:
-        problems("Must specify a password")
+        raise aomi.exceptions.AomiCommand("Must specify a password")
 
     if not confirm:
         return new_password
 
     confirm_password = getpass('Again, Please: ', stream=sys.stderr)
     if confirm_password != new_password:
-        problems("Passwords do not match")
+        raise aomi.exceptions.AomiCommand("Passwords do not match")
 
     return new_password
 
@@ -197,10 +188,17 @@ def random_word():
 
 
 def flatten(iterable):
+    """Ensure we are returning an actual list, as that's all we
+    are ever going to flatten within aomi"""
+    return [x for x in actually_flatten(iterable)]
+
+
+def actually_flatten(iterable):
     """Flatten iterables"""
     remainder = iter(iterable)
     while True:
         first = next(remainder)
+        # Python 2/3 compat
         try:
             basestring
         except NameError:

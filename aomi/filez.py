@@ -7,24 +7,25 @@ import time
 import datetime
 import zipfile
 
-from aomi.helpers import problems, warning, hard_path, \
-    log
+from aomi.helpers import warning, hard_path, log
 from aomi.vault import get_secretfile
 from aomi.gpg import key_from_keybase, has_gpg_key, \
     import_gpg_key, encrypt, decrypt
+import aomi.exceptions
 
 
 def from_keybase(username, opt):
     """Will attempt to retrieve a GPG public key from
     Keybase, importing if neccesary"""
     public_key = key_from_keybase(username)
-    key = public_key['fingerprint'][-8:].upper().encode('ascii')
-    if not has_gpg_key(key):
+    fingerprint = public_key['fingerprint'][-8:].upper().encode('ascii')
+    key = public_key['bundle'].encode('ascii')
+    if not has_gpg_key(fingerprint):
         log("Importing gpg key for %s" % username, opt)
         if not import_gpg_key(key):
-            problems("Unable to import key for %s" % username)
+            raise aomi.exceptions.KeybaseAPI("import key for %s" % username)
 
-    return key
+    return fingerprint
 
 
 def grok_keys(config, opt):
@@ -36,7 +37,7 @@ def grok_keys(config, opt):
             log("Encrypting for keybase user %s" % key[8:], opt)
         else:
             if not has_gpg_key(key):
-                problems("Do not actually have key %s" % key)
+                raise aomi.exceptions.GPG("Do not actually have key %s" % key)
 
             log("Encrypting for gpg id %s" % key, opt)
             key_id = key
@@ -99,7 +100,7 @@ def freeze_encrypt(dest_dir, zip_filename, config, opt):
                               datetime.datetime.now().timetuple())
     ice_file = "%s/aomi-%s-%s.ice" % (dest_dir, ice_handle, timestamp)
     if not encrypt(zip_filename, ice_file, pgp_keys, opt):
-        problems("Unable to encrypt zipfile")
+        raise aomi.exceptions.GPG("Unable to encrypt zipfile")
 
     return ice_file
 
@@ -131,7 +132,7 @@ def thaw_decrypt(src_file, tmp_dir, opt):
 
     zip_file = "%s/aomi.zip" % tmp_dir
     if not decrypt(src_file, zip_file, opt):
-        problems("Unable to gpg")
+        raise aomi.exceptions.GPG("Unable to gpg")
 
     return zip_file
 
@@ -142,7 +143,7 @@ def thaw_secret(filename, tmp_dir, flav, opt):
     src_file = "%s/%s" % (tmp_dir, filename)
     dest_file = "%s/%s" % (opt.secrets, filename)
     if not os.path.exists(src_file):
-        problems("%s file %s missing" % (flav, filename))
+        raise aomi.exceptions.IceFile("%s file %s missing" % (flav, filename))
 
     shutil.copyfile(src_file, dest_file)
     log("Thawed %s %s" % (flav, filename), opt)
@@ -152,7 +153,7 @@ def thaw(src_file, opt):
     """Given the combination of a Secretfile and the output of
     a freeze operation, will restore secrets to usable locations"""
     if not os.path.exists(src_file):
-        problems("%s does not exist" % src_file)
+        raise aomi.exceptions.AomiFile("%s does not exist" % src_file)
 
     tmp_dir = tempfile.mkdtemp('aomi-freeze')
 
@@ -189,7 +190,7 @@ def thaw_var_file(secret, tmp_dir, opt):
     var_file = os.path.basename(dest_file)
     src_file = "%s/%s" % (tmp_dir, var_file)
     if not os.path.exists(src_file):
-        problems("Var file %s missing" % var_file)
+        raise aomi.exceptions.IceFile("Var file %s missing" % var_file)
 
     shutil.copyfile(src_file, dest_file)
     log("Thawed var_file %s" % var_file, opt)
@@ -201,7 +202,7 @@ def thaw_aws_file(secret, tmp_dir, opt):
     aws_file = os.path.basename(dest_file)
     src_file = "%s/%s" % (tmp_dir, aws_file)
     if not os.path.exists(src_file):
-        problems("AWS file %s missing" % aws_file)
+        raise aomi.exceptions.IceFile("AWS file %s missing" % aws_file)
 
     shutil.copyfile(src_file, dest_file)
     log("Thawed aws_file %s" % aws_file, opt)
@@ -214,7 +215,7 @@ def thaw_files(secret, tmp_dir, opt):
         filename = os.path.basename(dest_file)
         src_file = "%s/%s" % (tmp_dir, filename)
         if not os.path.exists(src_file):
-            problems("File %s missing" % filename)
+            raise aomi.exceptions.IceFile("File %s missing" % filename)
 
         shutil.copyfile(src_file, dest_file)
         log("Thawed file %s" % filename, opt)

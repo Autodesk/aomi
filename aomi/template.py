@@ -7,7 +7,8 @@ from pkg_resources import resource_listdir, resource_filename
 import yaml
 from jinja2 import Environment, FileSystemLoader, meta
 import jinja2.nodes
-from aomi.helpers import merge_dicts, problems, abspath
+from aomi.helpers import merge_dicts, abspath
+import aomi.exceptions
 # Python 2/3 compat
 from future.utils import iteritems  # pylint: disable=E0401
 
@@ -41,7 +42,8 @@ def render(filename, obj):
                 missing_vars.append(var)
 
         if len(missing_vars) > 0:
-            problems("Missing required variables %s" % ','.join(missing_vars))
+            e_msg = "Missing required variables %s" % ','.join(missing_vars)
+            raise aomi.exceptions.AomiData(e_msg)
 
     template_obj = env.get_template(os.path.basename(template_path))
     output = template_obj.render(**obj)
@@ -96,8 +98,8 @@ def load_template_help(builtin):
 
 def builtin_list():
     """Show a listing of all our builtin templates"""
-    for template in abspath(resource_listdir(__name__, "templates")):
-        builtin, ext = os.path.splitext(os.path.basename(template))
+    for template in resource_listdir(__name__, "templates"):
+        builtin, ext = os.path.splitext(os.path.basename(abspath(template)))
         if ext == '.yml':
             continue
 

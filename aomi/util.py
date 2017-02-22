@@ -1,7 +1,8 @@
 """Utilities which are generally that are tied into actual command line
 operations but do not really fit under seed or render"""
-from aomi.helpers import problems, log, get_password, path_pieces, \
+from aomi.helpers import log, get_password, path_pieces, \
     backend_type, mount_for_path
+import aomi.exceptions
 
 
 def update_user_password(client, userpass, opt):
@@ -19,7 +20,8 @@ def update_user_password(client, userpass, opt):
         vault_path = "auth/%s/users/%s/password" % (mount, user)
         log("Updating password for user %s at path %s" % (user, mount), opt)
     else:
-        problems("Unexpected formatting on user path %s" % userpass)
+        client.revoke_self_token()
+        raise aomi.exceptions.AomiCommand("invalid user path")
 
     new_password = get_password(opt)
     obj = {
@@ -35,10 +37,12 @@ def update_generic_password(client, path, opt):
     vault_path, key = path_pieces(path)
     mount = mount_for_path(vault_path, client)
     if not mount:
-        problems("Invalid path")
+        client.revoke_self_token()
+        raise aomi.exceptions.VaultConstraint('invalid path')
 
     if backend_type(mount, client) != 'generic':
-        problems("Unsupported backend type")
+        client.revoke_self_token()
+        raise aomi.exceptions.AomiData("Unsupported backend type")
 
     log("Updating generic password at %s" % path, opt)
     existing = client.read(vault_path)
@@ -51,7 +55,8 @@ def update_generic_password(client, path, opt):
 
     new_password = get_password(opt)
     if key in existing and existing[key] == new_password:
-        problems("Password is same as existing")
+        client.revoke_self_token()
+        raise aomi.exceptions.AomiData("Password is same as existing")
 
     existing[key] = new_password
     client.write(vault_path, **existing)

@@ -17,7 +17,7 @@ We are trying to make it super easy to make use of `aomi` via [Docker](https://h
 To view perform an `aomi seed` using an existing Vault login on a workstation you could use something like the following.
 
 ```
-docker run -e VAULT_ADDR=$VAULT_ADDR -v ${HOME}/.vault-token -v ${HOME}/src/example autodesk/aomi seed
+docker run -e VAULT_ADDR=$VAULT_ADDR -v ${HOME}:/.vault-token -v ${HOME}/src/example autodesk/aomi seed
 ```
 
 # Requirements
@@ -353,3 +353,7 @@ Unit testing is performed with nosetests, simply add new python modules to the t
 * Please add tests.
 
 If you have any questions, please feel free to contact <jonathan.freedman@autodesk.com>.
+
+# External Components
+
+The web page for aomi is based on the [hacker](https://github.com/pages-themes/hacker) Jekyll theme and has been heavily.
