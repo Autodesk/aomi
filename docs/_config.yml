@@ -4,3 +4,4 @@ google_analytics:
 theme: 
 github:
   repository_url: https://github.com/Autodesk/aomi
+baseurl: /aomi

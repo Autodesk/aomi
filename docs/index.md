@@ -4,7 +4,7 @@ layout: default
 
 # Overview
 
-The primary purpose behind aomi is to provide a data model, suitable for use in a continuous delivery pipeline, for operational secrets as stored in Hashicorp [Vault](https://www.vaultproject.io/). This data model is expressed as [YAML](http://www.yaml.org/) in a file generally called [`Secretfile`](/secretfile).
+The primary purpose behind aomi is to provide a data model, suitable for use in a continuous delivery pipeline, for operational secrets as stored in Hashicorp [Vault](https://www.vaultproject.io/). This data model is expressed as [YAML](http://www.yaml.org/) in a file generally called [`Secretfile`]({{site.baseurl}}/secretfile).
 
 aomi itself is quite flexible, but can be used to enforce rigorous opinions upon how an organization chooses to leverage Vault. It currently supports a variety of means of representing [Generic](https://www.terraform.io/docs/providers/vault/r/generic_secret.html) and [AWS](https://www.vaultproject.io/docs/secrets/aws/index.html) secrets. There is also limited support for other constructs such as audit logs and policies.
 
