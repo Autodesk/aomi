@@ -36,10 +36,6 @@ The `aomi` tool will make several attempts at determining appropriate credential
 
 When sourcing a initial token first the `VAULT_TOKEN` environment variable will be searched, followed by the file `~/.vault-token`. This is in-line with the default behavior of the Vault client itself.  Next `aomi` will check the `VAULT_APP_ID` and `VAULT_USER_ID` environment variables followed by the file `~/.aomi-app-token`. This file is YAML encoded with only the `app_id` and `user_id` attributes. You may override both the Vault token and App/User ID files with the `VAULT_TOKEN_FILE` and `VAULT_APP_FILE` environment variables.
 
-# Secretfile
-
-The important piece of the `Secretfile` is `secrets` as that is where seeds are defined. There are different types of secrets which may be seeded into vault.
-
 ## About File Paths
 
 By default the `Secretfile` is searched for in the current directory. You can override this behavior with the `--secretfile` option.
@@ -60,167 +56,12 @@ You can include or exclude paths from execution on a one-off basis with the `--i
 
 # Vault Constructs
 
-These are the different things which `aomi` may interact with in a Vault instance.
+The `aomi` tool may write to a variety of Vault backends.
 
-## Files
-
-You may specify a list of files and their destination Vault secret item. Each `files` section has a list of source files, and the key name they should use in Vault. Each instance of a `files` section must also include a Vault mount point and path.  The following example would create two secrets (`private` and `public`) based on the two files under the `.secrets` directory and place them in the Vault path `foo/bar/baz`. The mountpoint will be created as a [generic](https://www.vaultproject.io/docs/secrets/generic/) secret store.
-
-----
-`Secretfile`
-
-```
-secrets:
-- files:
-  - source: id_rsa
-    name: private
-  - source: id_rsa.pub
-    name: public
-  mount: foo/bar
-  path: 'baz'
-```
-
-## AWS
-
-By specifying an appropriately populated `aws_file` you can create [AWS secret backends](https://www.vaultproject.io/docs/secrets/aws/index.html) in Vault. The `aws_file` must point to a valid file, and the base of the AWS credentials will be set by the `mount`.
-
-The AWS file contains the `access_key_id`, and `secret_access_key`. The `region`, and a list of AWS roles that will be loaded by Vault are in the `Secretfile`. Note that you may specify either an inline `policy` _or_ a native AWS `arn`. The `name` of each role will be used to compute the final path for accessing credentials. The policy files are simply JSON IAM Access representations. The following example would create an AWS Vault secret backend at `foo/bar/baz` based on the account and policy information defined in `.secrets/aws.yml`. While `lease` and `lease_max` are provided in this example, they are not strictly required. Note that you can also specify a `state` as either `present` (the default) or `absent`.
-
-Note that a previous version had `lease`, `lease_max`, `region`, and the `roles` section located in the `aws_file` itself - this behavior is now considered deprecated. The _only_ thing which should be present in the AWS yaml is the actual secrets.
-
-----
-
-`Secretfile`
-
-```
-secrets:
-- aws_file: 'aws.yml'
-  mount: 'foo/bar/baz'
-  lease: "1800s"
-  lease_max: "86400s"
-  region: "us-east-1"
-  roles:
-  - policy: "policy.json"
-    name: default
-```
-
-----
-
-`aws.yml`
-
-```
-
-access_key_id: "REDACTED"
-secret_access_key: "REDACTED"
-```
-
-## Variable Files
-
-You may define a preset list of secrets and associate them with a mountpoint and path. The `var_file` contains a list of YAML key value pairs. The following example would create two secrets (`user` and `password`) at the Vault path `foo/bar/baz`. The mountpoint will be created as a [generic](https://www.vaultproject.io/docs/secrets/generic/) secret store.
-
-----
-
-`Secretfile`
-
-```
-secrets:
-- var_file: 'foo.yml'
-  mount: 'foo/bar'
-  path: 'baz'
-```
-
-`.secrets/foo.yml`
-
-```
-user: 'foo'
-password: 'bar'
-```
-
-## Generated Secrets
-
-The aomi tool has the ability to populate a generic Vault path with random secrets. You still specify the mountpoint, path, and keys but not the contents. By default this is a write once operation but you can change this with the `overwrite` attribute. You can generate either random words or a uuid.
-
-----
-
-`Secretfile`
-
-```
-secrets:
-- generated:
-    mount: 'foo'
-    path: 'bar'
-    keys:
-    - name: 'username'
-      method: 'words'
-    - name: 'password'
-      method: 'uuid'
-      overwrite: true
-```
-
-## Vault Applications
-
-One of the authentication types supported by Vault is that of an Application/UserID combination. You may provision these with `aomi` as well. You may specify an Application ID, a series of User ID's, and a [Vault policy](https://www.vaultproject.io/docs/concepts/policies.html) to apply to resulting tokens. The following example would create an application named `foo` with two users (`bar` and `baz`) who read anything under the `foo/bar` Vault path. In this example the policy will be created _inline_. You may also re-use an existing policy by _only_ specifying a `policy_name`. When creating inline policies, you can _not_ modify the existing policy. This is a safeguard designed to prevent overwriting shared policies. It is recommended that you do not use inline policies for real world deployments.
-
-----
-
-`Secretfile`
-
-```
-secrets:
-apps:
-- app_file: 'foo.yml'
-```
-
-`.secrets/foo.yml`
-
-```
-app_id: 'foo'
-users:
-- 'bar'
-- 'baz'
-policy: 'foo.hcl'
-policy_name: 'foo'
-```
-
-`vault/foo.hcl`
-
-```
-path "foo/bar/*" {
-  policy = "read"
-}
-```
-
-## Policies
-
-You can seed policies separately now. Each policy has a `name` and a source `file` specified. This is recommended over using inline policies. You can specify a state of either `present` (the defaut) or `absent` but this is not required. The following example will provision a simple policy.
-
-----
-`Secretfile`
-
-```
-policies:
-- name: 'foo'
-  file: 'foo.hcl'
-```
-
-`vault/foo.hcl`
-
-```
-path "foo/bar/*" {
-  policy = "read"
-}
-```
-
-Compare this to the following example which would remove the previously created policy.
-
-----
-`Secretfile`
-
-```
-policies:
-- name: 'foo'
-  state: 'absent'
-```
+* [Generic](https://autodesk.github.io/aomi/generic) secrets
+* [AWS](https://autodesk.github.io/aomi/aws) credentials
+* [Policies](https://autodesk.github.io/aomi/policies)
+* [Authentication](https://autodesk.github.io/aomi/auth-resources) resources
 
 # Commands
 
