@@ -3,9 +3,11 @@ from __future__ import print_function
 # Python 2/3 compat
 from future.utils import iteritems  # pylint: disable=E0401
 from pkg_resources import resource_filename
+import hvac
 from aomi.helpers import warning, cli_hash, merge_dicts, \
     path_pieces, abspath
 from aomi.template import render, load_var_files
+from aomi.error import output as error_output
 import aomi.exceptions
 
 
@@ -162,7 +164,21 @@ def env(client, paths, opt):
 
 def aws(client, path, opt):
     """Renders a shell environment snippet with AWS information"""
-    creds = client.read(path)
+
+    try:
+        creds = client.read(path)
+    except (hvac.exceptions.InternalServerError) as vault_exception:
+        # this is how old vault behaves
+        if vault_exception.errors[0].find('unsupported path') > 0:
+            error_output("Invalid AWS path. Did you forget the"
+                         " credential type and role?", opt)
+        else:
+            raise vault_exception
+
+    # this is how new vault behaves
+    if not creds:
+        error_output("Invalid AWS path. Did you forget the"
+                     " credential type and role?", opt)
 
     renew_secret(client, creds, opt)
 
