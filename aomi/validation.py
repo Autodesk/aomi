@@ -19,17 +19,16 @@ def find_file(name, directory):
     return None
 
 
-def subdir_file(item, relative):
+def subdir_file(directory, relative):
     """Returns a file path relative to another file."""
-    item_bits = item.split(os.sep)
+    item_bits = directory.split(os.sep)
     relative_bits = relative.split(os.sep)
     for i in range(0, len(item_bits)):
         if i == len(relative_bits) - 1:
             return os.sep.join(item_bits[i:])
         else:
             if item_bits[i] != relative_bits[i]:
-                e_msg = "gitignore and secrets paths diverge!"
-                raise aomi.exceptions.AomiFile(e_msg)
+                return None
 
     return None
 
@@ -51,14 +50,14 @@ def gitignore(opt):
     gitignore_file = find_file('.gitignore', directory)
     if gitignore_file:
         secrets_path = subdir_file(abspath(opt.secrets), gitignore_file)
-        if not secrets_path:
-            e_msg = "Unable to determine relative location of secretfile"
-            raise aomi.exceptions.AomiFile(e_msg)
+        if secrets_path:
+            if not in_file(secrets_path, gitignore_file):
+                e_msg = "The path %s was not found in %s" \
+                        % (secrets_path, gitignore_file)
+                raise aomi.exceptions.AomiFile(e_msg)
+        else:
+            log("Using a non-relative secret directory", opt)
 
-        if not in_file(secrets_path, gitignore_file):
-            e_msg = "The path %s was not found in %s" \
-                    % (secrets_path, gitignore_file)
-            raise aomi.exceptions.AomiFile(e_msg)
     else:
         raise aomi.exceptions.AomiFile("You should really have a .gitignore")
 
