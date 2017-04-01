@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset='utf-8'>
+    <meta http-equiv="X-UA-Compatible" content="chrome=1">
+    <link rel="stylesheet" href="/aomi/assets/css/style.css?v=">
+    <title>aomi by Autodesk</title>
+  </head>
+
+  <body>
+
+    <header>
+      <div class="container">
+        <h1>aomi</h1>
+        <h2>Opinionlessly Express Opinions on Vault</h2>
+
+        <section id="downloads">
+          
+          <a href="https://github.com/Autodesk/aomi" class="btn btn-github"><span class="icon"></span>View on GitHub</a>
+        </section>
+      </div>
+    </header>
+
+    <div class="container">
+      <section id="main_content">
+        <h1 id="overview">Overview</h1>
+
+<p>Vault offers a variety of means for users and systems to authenticate and receive a token. Aomi supports a handful of these.</p>
+
+<h1 id="appid">AppID</h1>
+
+<p>One of the authentication types supported by Vault is that of an Application/UserID combination. You may provision these with <code class="highlighter-rouge">aomi</code> as well. You may specify an Application ID, a series of User ID’s, and a <a href="https://www.vaultproject.io/docs/concepts/policies.html">Vault policy</a> to apply to resulting tokens. The following example would create an application named <code class="highlighter-rouge">foo</code> with two users (<code class="highlighter-rouge">bar</code> and <code class="highlighter-rouge">baz</code>) who read anything under the <code class="highlighter-rouge">foo/bar</code> Vault path. In this example the policy will be created <em>inline</em>. You may also re-use an existing policy by <em>only</em> specifying a <code class="highlighter-rouge">policy_name</code>. When creating inline policies, you can <em>not</em> modify the existing policy. This is a safeguard designed to prevent overwriting shared policies. It is recommended that you do not use inline policies for real world deployments.</p>
+
+<hr />
+
+<p><code class="highlighter-rouge">Secretfile</code></p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>secrets:
+apps:
+- app_file: 'foo.yml'
+</code></pre>
+</div>
+
+<p><code class="highlighter-rouge">.secrets/foo.yml</code></p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>app_id: 'foo'
+users:
+- 'bar'
+- 'baz'
+policy: 'foo.hcl'
+policy_name: 'foo'
+</code></pre>
+</div>
+
+<p><code class="highlighter-rouge">vault/foo.hcl</code></p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>path "foo/bar/*" {
+  policy = "read"
+}
+</code></pre>
+</div>
+
+<h1 id="app-role">App Role</h1>
+
+<p>The succesor to the AppID authentication type is <a href="https://www.vaultproject.io/docs/auth/approle.html">AppRole</a>. This is a mechanism which is meant for system usage. The aomi tool only supports provisioning of roles, it does not currently support manual creation of associated secret ids. If you wish to have that style of authentication it is best to stick with App ID for now.</p>
+
+<p>You can currently associate policies, associated IP addresses, the number of uses for a created secret id, and how long the resulting tokens will last.</p>
+
+<hr />
+
+<p><code class="highlighter-rouge">Secretfile</code></p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>approles:
+- name: 'foo'
+  policies:
+  - 'default'
+  - 'not_default'
+  secret_users: 1
+  secret_ttl: 1
+</code></pre>
+</div>
+
+<h1 id="users">Users</h1>
+
+<p>Vault supports basic user/password <a href="https://www.vaultproject.io/docs/auth/userpass.html">combinations</a>. You can provision this with aomi as well. The <code class="highlighter-rouge">Secretfile</code> contains the user and policy associations. The password is stored as a plain text file in the secrets directory.</p>
+
+<hr />
+
+<p><code class="highlighter-rouge">Secretfile</code></p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>users:
+- username: 'foo'
+  password_file: 'foo-user.txt'
+  policies:
+  - 'default'
+</code></pre>
+</div>
+
+<p><code class="highlighter-rouge">.secrets/foo-user.txt</code></p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>password
+</code></pre>
+</div>
+
+<h1 id="duo">DUO</h1>
+
+<p>The aomi tool supports the Vault <a href="https://www.vaultproject.io/docs/auth/mfa.html">MFA</a> intgration for user/password combinations.</p>
+
+<hr />
+
+<p><code class="highlighter-rouge">Secretfile</code></p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>duo:
+- backend: "userpass"
+  creds: "duo.yml"
+  host: "api-foo.duosecurity.com"
+</code></pre>
+</div>
+
+<p><code class="highlighter-rouge">.secrets/duo.yml</code></p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>key: "foo"
+secret: "bar"
+</code></pre>
+</div>
+
+      </section>
+    </div>
+
+    
+  </body>
+</html>

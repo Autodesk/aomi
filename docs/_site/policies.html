@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset='utf-8'>
+    <meta http-equiv="X-UA-Compatible" content="chrome=1">
+    <link rel="stylesheet" href="/aomi/assets/css/style.css?v=">
+    <title>aomi by Autodesk</title>
+  </head>
+
+  <body>
+
+    <header>
+      <div class="container">
+        <h1>aomi</h1>
+        <h2>Opinionlessly Express Opinions on Vault</h2>
+
+        <section id="downloads">
+          
+          <a href="https://github.com/Autodesk/aomi" class="btn btn-github"><span class="icon"></span>View on GitHub</a>
+        </section>
+      </div>
+    </header>
+
+    <div class="container">
+      <section id="main_content">
+        <h1 id="data-format">Data Format</h1>
+
+<p>Each policy has a <code class="highlighter-rouge">name</code> and a source <code class="highlighter-rouge">file</code> specified. This is recommended over using inline policies. You can specify a state of either <code class="highlighter-rouge">present</code> (the defaut) or <code class="highlighter-rouge">absent</code> but this is not required. The following example will provision a simple policy.</p>
+
+<hr />
+<p><code class="highlighter-rouge">Secretfile</code></p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>policies:
+- name: 'foo'
+  file: 'foo.hcl'
+</code></pre>
+</div>
+
+<p><code class="highlighter-rouge">vault/foo.hcl</code></p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>path "foo/bar/*" {
+  policy = "read"
+}
+</code></pre>
+</div>
+
+<p>Compare this to the following example which would remove the previously created policy.</p>
+
+<hr />
+<p><code class="highlighter-rouge">Secretfile</code></p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>policies:
+- name: 'foo'
+  state: 'absent'
+</code></pre>
+</div>
+
+      </section>
+    </div>
+
+    
+  </body>
+</html>
