@@ -159,6 +159,7 @@ def get_secretfile(opt):
                       cli_hash(opt.extra_vars))
     return yaml.load(render(secretfile_path, obj))
 
+
 def app_id_name(app_obj):
     """Determines the proper app id name"""
     name = None

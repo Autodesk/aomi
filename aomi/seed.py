@@ -14,6 +14,7 @@ from aomi.vault import app_id_name
 from aomi.util import validate_entry
 import aomi.legacy
 
+
 def unmount(client, backend, path):
     """Unmount a given mountpoint"""
     backends = client.list_secret_backends()

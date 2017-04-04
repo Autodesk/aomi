@@ -12,9 +12,10 @@ from aomi.helpers import warning, hard_path, log, \
 from aomi.vault import get_secretfile
 from aomi.gpg import key_from_keybase, has_gpg_key, \
     import_gpg_key, encrypt, decrypt
-from aomi.validation import tag_check, sanitize_mount
+from aomi.validation import sanitize_mount
 import aomi.exceptions
 from aomi.util import validate_entry
+
 
 def from_keybase(username, opt):
     """Will attempt to retrieve a GPG public key from
@@ -63,8 +64,8 @@ def freeze_secret(src, dest, flav, tmp_dir, opt):
 
 def freeze_generic_file(secret, tmp_dir, opt):
     """Handles the potential validation of any frozen files"""
-    path = "%s/%s" % (sanitize_mount(secret['mount'])
-                      , secret['path'])
+    path = "%s/%s" % (sanitize_mount(secret['mount']),
+                      secret['path'])
     if not validate_entry(secret, path, opt):
         return
 

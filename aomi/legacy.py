@@ -1,5 +1,7 @@
+"""Property wrappers handling potentially obsolete formats..."""
 from aomi.helpers import warning
 from aomi.vault import app_id_name
+
 
 def app_id_itself(app_obj, data):
     """Determines the application ID to use"""
@@ -23,6 +25,7 @@ def aws_region(secret, aws_obj):
         # see https://github.com/Autodesk/aomi/issues/40
         warning('Defining region in the AWS yaml is deprecated')
         return aws_obj['region']
+
 
 def aws_roles(secret, aws_obj):
     """Return the AWS roles with appropriate output"""
