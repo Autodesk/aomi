@@ -56,7 +56,7 @@ def freeze_secret(src, dest, flav, tmp_dir, opt):
     dest_file = "%s/%s" % (tmp_dir, dest)
     dest_dir = os.path.dirname(dest_file)
     if not os.path.isdir(dest_dir):
-        os.mkdir(dest_dir, 0700)
+        os.mkdir(dest_dir, 0o700)
 
     shutil.copy(src_file, dest_file)
     log("Froze %s %s" % (flav, src), opt)
