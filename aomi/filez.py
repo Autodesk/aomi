@@ -202,7 +202,7 @@ def thaw(src_file, opt):
     archive = zipfile.ZipFile(zip_file, 'r')
     for archive_file in archive.namelist():
         archive.extract(archive_file, tmp_dir)
-        os.chmod("%s/%s" % (tmp_dir, archive_file), 0640)
+        os.chmod("%s/%s" % (tmp_dir, archive_file), 0o640)
         log("Extracted %s from archive" % archive_file, opt)
 
     log("Thawing secrets into %s" % opt.secrets, opt)
@@ -273,7 +273,7 @@ def thaw_files(secret, tmp_dir, opt):
 
         dest_dir = os.path.dirname(dest_file)
         if not os.path.isdir(dest_dir):
-            os.mkdir(dest_dir, 0700)
+            os.mkdir(dest_dir, 0o700)
 
         shutil.copy(src_file, dest_file)
         log("Thawed file %s" % filename, opt)
