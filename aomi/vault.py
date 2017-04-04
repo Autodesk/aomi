@@ -8,7 +8,6 @@ import yaml
 import requests
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 from aomi.helpers import log, cli_hash, merge_dicts, abspath
-import aomi.seed
 from aomi.template import render, load_var_files
 from aomi.error import output as error_output
 import aomi.error
@@ -85,6 +84,7 @@ def initial_token(vault_client, opt):
 def token_meta(operation, opt):
     """Generates metadata for a token"""
     meta = {
+        'via': 'aomi',
         'operation': operation,
         'hostname': socket.gethostname()
     }
@@ -107,9 +107,10 @@ def token_meta(operation, opt):
 
 def operational_token(vault_client, operation, opt):
     """Return a properly annotated token for our use."""
+    display_name = vault_client.lookup_token()['data']['display_name']
     args = {
         'lease': opt.lease,
-        'display_name': 'aomi token',
+        'display_name': display_name,
         'meta': token_meta(operation, opt)
     }
     try:
@@ -158,44 +159,12 @@ def get_secretfile(opt):
                       cli_hash(opt.extra_vars))
     return yaml.load(render(secretfile_path, obj))
 
+def app_id_name(app_obj):
+    """Determines the proper app id name"""
+    name = None
+    if 'name' in app_obj:
+        name = app_obj['name']
+    else:
+        name = os.path.splitext(os.path.basename(app_obj['app_file']))[0]
 
-def seed_secrets(config, vault_client, opt):
-    """Seed our various secrets"""
-    for secret in config.get('secrets', []):
-        if 'var_file' in secret:
-            aomi.seed.var_file(vault_client, secret, opt)
-        elif 'aws_file' in secret:
-            aomi.seed.aws(vault_client, secret, opt)
-        elif 'files' in secret:
-            aomi.seed.files(vault_client, secret, opt)
-        elif 'generated' in secret:
-            aomi.seed.generated(vault_client, secret['generated'], opt)
-        else:
-            raise aomi.exceptions.AomiData("secret element %s" % secret)
-
-
-def seed(vault_client, opt):
-    """Will provision vault based on the definition within a Secretfile"""
-    config = get_secretfile(opt)
-    seed_secrets(config, vault_client, opt)
-
-    for policy in config.get('policies', []):
-        aomi.seed.policy(vault_client, policy, opt)
-
-    for app in config.get('apps', []):
-        aomi.seed.app(vault_client, app, opt)
-
-    for user in config.get('users', []):
-        aomi.seed.users(vault_client, user, opt)
-
-    for audit_log in config.get('audit_logs', []):
-        aomi.seed.audit_logs(vault_client, audit_log, opt)
-
-    for approle in config.get('approles', []):
-        aomi.seed.approle(vault_client, approle, opt)
-
-    for mount in config.get('mounts', []):
-        aomi.seed.mount_path(vault_client, mount, opt)
-
-    for duo in config.get('duo', []):
-        aomi.seed.duo(vault_client, duo, opt)
+    return name

@@ -7,12 +7,14 @@ import time
 import datetime
 import zipfile
 
-from aomi.helpers import warning, hard_path, log
+from aomi.helpers import warning, hard_path, log, \
+    subdir_path
 from aomi.vault import get_secretfile
 from aomi.gpg import key_from_keybase, has_gpg_key, \
     import_gpg_key, encrypt, decrypt
+from aomi.validation import tag_check, sanitize_mount
 import aomi.exceptions
-
+from aomi.util import validate_entry
 
 def from_keybase(username, opt):
     """Will attempt to retrieve a GPG public key from
@@ -51,8 +53,44 @@ def freeze_secret(src, dest, flav, tmp_dir, opt):
     """Copies a secret into a particular location"""
     src_file = hard_path(src, opt.secrets)
     dest_file = "%s/%s" % (tmp_dir, dest)
-    shutil.copyfile(src_file, dest_file)
+    dest_dir = os.path.dirname(dest_file)
+    if not os.path.isdir(dest_dir):
+        os.mkdir(dest_dir, 0700)
+
+    shutil.copy(src_file, dest_file)
     log("Froze %s %s" % (flav, src), opt)
+
+
+def freeze_generic_file(secret, tmp_dir, opt):
+    """Handles the potential validation of any frozen files"""
+    path = "%s/%s" % (sanitize_mount(secret['mount'])
+                      , secret['path'])
+    if not validate_entry(secret, path, opt):
+        return
+
+    for a_secret in secret['files']:
+        sfile = a_secret['source']
+        freeze_secret(sfile, sfile, 'file', tmp_dir, opt)
+
+
+def freeze_aws_file(secret, tmp_dir, opt):
+    """Handles the potential validation of any frozen AWS credentials"""
+    path = "%s/config/root" % (sanitize_mount(secret['mount']))
+    if not validate_entry(secret, path, opt):
+        return
+
+    sfile = secret['aws_file']
+    freeze_secret(sfile, sfile, 'aws_file', tmp_dir, opt)
+
+
+def freeze_var_file(secret, tmp_dir, opt):
+    """Handles the potential validation of any frozen var file"""
+    path = "%s/%s" % (sanitize_mount(secret['mount']), secret['path'])
+    if not validate_entry(secret, path, opt):
+        return
+
+    sfile = secret['var_file']
+    freeze_secret(sfile, sfile, 'var_file', tmp_dir, opt)
 
 
 def freeze_files(config, tmp_dir, opt):
@@ -66,15 +104,11 @@ def freeze_files(config, tmp_dir, opt):
 
     for secret in config.get('secrets', []):
         if 'var_file' in secret:
-            sfile = secret['var_file']
-            freeze_secret(sfile, sfile, 'var_file', tmp_dir, opt)
+            freeze_var_file(secret, tmp_dir, opt)
         elif 'aws_file' in secret:
-            sfile = secret['aws_file']
-            freeze_secret(sfile, sfile, 'aws_file', tmp_dir, opt)
+            freeze_aws_file(secret, tmp_dir, opt)
         elif 'files' in secret:
-            for a_secret in secret['files']:
-                sfile = a_secret['source']
-                freeze_secret(sfile, sfile, 'file', tmp_dir, opt)
+            freeze_generic_file(secret, tmp_dir, opt)
 
     for duo in config.get('duo', []):
         d_file = duo['creds']
@@ -85,8 +119,12 @@ def freeze_archive(tmp_dir, dest_prefix):
     """Generates a ZIP file of secrets"""
     zip_filename = "%s/aomi-blah.zip" % tmp_dir
     archive = zipfile.ZipFile(zip_filename, 'w')
-    for archive_file in os.listdir(dest_prefix):
-        archive.write("%s/%s" % (dest_prefix, archive_file), archive_file)
+    for root, _dirnames, filenames in os.walk(dest_prefix):
+        for filename in filenames:
+            relative_path = subdir_path(root, dest_prefix).split(os.sep)[1:]
+            relative_path = os.sep.join(relative_path)
+            archive.write("%s/%s" % (root, filename),
+                          "%s/%s" % (relative_path, filename))
 
     archive.close()
     return zip_filename
@@ -131,6 +169,7 @@ def thaw_decrypt(src_file, tmp_dir, opt):
         os.mkdir(opt.secrets)
 
     zip_file = "%s/aomi.zip" % tmp_dir
+
     if not decrypt(src_file, zip_file, opt):
         raise aomi.exceptions.GPG("Unable to gpg")
 
@@ -145,7 +184,7 @@ def thaw_secret(filename, tmp_dir, flav, opt):
     if not os.path.exists(src_file):
         raise aomi.exceptions.IceFile("%s file %s missing" % (flav, filename))
 
-    shutil.copyfile(src_file, dest_file)
+    shutil.copy(src_file, dest_file)
     log("Thawed %s %s" % (flav, filename), opt)
 
 
@@ -162,6 +201,7 @@ def thaw(src_file, opt):
     archive = zipfile.ZipFile(zip_file, 'r')
     for archive_file in archive.namelist():
         archive.extract(archive_file, tmp_dir)
+        os.chmod("%s/%s" % (tmp_dir, archive_file), 0640)
         log("Extracted %s from archive" % archive_file, opt)
 
     log("Thawing secrets into %s" % opt.secrets, opt)
@@ -186,36 +226,53 @@ def thaw(src_file, opt):
 
 def thaw_var_file(secret, tmp_dir, opt):
     """Thaw the contents of a var file"""
+    path = "%s/%s" % (sanitize_mount(secret['mount']), secret['path'])
+    if not validate_entry(secret, path, opt):
+        return
+
     dest_file = "%s/%s" % (opt.secrets, secret['var_file'])
     var_file = os.path.basename(dest_file)
     src_file = "%s/%s" % (tmp_dir, var_file)
     if not os.path.exists(src_file):
         raise aomi.exceptions.IceFile("Var file %s missing" % var_file)
 
-    shutil.copyfile(src_file, dest_file)
+    shutil.copy(src_file, dest_file)
     log("Thawed var_file %s" % var_file, opt)
 
 
 def thaw_aws_file(secret, tmp_dir, opt):
     """Thaw the contents of an AWS file"""
+    path = "%s/config/root" % (sanitize_mount(secret['mount']))
+    if not validate_entry(secret, path, opt):
+        return
+
     dest_file = "%s/%s" % (opt.secrets, secret['aws_file'])
     aws_file = os.path.basename(dest_file)
     src_file = "%s/%s" % (tmp_dir, aws_file)
     if not os.path.exists(src_file):
         raise aomi.exceptions.IceFile("AWS file %s missing" % aws_file)
 
-    shutil.copyfile(src_file, dest_file)
+    shutil.copy(src_file, dest_file)
     log("Thawed aws_file %s" % aws_file, opt)
 
 
 def thaw_files(secret, tmp_dir, opt):
     """Thaw some files"""
     for a_secret in secret['files']:
+        path = "%s/%s" % (sanitize_mount(secret['mount']),
+                          secret['path'])
+        if not validate_entry(secret, path, opt):
+            return
+
+        filename = a_secret['source']
         dest_file = "%s/%s" % (opt.secrets, a_secret['source'])
-        filename = os.path.basename(dest_file)
         src_file = "%s/%s" % (tmp_dir, filename)
         if not os.path.exists(src_file):
             raise aomi.exceptions.IceFile("File %s missing" % filename)
 
-        shutil.copyfile(src_file, dest_file)
+        dest_dir = os.path.dirname(dest_file)
+        if not os.path.isdir(dest_dir):
+            os.mkdir(dest_dir, 0700)
+
+        shutil.copy(src_file, dest_file)
         log("Thawed file %s" % filename, opt)

@@ -1,5 +1,4 @@
 """Handles the various kinds of secret seeding which we do"""
-import os
 import re
 from uuid import uuid4
 import yaml
@@ -11,7 +10,9 @@ import aomi.validation
 from aomi.error import output as error_output
 from aomi.validation import sanitize_mount
 from aomi.template import render, load_var_files
-
+from aomi.vault import app_id_name
+from aomi.util import validate_entry
+import aomi.legacy
 
 def unmount(client, backend, path):
     """Unmount a given mountpoint"""
@@ -67,19 +68,6 @@ def ensure_auth(client, auth):
         client.enable_auth_backend(auth)
 
 
-def validate_entry(obj, path, opt):
-    """Determines whether or not to interpret this particular
-    aomi construct based on combination of tags and what
-    is passed via the CLI"""
-    if not aomi.validation.tag_check(obj, path, opt):
-        return False
-
-    if not aomi.validation.specific_path_check(path, opt):
-        return False
-
-    return True
-
-
 def write(client, path, varz, opt):
     """Write to Vault while handling non-surprising errors."""
     try:
@@ -111,12 +99,12 @@ def var_file(client, secret, opt):
     aomi.validation.var_file_obj(secret)
     my_mount = sanitize_mount(secret['mount'])
     path = "%s/%s" % (my_mount, secret['path'])
+    if not validate_entry(secret, path, opt):
+        return
+
     var_file_name = hard_path(secret['var_file'], opt.secrets)
     aomi.validation.secret_file(var_file_name)
     varz = yaml.load(open(var_file_name).read())
-
-    if not validate_entry(secret, path, opt):
-        return
 
     maybe_mount(client, 'generic', my_mount, opt)
 
@@ -133,26 +121,6 @@ def var_file(client, secret, opt):
         delete(client, path, opt)
         log('deleted var_file %s from %s' % (
             var_file_name, path), opt)
-
-
-def aws_region(secret, aws_obj):
-    """Return the AWS region with appropriate output"""
-    if 'region' in secret:
-        return secret['region']
-    else:
-        # see https://github.com/Autodesk/aomi/issues/40
-        warning('Defining region in the AWS yaml is deprecated')
-        return aws_obj['region']
-
-
-def aws_roles(secret, aws_obj):
-    """Return the AWS roles with appropriate output"""
-    if 'roles' in secret:
-        return secret['roles']
-    else:
-        # see https://github.com/Autodesk/aomi/issues/40
-        warning('Defining roles within the AWS yaml is deprecated')
-        return aws_obj['roles']
 
 
 def aws(client, secret, opt):
@@ -181,12 +149,12 @@ def aws(client, secret, opt):
     aws_obj = yaml.load(open(aws_file_path, 'r').read())
     aomi.validation.aws_secret_obj(aws_file_path, aws_obj)
 
-    region = aws_region(secret, aws_obj)
+    region = aomi.legacy.aws_region(secret, aws_obj)
     if region is None:
         client.revoke_self_token()
         raise aomi.exceptions.AomiData('missing aws region')
 
-    roles = aws_roles(secret, aws_obj)
+    roles = aomi.legacy.aws_roles(secret, aws_obj)
     if roles is None:
         client.revoke_self_token()
         raise aomi.exceptions.AomiData('missing aws roles')
@@ -292,59 +260,6 @@ def app_users(client, app_id, p_users, opt):
             write(client, user_path, user_obj, opt)
 
 
-def app_id_name(app_obj):
-    """Determines the proper app id name"""
-    name = None
-    if 'name' in app_obj:
-        name = app_obj['name']
-    else:
-        name = os.path.splitext(os.path.basename(app_obj['app_file']))[0]
-
-    return name
-
-
-def app_id_policy_file(app_obj, data):
-    """Determines the correct policy file name, checking both the
-    proper and legacy location"""
-    policy_file = None
-    if 'policy' in data:
-        warning('Defining policy_name within the app yaml is deprecated')
-        policy_file = data['policy']
-    elif 'policy' in app_obj:
-        policy_file = app_obj['policy']
-
-    return policy_file
-
-
-def app_id_policy_name(app_obj, data):
-    """Determines the policy name, checking both the proper
-    and the legacy location"""
-    policy_name = None
-    if 'policy_name' in data:
-        warning('Defining policy_name within the app yaml is deprecated')
-        policy_name = data['policy_name']
-    elif 'policy_name' in data:
-        policy_name = app_obj['policy_name']
-    else:
-        policy_name = app_id_name(app_obj)
-
-    return policy_name
-
-
-def app_id_itself(app_obj, data):
-    """Determines the application ID to use"""
-    app_id = None
-    if 'app_id' in data:
-        warning('Defining app_id within the app yaml is deprecated')
-        app_id = data['app_id']
-    elif 'app_id' in app_obj:
-        app_id = app_obj['app_id']
-    else:
-        app_id = app_id_name(app_obj)
-
-    return app_id
-
-
 def app_policy(client, policy_name, policy_file, app_obj, opt):
     """Ensures the policy portion of an app is correct"""
 
@@ -380,7 +295,7 @@ def app(client, app_obj, opt):
     app_file = hard_path(app_obj['app_file'], opt.secrets)
     aomi.validation.secret_file(app_file)
     data = yaml.load(open(app_file).read())
-    app_id = app_id_itself(app_obj, data)
+    app_id = aomi.legacy.app_id_itself(app_obj, data)
     app_path = "auth/app-id/map/app-id/%s" % app_id
 
     if app_obj.get('state', 'present') == 'absent':
@@ -395,8 +310,8 @@ def app(client, app_obj, opt):
             client.revoke_self_token()
             raise aomi.exceptions.AomiData("Invalid app file %s" % app_file)
 
-        policy_name = app_id_policy_name(app_obj, data)
-        policy_file = app_id_policy_file(app_obj, data)
+        policy_name = aomi.legacy.app_id_policy_name(app_obj, data)
+        policy_file = aomi.legacy.app_id_policy_file(app_obj, data)
         app_policy(client, policy_name, policy_file, app_obj, opt)
 
         app_obj = {'value': policy_name, 'display_name': name}

@@ -3,17 +3,6 @@ import unittest
 import aomi.validation
 from aomi.cli import parser_factory
 
-class FilePathTest(unittest.TestCase):
-    def test_subdir_happy_path(self):
-        assert aomi.validation.subdir_file("/a/b/c", "/a/b/.gitignore") == "c"
-        assert aomi.validation.subdir_file("/a/b/c/d", "/a/b/.gitignore") == "c/d"
-
-    def test_subdir_missing(self):
-        assert aomi.validation.subdir_file("/a/b/c", "c/d") is None
-
-    def test_subdir_external(self):
-        assert aomi.validation.subdir_file("/a/b/c", "/d/e") is None
-
 
 class VaultPathTest(unittest.TestCase):
     def setUp(self):
