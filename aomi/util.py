@@ -1,7 +1,8 @@
 """Utilities which are generally that are tied into actual command line
-operations but do not really fit under seed or render"""
+operations processing but do not really fit under seed or render."""
 from aomi.helpers import log, get_password, path_pieces, \
     backend_type, mount_for_path
+import aomi.validation
 import aomi.exceptions
 
 
@@ -68,3 +69,16 @@ def password(client, path, opt):
         update_user_password(client, path[5:], opt)
     else:
         update_generic_password(client, path, opt)
+
+
+def validate_entry(obj, path, opt):
+    """Determines whether or not to interpret this particular
+    aomi construct based on combination of tags and what
+    is passed via the CLI"""
+    if not aomi.validation.tag_check(obj, path, opt):
+        return False
+
+    if not aomi.validation.specific_path_check(path, opt):
+        return False
+
+    return True

@@ -3,7 +3,7 @@ from __future__ import print_function
 import os
 import platform
 import stat
-from aomi.helpers import abspath, is_tagged, log
+from aomi.helpers import abspath, is_tagged, log, subdir_path
 import aomi.exceptions
 
 
@@ -15,20 +15,6 @@ def find_file(name, directory):
         check_file = "%s%s%s" % (os.sep.join(check_path), os.sep, name)
         if os.path.exists(check_file):
             return abspath(check_file)
-
-    return None
-
-
-def subdir_file(directory, relative):
-    """Returns a file path relative to another file."""
-    item_bits = directory.split(os.sep)
-    relative_bits = relative.split(os.sep)
-    for i in range(0, len(item_bits)):
-        if i == len(relative_bits) - 1:
-            return os.sep.join(item_bits[i:])
-        else:
-            if item_bits[i] != relative_bits[i]:
-                return None
 
     return None
 
@@ -49,7 +35,7 @@ def gitignore(opt):
     directory = os.path.dirname(abspath(opt.secretfile))
     gitignore_file = find_file('.gitignore', directory)
     if gitignore_file:
-        secrets_path = subdir_file(abspath(opt.secrets), gitignore_file)
+        secrets_path = subdir_path(abspath(opt.secrets), gitignore_file)
         if secrets_path:
             if not in_file(secrets_path, gitignore_file):
                 e_msg = "The path %s was not found in %s" \

@@ -9,6 +9,7 @@ import aomi.template
 import aomi.validation
 import aomi.util
 import aomi.filez
+import aomi.seed_action
 from aomi.helpers import VERSION as version
 from aomi.error import unhandled
 
@@ -168,6 +169,9 @@ def seed_args(subparsers):
                              help='Only mount paths if needed',
                              default=False,
                              action='store_true')
+    seed_parser.add_argument('--thaw-from',
+                             dest='thaw_from',
+                             help='Thaw an ICE file containing secrets')
     base_args(seed_parser)
 
 
@@ -297,7 +301,7 @@ def action_runner(parser, args):
         sys.exit(0)
     elif args.operation == 'seed':
         aomi.validation.gitignore(args)
-        aomi.vault.seed(client, args)
+        aomi.seed_action.seed(client, args)
         sys.exit(0)
     elif args.operation == 'template':
         template_runner(client, parser, args)
