@@ -67,7 +67,7 @@ def initial_token(vault_client, opt):
         log("Token derived from VAULT_ROLE_ID and VAULT_SECRET_ID", opt)
         return token
     elif os.path.exists(app_file):
-        token = yaml.load(open(app_file).read().strip())
+        token = yaml.safe_load(open(app_file).read().strip())
         if 'app_id' in token and 'user_id' in token:
             token = app_token(vault_client,
                               token['app_id'],
@@ -157,7 +157,7 @@ def get_secretfile(opt):
     secretfile_path = abspath(opt.secretfile)
     obj = merge_dicts(load_var_files(opt),
                       cli_hash(opt.extra_vars))
-    return yaml.load(render(secretfile_path, obj))
+    return yaml.safe_load(render(secretfile_path, obj))
 
 
 def app_id_name(app_obj):

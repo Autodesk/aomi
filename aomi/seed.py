@@ -105,7 +105,7 @@ def var_file(client, secret, opt):
 
     var_file_name = hard_path(secret['var_file'], opt.secrets)
     aomi.validation.secret_file(var_file_name)
-    varz = yaml.load(open(var_file_name).read())
+    varz = yaml.safe_load(open(var_file_name).read())
 
     maybe_mount(client, 'generic', my_mount, opt)
 
@@ -147,7 +147,7 @@ def aws(client, secret, opt):
     aws_file_path = hard_path(secret['aws_file'], opt.secrets)
     aomi.validation.secret_file(aws_file_path)
 
-    aws_obj = yaml.load(open(aws_file_path, 'r').read())
+    aws_obj = yaml.safe_load(open(aws_file_path, 'r').read())
     aomi.validation.aws_secret_obj(aws_file_path, aws_obj)
 
     region = aomi.legacy.aws_region(secret, aws_obj)
@@ -295,7 +295,7 @@ def app(client, app_obj, opt):
 
     app_file = hard_path(app_obj['app_file'], opt.secrets)
     aomi.validation.secret_file(app_file)
-    data = yaml.load(open(app_file).read())
+    data = yaml.safe_load(open(app_file).read())
     app_id = aomi.legacy.app_id_itself(app_obj, data)
     app_path = "auth/app-id/map/app-id/%s" % app_id
 
@@ -598,7 +598,7 @@ def duo_access(client, obj, opt):
     """Sets the DUO access configuration"""
     creds_file_name = hard_path(obj['creds'], opt.secrets)
     aomi.validation.secret_file(creds_file_name)
-    creds = yaml.load(open(creds_file_name).read())
+    creds = yaml.safe_load(open(creds_file_name).read())
     duo_obj = {
         'ikey': creds['key'],
         'skey': creds['secret'],

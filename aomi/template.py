@@ -28,7 +28,8 @@ def render(filename, obj):
     """Render a template, maybe mixing in extra variables"""
     template_path = abspath(filename)
     fs_loader = FileSystemLoader(os.path.dirname(template_path))
-    env = Environment(loader=fs_loader)
+    env = Environment(loader=fs_loader,
+                      autoescape=True)
     env.filters['b64encode'] = portable_b64encode
     env.filters['b64decode'] = portable_b64decode
     template_src = env.loader.get_source(env, os.path.basename(template_path))
@@ -70,7 +71,7 @@ def load_var_files(opt):
     """Load variable files, merge, return contents"""
     obj = {}
     for var_file in opt.extra_vars_file:
-        yamlz = yaml.load(open(abspath(var_file)).read())
+        yamlz = yaml.safe_load(open(abspath(var_file)).read())
         obj = merge_dicts(obj.copy(), yamlz)
 
     return obj
@@ -83,7 +84,7 @@ def load_template_help(builtin):
     help_file = resource_filename(__name__, help_file)
     help_obj = {}
     if os.path.exists(help_file):
-        help_data = yaml.load(open(help_file))
+        help_data = yaml.safe_load(open(help_file))
         if 'name' in help_data:
             help_obj['name'] = help_data['name']
 
