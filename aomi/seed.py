@@ -37,7 +37,9 @@ def maybe_mount(client, backend, mount, opt):
     """Will ensure a mountpoint exists, or bail with a polite error"""
     backends = client.list_secret_backends()
     if not is_mounted(mount, backends, backend):
-        log("Specifying a inline mountpoint is deprecated", opt)
+        if backend == 'generic':
+            log("Specifying a inline generic mountpoint is deprecated", opt)
+
         actually_mount(client, backend, mount)
 
 
