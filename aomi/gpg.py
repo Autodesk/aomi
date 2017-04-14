@@ -3,7 +3,7 @@ from __future__ import print_function
 import os
 import json
 from tempfile import mkstemp
-import subprocess
+import subprocess  # nosec
 import requests
 from aomi.helpers import flatten, log
 import aomi.exceptions
@@ -13,8 +13,12 @@ def passphrase_file():
     """Read passphrase from a file. This should only ever be
     used by our built in integration tests."""
     if 'AOMI_PASSPHRASE_FILE' in os.environ:
+        pass_file = os.environ['AOMI_PASSPHRASE_FILE']
+        if not os.path.isfile(pass_file):
+            raise aomi.exceptions.AomiFile('AOMI_PASSPHRASE_FILE is invalid')
+
         return ["--batch", "--passphrase-file",
-                os.environ['AOMI_PASSPHRASE_FILE']]
+                pass_file]
     else:
         return []
 
@@ -22,7 +26,11 @@ def passphrase_file():
 def gnupg_home():
     """Returns appropriate arguments if GNUPGHOME is set"""
     if 'GNUPGHOME' in os.environ:
-        return ["--homedir", os.environ['GNUPGHOME']]
+        gnupghome = os.environ['GNUPGHOME']
+        if not os.path.isdir(gnupghome):
+            raise aomi.exceptions.AomiFile("Invalid GNUPGHOME directory")
+
+        return ["--homedir", gnupghome]
     else:
         return []
 
@@ -31,7 +39,8 @@ def gnupg_bin():
     """Return the path to the gpg binary"""
     cmd = ["which", "gpg2"]
     try:
-        output = subprocess.check_output(cmd)
+        # We are OK from the perspective of B603
+        output = subprocess.check_output(cmd)  # nosec
         return output.strip()
     except subprocess.CalledProcessError:
         raise aomi.exceptions.GPG("gpg2 must be installed")
@@ -68,7 +77,7 @@ def has_gpg_key(fingerprint):
 
     fingerprint = fingerprint.upper()
     cmd = flatten([gnupg_bin(), gnupg_home(), "--list-public-keys"])
-    keys = subprocess.check_output(cmd)
+    keys = subprocess.check_output(cmd)  # nosec
     lines = keys.split('\n')
     pub_keys = [line for line in lines if line.startswith('pub')]
     return len([key for key in pub_keys if key.find(fingerprint) > -1]) == 1
@@ -81,7 +90,8 @@ def import_gpg_key(key):
     key_handle.write(key)
     key_handle.close()
     cmd = flatten([gnupg_bin(), gnupg_home(), "--import", key_filename])
-    output = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
+    # we trust mkstep to be legit
+    output = subprocess.check_output(cmd, stderr=subprocess.STDOUT)  # nosec
     msg = 'gpg: Total number processed: 1'
     return len([line for line in output.split('\n') if line == msg]) == 1
 
@@ -92,8 +102,9 @@ def encrypt(source, dest, keys, opt):
     cmd = flatten([gnupg_bin(), "--armor", "--output", dest,
                    gnupg_home(), passphrase_file(), recipients,
                    "--encrypt", source])
+    # gpg keys are validated in filez.grok_keys
     try:
-        subprocess.check_output(cmd, stderr=subprocess.STDOUT)
+        subprocess.check_output(cmd, stderr=subprocess.STDOUT)  # nosec
     except subprocess.CalledProcessError as exception:
         log("GPG Command %s" % ' '.join(exception.cmd), opt)
         log("GPG Output %s" % exception.output, opt)
@@ -106,8 +117,9 @@ def decrypt(source, dest, opt):
     """Attempts to decrypt a file"""
     cmd = flatten([gnupg_bin(), "--output", dest, "--decrypt",
                    gnupg_home(), passphrase_file(), source])
+    # we confirm the source file exists in filez.thaw
     try:
-        subprocess.check_output(cmd, stderr=subprocess.STDOUT)
+        subprocess.check_output(cmd, stderr=subprocess.STDOUT)  # nosec
     except subprocess.CalledProcessError as exception:
         log("GPG Command %s" % ' '.join(exception.cmd), opt)
         log("GPG Output %s" % exception.output, opt)

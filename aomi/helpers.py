@@ -4,7 +4,7 @@ import collections
 import itertools as IT
 import sys
 import os
-import random
+from random import SystemRandom
 from getpass import getpass
 from pkg_resources import resource_string, resource_filename
 # Python 2/3 compat
@@ -176,7 +176,7 @@ def load_word_file(filename):
 
 def choose_one(things):
     """Returns a random entry from a list of things"""
-    choice = random.randint(0, len(things) - 1)
+    choice = SystemRandom().randint(0, len(things) - 1)
     return things[choice].strip()
 
 

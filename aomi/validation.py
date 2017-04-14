@@ -1,6 +1,7 @@
 """Some validation helpers for aomi"""
 from __future__ import print_function
 import os
+import re
 import platform
 import stat
 from aomi.helpers import abspath, is_tagged, log, subdir_path
@@ -212,3 +213,9 @@ def duo_obj(obj):
     check_obj(['host', 'creds', 'backend'], 'duo object', obj)
     if obj['backend'] != 'userpass':
         raise aomi.exceptions.AomiData('Invalid duo backend selected')
+
+
+def gpg_fingerprint(key):
+    """Validates a GPG key fingerprint"""
+    if len(key) != 8 or not re.match(r'[0-9A-F]{8}', key):
+        raise aomi.exceptions.Validation('Invalid GPG Fingerprint')

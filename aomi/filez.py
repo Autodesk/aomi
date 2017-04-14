@@ -13,6 +13,8 @@ from aomi.vault import get_secretfile
 from aomi.gpg import key_from_keybase, has_gpg_key, \
     import_gpg_key, encrypt, decrypt
 from aomi.validation import sanitize_mount
+from aomi.validation import gpg_fingerprint \
+    as validate_gpg_fingerprint
 import aomi.exceptions
 from aomi.util import validate_entry
 
@@ -45,6 +47,7 @@ def grok_keys(config, opt):
             log("Encrypting for gpg id %s" % key, opt)
             key_id = key
 
+        validate_gpg_fingerprint(key_id)
         key_ids.append(key_id)
 
     return key_ids

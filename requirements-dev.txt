@@ -6,4 +6,4 @@ ipdb
 awscli
 pylint
 future
-
+bandit
