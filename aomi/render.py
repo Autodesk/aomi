@@ -19,8 +19,8 @@ def grok_seconds(lease):
         return int(lease[0:-1]) * 60
     elif lease.endswith('h'):
         return int(lease[0:-1]) * 3600
-    else:
-        return None
+
+    return None
 
 
 def is_aws(data):
@@ -64,10 +64,10 @@ def grok_template_file(src):
     """Determine the real deal template file"""
     if not src.startswith('builtin:'):
         return abspath(src)
-    else:
-        builtin = src.split(':')[1]
-        builtin = "templates/%s.j2" % builtin
-        return resource_filename(__name__, builtin)
+
+    builtin = src.split(':')[1]
+    builtin = "templates/%s.j2" % builtin
+    return resource_filename(__name__, builtin)
 
 
 def blend_vars(secrets, opt):
@@ -173,7 +173,7 @@ def aws(client, path, opt):
             error_output("Invalid AWS path. Did you forget the"
                          " credential type and role?", opt)
         else:
-            raise vault_exception
+            raise
 
     # this is how new vault behaves
     if not creds:
