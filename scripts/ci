@@ -8,3 +8,4 @@ fi
 "${PREFIX}pep8" aomi
 "${PREFIX}pylint" --rcfile=/dev/null aomi
 "${PREFIX}nose2"
+"${PREFIX}bandit" -r aomi

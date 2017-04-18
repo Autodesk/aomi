@@ -249,8 +249,8 @@ def parser_factory(fake_args=None):
 
     if fake_args is None:
         return parser, parser.parse_args()
-    else:
-        return parser, parser.parse_args(fake_args)
+
+    return parser, parser.parse_args(fake_args)
 
 
 def parse_extra_vars(extra_vars):

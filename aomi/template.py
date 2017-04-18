@@ -35,14 +35,14 @@ def render(filename, obj):
     template_src = env.loader.get_source(env, os.path.basename(template_path))
     parsed_content = env.parse(template_src)
     template_vars = meta.find_undeclared_variables(parsed_content)
-    if len(template_vars) > 0:
+    if template_vars:
         missing_vars = []
         default_vars = grok_default_vars(parsed_content)
         for var in template_vars:
             if var not in default_vars and var not in obj:
                 missing_vars.append(var)
 
-        if len(missing_vars) > 0:
+        if missing_vars:
             e_msg = "Missing required variables %s" % ','.join(missing_vars)
             raise aomi.exceptions.AomiData(e_msg)
 
@@ -55,16 +55,16 @@ def portable_b64encode(thing):
     """Wrap b64encode for Python 2 & 3"""
     if sys.version_info >= (3, 0):
         return b64encode(bytes(thing, 'utf-8')).decode('utf-8')
-    else:
-        return b64encode(thing)
+
+    return b64encode(thing)
 
 
 def portable_b64decode(thing):
     """Consistent b64decode in Python 2 & 3"""
     if sys.version_info >= (3, 0):
         return b64decode(thing).decode('utf-8')
-    else:
-        return b64decode(thing)
+
+    return b64decode(thing)
 
 
 def load_var_files(opt):

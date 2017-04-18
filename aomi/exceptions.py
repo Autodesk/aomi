@@ -66,3 +66,9 @@ class VaultData(AomiError):
     """Something is wrong with data received from Vault. Usually
     indicates aomi trying to interact with something manually created"""
     catmsg = 'Unexpected Vault Data Woe'
+
+
+class Validation(AomiError):
+    """Some kind of validation failed. Invalid string, length,
+    who knows. Never trust user input tho."""
+    catmsg = 'Validation Error'

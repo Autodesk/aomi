@@ -45,13 +45,12 @@ def initial_token(vault_client, opt):
                               os.path.join(home, ".aomi-app-token"))
     token_file = abspath(token_file)
     app_file = abspath(app_file)
-    if 'VAULT_TOKEN' in os.environ and len(os.environ['VAULT_TOKEN']) > 0:
+    if 'VAULT_TOKEN' in os.environ and os.environ['VAULT_TOKEN']:
         log('Token derived from VAULT_TOKEN environment variable', opt)
         return os.environ['VAULT_TOKEN'].strip()
     elif 'VAULT_USER_ID' in os.environ and \
          'VAULT_APP_ID' in os.environ and \
-         len(os.environ['VAULT_USER_ID']) > 0 and \
-         len(os.environ['VAULT_APP_ID']) > 0:
+         os.environ['VAULT_USER_ID'] and os.environ['VAULT_APP_ID']:
         token = app_token(vault_client,
                           os.environ['VAULT_APP_ID'].strip(),
                           os.environ['VAULT_USER_ID'].strip())
@@ -59,8 +58,7 @@ def initial_token(vault_client, opt):
         return token
     elif 'VAULT_ROLE_ID' in os.environ and \
          'VAULT_SECRET_ID' in os.environ and \
-         len(os.environ['VAULT_ROLE_ID']) > 0 and \
-         len(os.environ['VAULT_SECRET_ID']) > 0:
+         os.environ['VAULT_ROLE_ID'] and os.environ['VAULT_SECRET_ID']:
         token = approle_token(vault_client,
                               os.environ['VAULT_ROLE_ID'],
                               os.environ['VAULT_SECRET_ID'])
@@ -120,7 +118,7 @@ def operational_token(vault_client, operation, opt):
         if vault_exception.errors[0] == 'permission denied':
             error_output("Permission denied creating operational token", opt)
         else:
-            raise vault_exception
+            raise
 
     log("Using lease of %s" % opt.lease, opt)
     return token['auth']['client_token']

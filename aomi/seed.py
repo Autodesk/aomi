@@ -53,7 +53,7 @@ def actually_mount(client, backend, mount):
                     (mount, match.group('path'))
             raise aomi.exceptions.VaultConstraint(e_msg)
         else:
-            raise exception
+            raise
 
 
 def is_auth_backend(client, backend):
@@ -79,7 +79,7 @@ def write(client, path, varz, opt):
         if vault_exception.errors[0] == 'permission denied':
             error_output("Permission denied writing to %s" % path, opt)
         else:
-            raise vault_exception
+            raise
 
 
 def delete(client, path, opt):
@@ -92,7 +92,7 @@ def delete(client, path, opt):
         if vault_exception.errors[0] == 'permission denied':
             error_output("Permission denied deleting %s" % path, opt)
         else:
-            raise vault_exception
+            raise
 
 
 def var_file(client, secret, opt):

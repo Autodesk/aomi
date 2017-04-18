@@ -21,20 +21,20 @@ def aws_region(secret, aws_obj):
     """Return the AWS region with appropriate output"""
     if 'region' in secret:
         return secret['region']
-    else:
-        # see https://github.com/Autodesk/aomi/issues/40
-        warning('Defining region in the AWS yaml is deprecated')
-        return aws_obj['region']
+
+    # see https://github.com/Autodesk/aomi/issues/40
+    warning('Defining region in the AWS yaml is deprecated')
+    return aws_obj['region']
 
 
 def aws_roles(secret, aws_obj):
     """Return the AWS roles with appropriate output"""
     if 'roles' in secret:
         return secret['roles']
-    else:
-        # see https://github.com/Autodesk/aomi/issues/40
-        warning('Defining roles within the AWS yaml is deprecated')
-        return aws_obj['roles']
+
+    # see https://github.com/Autodesk/aomi/issues/40
+    warning('Defining roles within the AWS yaml is deprecated')
+    return aws_obj['roles']
 
 
 def app_id_policy_file(app_obj, data):

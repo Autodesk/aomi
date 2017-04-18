@@ -4,7 +4,7 @@ import collections
 import itertools as IT
 import sys
 import os
-import random
+from random import SystemRandom
 from getpass import getpass
 from pkg_resources import resource_string, resource_filename
 # Python 2/3 compat
@@ -16,9 +16,9 @@ def my_version():
     """Return the version, checking both packaged and development locations"""
     if os.path.exists(resource_filename(__name__, 'version')):
         return resource_string(__name__, 'version')
-    else:
-        return open(os.path.join(os.path.dirname(__file__),
-                                 "..", "version")).read()
+
+    return open(os.path.join(os.path.dirname(__file__),
+                             "..", "version")).read()
 
 VERSION = my_version()
 
@@ -58,17 +58,17 @@ def hard_path(path, prefix_dir):
 
 def is_tagged(has_tags, required_tags):
     """Checks if tags match"""
-    if len(required_tags) == 0 and len(has_tags) == 0:
+    if not required_tags and not has_tags:
         return True
-    elif len(required_tags) == 0:
+    elif not required_tags:
         return False
-    else:
-        found_tags = []
-        for tag in required_tags:
-            if tag in has_tags:
-                found_tags.append(tag)
 
-        return len(found_tags) == len(required_tags)
+    found_tags = []
+    for tag in required_tags:
+        if tag in has_tags:
+            found_tags.append(tag)
+
+    return len(found_tags) == len(required_tags)
 
 
 def cli_hash(list_of_kv):
@@ -127,8 +127,8 @@ def get_password(opt, confirm=True):
     """Will return a password in an appropriate fashion"""
     if sys.stdin.isatty():
         return get_tty_password(opt, confirm)
-    else:
-        return get_stdin_password(opt)
+
+    return get_stdin_password(opt)
 
 
 def path_pieces(vault_path):
@@ -176,7 +176,7 @@ def load_word_file(filename):
 
 def choose_one(things):
     """Returns a random entry from a list of things"""
-    choice = random.randint(0, len(things) - 1)
+    choice = SystemRandom().randint(0, len(things) - 1)
     return things[choice].strip()
 
 

@@ -1,6 +1,7 @@
 """Some validation helpers for aomi"""
 from __future__ import print_function
 import os
+import re
 import platform
 import stat
 from aomi.helpers import abspath, is_tagged, log, subdir_path
@@ -70,8 +71,8 @@ def validate_obj(keys, obj):
     msg = ''
     for k in keys:
         if isinstance(k, str):
-            if k not in obj or len(obj[k]) == 0:
-                if len(msg) > 0:
+            if k not in obj or not obj[k]:
+                if msg:
                     msg = "%s," % msg
 
                 msg = "%s%s" % (msg, k)
@@ -82,12 +83,12 @@ def validate_obj(keys, obj):
                     found = True
 
             if not found:
-                if len(msg) > 0:
+                if msg:
                     msg = "%s," % msg
 
                 msg = "%s(%s" % (msg, ','.join(k))
 
-    if len(msg) > 0:
+    if msg:
         msg = "%s missing" % msg
 
     return msg
@@ -128,18 +129,18 @@ def tag_check(obj, path, opt):
         log("Skipping %s as it does not have requested tags" %
             path, opt)
         return False
-    else:
-        return True
+
+    return True
 
 
 def specific_path_check(path, opt):
     """Will make checks against include/exclude to determine if we
     actually care about the path in question."""
-    if len(opt.exclude) > 0:
+    if opt.exclude:
         if path in opt.exclude:
             return False
 
-    if len(opt.include) > 0:
+    if opt.include:
         if path not in opt.include:
             return False
 
@@ -149,7 +150,7 @@ def specific_path_check(path, opt):
 def check_obj(keys, name, obj):
     """Do basic validation on an object"""
     msg = validate_obj(keys, obj)
-    if len(msg) > 0:
+    if msg:
         raise aomi.exceptions.AomiData("object check : %s in %s" % (msg, name))
 
 
@@ -212,3 +213,9 @@ def duo_obj(obj):
     check_obj(['host', 'creds', 'backend'], 'duo object', obj)
     if obj['backend'] != 'userpass':
         raise aomi.exceptions.AomiData('Invalid duo backend selected')
+
+
+def gpg_fingerprint(key):
+    """Validates a GPG key fingerprint"""
+    if len(key) != 8 or not re.match(r'[0-9A-F]{8}', key):
+        raise aomi.exceptions.Validation('Invalid GPG Fingerprint')
