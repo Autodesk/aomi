@@ -57,9 +57,10 @@ Set the VAULT_ADDR to the docker ip address
 $ export VAULT_ADDR="172.28.128.1"
 ```
 
-Authenticate to dev vault, inputting root token. Root token is part of output
-when starting vault in dev mode. In above example root token is
-fab4819e-9929-794d-1c5e-d3e036a25246
+### Authenticate to dev vault, using root token as credential.
+
+Root token is part of output when starting vault in dev mode. In above example
+root token is fab4819e-9929-794d-1c5e-d3e036a25246
 
 ```
 $ vault auth
