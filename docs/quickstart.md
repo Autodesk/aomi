@@ -5,7 +5,8 @@ layout: default
 
 There is a underlying assumption here that you have access to a working Vault server. If not, you can easily use Vault in [dev mode](https://www.vaultproject.io/docs/concepts/dev-server.html).
 
-### Dev Mode quickstart, start vault server in dev mode listening to all interfaces.
+### Vault dev mode quickstart. Start vault server in dev mode listening to all interfaces. ####
+
 ```
 vault server -dev -dev-listen-address="0.0.0.0:8200"
 ...
