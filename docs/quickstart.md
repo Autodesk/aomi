@@ -5,7 +5,7 @@ layout: default
 
 There is a underlying assumption here that you have access to a working Vault server. If not, you can easily use Vault in [dev mode](https://www.vaultproject.io/docs/concepts/dev-server.html).
 
-## Dev Mode quickstart, start vault server in dev mode listening to all interfaces.
+### Dev Mode quickstart, start vault server in dev mode listening to all interfaces.
 ```
 vault server -dev -dev-listen-address="0.0.0.0:8200"
 ...
@@ -42,7 +42,7 @@ usage: aomi [-h]
 aomi: error: too few arguments
 ```
 
-## If you are running vault in dev mode, the authentication will be slightly different. VAULT_ADDRESS needs to be set to the Docker IP address, NOT 127.0.0.1.
+### If you are running vault in dev mode, the authentication will be slightly different. VAULT_ADDR needs to be set to the Docker IP address, NOT 127.0.0.1.
 
 # Example
 
