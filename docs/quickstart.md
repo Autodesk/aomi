@@ -45,17 +45,17 @@ aomi: error: too few arguments
 
 ### If you are running vault in dev mode, the authentication will be slightly different. VAULT_ADDR needs to be set to the Docker IP address, NOT 127.0.0.1.
 
-# Example
+#### Dev mode vault auth example ####
 
 ```
 
 $ ifconfig -a | grep netmask | grep 172
 	inet 172.28.128.1 netmask 0xffffff00 broadcast 172.28.128.255
 
-
-#Above is output from my machine. Your machine will give different ips.
-#Set the VAULT_ADDR to the docker ip address
-
+```
+Above is output from my machine. Your machine will give different ips.
+Set the VAULT_ADDR to the docker ip address
+```
 $ export VAULT_ADDR="172.28.128.1"
 
 $ vault auth # input *root token* given when starting vault in dev mode
