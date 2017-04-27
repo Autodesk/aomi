@@ -7,7 +7,11 @@ The aomi tool may make use of different sources of data when writing to the gene
 
 # Format
 
-The format will vary slightly depending on what your source data is.
+The format will vary slightly depending on what your source data is. There are three types of static data which aomi may operate upon;
+
+* Static files
+* YAML "variable" files
+* "Generated" secrets
 
 ## Files
 

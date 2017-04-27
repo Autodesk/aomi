@@ -25,8 +25,10 @@ secrets:
   lease_max: "86400s"
   region: "us-east-1"
   roles:
-  - policy: "policy.json"
-    name: default
+  - name: default
+    policy: "policy.json"
+  - name: "root"
+    arn: "arn:aws:iam::aws:policy/AdministratorAccess"
 ```
 
 ----
@@ -38,5 +40,3 @@ secrets:
 access_key_id: "REDACTED"
 secret_access_key: "REDACTED"
 ```
-
-
