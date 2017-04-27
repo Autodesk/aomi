@@ -48,10 +48,8 @@ aomi: error: too few arguments
 #### Dev mode vault auth example ####
 
 ```
-
 $ ifconfig -a | grep netmask | grep 172
 	inet 172.28.128.1 netmask 0xffffff00 broadcast 172.28.128.255
-
 ```
 Above is output from my machine. Your machine will give different ips.
 Set the VAULT_ADDR to the docker ip address
