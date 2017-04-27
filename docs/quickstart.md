@@ -61,7 +61,6 @@ $ vault auth # input root token. Root token is part of output when starting vaul
     Successfully authenticated! You are now logged in.
     token: fab4819e-9929-794d-1c5e-d3e036a25246
     token_duration: 0
-
 ```
 
 
