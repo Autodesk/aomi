@@ -5,6 +5,17 @@ layout: default
 
 There is a underlying assumption here that you have access to a working Vault server. If not, you can easily use Vault in [dev mode](https://www.vaultproject.io/docs/concepts/dev-server.html).
 
+## Dev Mode quickstart, start vault server in dev mode listening to all interfaces.
+```
+vault server -dev -dev-listen-address="0.0.0.0:8200"
+...
+Unseal Key (hex)   : 38058131e3e451fe0073f27ef2992e803fa2777f0075afffe3d21d90db75635c
+Unseal Key (base64): OAWBMePkUf4Ac/J+8pkugD+id38Ada//49IdkNt1Y1w=
+Root Token: fab4819e-9929-794d-1c5e-d3e036a25246
+...
+```
+
+
 # First Steps
 
 You can pull aomi from [Docker Hub](https://hub.docker.com/r/autodesk/aomi/) and run it either on a workstation or within a continuous delivery pipeline. You can pass authentication information in through a variety of hints, but the easiest is to just use your already established Vault credentials.
@@ -30,6 +41,30 @@ usage: aomi [-h]
                         ...
 aomi: error: too few arguments
 ```
+
+## If you are running vault in dev mode, the authentication will be slightly different. VAULT_ADDRESS needs to be set to the Docker IP address, NOT 127.0.0.1.
+
+# Example
+
+```
+
+$ ifconfig -a | grep netmask | grep 172
+	inet 172.28.128.1 netmask 0xffffff00 broadcast 172.28.128.255
+
+
+#Above is output from my machine. Your machine will give different ips.
+#Set the VAULT_ADDR to the docker ip address
+
+$ export VAULT_ADDR="172.28.128.1"
+
+$ vault auth # input *root token* given when starting vault in dev mode
+    Token (will be hidden):
+    Successfully authenticated! You are now logged in.
+    token: fab4819e-9929-794d-1c5e-d3e036a25246
+    token_duration: 0
+
+```
+
 
 We are now authenticated with a Vault instance and have `aomi` locally available for execution under Docker.
 
