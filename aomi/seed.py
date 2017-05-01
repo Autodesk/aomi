@@ -1,6 +1,7 @@
 """Handles the various kinds of secret seeding which we do"""
 import re
 from uuid import uuid4
+from copy import deepcopy
 import yaml
 import hvac
 import aomi.exceptions
@@ -518,6 +519,21 @@ def generated_key(key, opt):
                                        % key['method'])
 
 
+def generate_obj(vault_path, obj, existing, opt):
+    """Generates the secret object, respecting existing information
+    and user specified options"""
+    secret_obj = deepcopy(existing)
+    for key in obj['keys']:
+        key_name = key['name']
+        if key_name in existing and not key.get('overwrite'):
+            log("Not overwriting %s/%s" % (vault_path, key_name), opt)
+            continue
+        else:
+            secret_obj[key_name] = generated_key(key, opt)
+
+    return secret_obj
+
+
 def generated(client, obj, opt):
     """Will provision some random strings into vault, as requested"""
     aomi.validation.generated_obj(obj)
@@ -532,27 +548,18 @@ def generated(client, obj, opt):
         log("Only mounting %s" % my_mount, opt)
         return
 
-    existing = {}
-    resp = client.read(vault_path)
-    if resp:
-        existing = resp['data']
-
     if obj.get('state', 'present') == 'present':
-        secret_obj = {}
-        for key in obj['keys']:
-            key_name = key['name']
-            if key_name in existing and not key.get('overwrite'):
-                log("Not overwriting %s/%s" % (vault_path, key_name), opt)
-                continue
+        existing = {}
+        resp = client.read(vault_path)
+        if resp:
+            existing = resp['data']
 
-            secret_obj[key_name] = generated_key(key, opt)
-
+        secret_obj = generate_obj(vault_path, obj, existing, opt)
         genseclen = len(secret_obj.keys())
-        if genseclen > 0:
-            update_msg = "Writing %s generated secrets to %s" % \
-                         (genseclen, vault_path)
-            log(update_msg, opt)
-            write(client, vault_path, secret_obj, opt)
+        update_msg = "Writing %s generated secrets to %s" % \
+                     (genseclen, vault_path)
+        log(update_msg, opt)
+        write(client, vault_path, secret_obj, opt)
     else:
         log("Removing generated secret at %s" % vault_path, opt)
         delete(client, vault_path, opt)
