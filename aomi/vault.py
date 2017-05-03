@@ -10,6 +10,7 @@ from requests.packages.urllib3.exceptions import InsecureRequestWarning
 from aomi.helpers import log, cli_hash, merge_dicts, abspath
 from aomi.template import render, load_var_files
 from aomi.error import output as error_output
+from aomi.util import token_file, appid_file
 import aomi.error
 import aomi.exceptions
 
@@ -36,15 +37,9 @@ def app_token(vault_client, app_id, user_id):
 
 def initial_token(vault_client, opt):
     """Generate our first token based on workstation configuration"""
-    home = os.environ['HOME'] if 'HOME' in os.environ else \
-        os.environ['USERPROFILE']
 
-    token_file = os.environ.get('VAULT_TOKEN_FILE',
-                                os.path.join(home, ".vault-token"))
-    app_file = os.environ.get('AOMI_APP_FILE',
-                              os.path.join(home, ".aomi-app-token"))
-    token_file = abspath(token_file)
-    app_file = abspath(app_file)
+    app_filename = appid_file()
+    token_filename = token_file()
     if 'VAULT_TOKEN' in os.environ and os.environ['VAULT_TOKEN']:
         log('Token derived from VAULT_TOKEN environment variable', opt)
         return os.environ['VAULT_TOKEN'].strip()
@@ -64,17 +59,17 @@ def initial_token(vault_client, opt):
                               os.environ['VAULT_SECRET_ID'])
         log("Token derived from VAULT_ROLE_ID and VAULT_SECRET_ID", opt)
         return token
-    elif os.path.exists(app_file):
-        token = yaml.safe_load(open(app_file).read().strip())
+    elif app_filename:
+        token = yaml.safe_load(open(app_filename).read().strip())
         if 'app_id' in token and 'user_id' in token:
             token = app_token(vault_client,
                               token['app_id'],
                               token['user_id'])
-            log("Token derived from %s" % app_file, opt)
+            log("Token derived from %s" % app_filename, opt)
             return token
-    elif os.path.exists(token_file):
-        log("Token derived from %s" % token_file, opt)
-        return open(token_file, 'r').read().strip()
+    elif token_filename:
+        log("Token derived from %s" % token_filename, opt)
+        return open(token_filename, 'r').read().strip()
     else:
         raise aomi.exceptions.AomiCredentials('unknown method')
 

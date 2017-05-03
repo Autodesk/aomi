@@ -1,5 +1,6 @@
 #!/usr/bin/env bats
 # -*- mode: Shell-script;bash -*-
+# AWS backend related tests
 
 load helper
 setup() {

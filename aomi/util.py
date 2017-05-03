@@ -1,7 +1,8 @@
 """Utilities which are generally that are tied into actual command line
 operations processing but do not really fit under seed or render."""
+import os
 from aomi.helpers import log, get_password, path_pieces, \
-    backend_type, mount_for_path
+    backend_type, mount_for_path, abspath
 import aomi.validation
 import aomi.exceptions
 
@@ -82,3 +83,30 @@ def validate_entry(obj, path, opt):
         return False
 
     return True
+
+
+def vault_file(env, default):
+    """The path to a misc Vault file
+    This function will check for the env override on a file
+    path, compute a fully qualified OS appropriate path to
+    the desired file and return it if it exists. Otherwise
+    returns None
+    """
+    home = os.environ['HOME'] if 'HOME' in os.environ else \
+        os.environ['USERPROFILE']
+    filename = os.environ.get(env, os.path.join(home, default))
+    filename = abspath(filename)
+    if os.path.exists(filename):
+        return filename
+
+    return None
+
+
+def token_file():
+    """The path to a Vault Token file"""
+    return vault_file('VAULT_TOKEN_FILE', '.vault-token')
+
+
+def appid_file():
+    """The path to an Aomi AppID file"""
+    return vault_file('AOMI_APP_FILE', '.aomi-app-token')

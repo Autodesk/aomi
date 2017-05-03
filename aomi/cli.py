@@ -11,12 +11,40 @@ import aomi.util
 import aomi.filez
 import aomi.seed_action
 from aomi.helpers import VERSION as version
+from aomi.helpers import log
+from aomi.util import token_file, appid_file
 from aomi.error import unhandled
+
+
+def help_me(parser, opt):
+    """Handle display of help and whatever diagnostics"""
+    print("aomi v%s" % version)
+    print('Get started with aomi'
+          ' https://autodesk.github.io/aomi/quickstart')
+    if opt.verbose:
+        tf_str = 'Token File,' if token_file() else ''
+        app_str = 'AppID File,' if appid_file() else ''
+        tfe_str = 'Token Env,' if 'VAULT_TOKEN' in os.environ else ''
+        appre_str = 'App Role Env,' if 'VAULT_ROLE_ID' in os.environ and \
+                    'VAULT_SECRET_ID' in os.environ else ''
+        appe_str = 'AppID Env,' if 'VAULT_USER_ID' in os.environ and \
+                   'VAULT_APP_ID' in os.environ else ''
+
+        log(("Auth Hints Present : %s%s%s%s%s" %
+             (tf_str, app_str, tfe_str, appre_str, appe_str))[:-1], opt)
+        log("Vault Server %s" %
+            os.environ['VAULT_ADDR']
+            if 'VAULT_ADDR' in os.environ else '??', opt)
+
+    parser.print_help()
+    sys.exit(0)
 
 
 def extract_file_args(subparsers):
     """Add the command line options for the extract_file operation"""
-    extract_parser = subparsers.add_parser('extract_file')
+    extract_parser = subparsers.add_parser('extract_file',
+                                           help='Extract a single secret from'
+                                           'Vault to a local file')
     extract_parser.add_argument('vault_path',
                                 help='Full path (including key) to secret')
     extract_parser.add_argument('destination',
@@ -143,12 +171,18 @@ def secretfile_args(parser):
                         action='append')
 
 
-def base_args(parser):
-    """Add the generic command line options"""
+def generic_args(parser):
+    """Command line options associated with every operation
+    not just the ones which require connecting to a Vault"""
     parser.add_argument('--verbose',
                         dest='verbose',
                         help='Verbose output',
                         action='store_true')
+
+
+def base_args(parser):
+    """Add the generic command line options"""
+    generic_args(parser)
     parser.add_argument('--metadata',
                         dest='metadata',
                         help='A series of key=value pairs for token metadata.',
@@ -214,6 +248,12 @@ def password_args(subparsers):
     base_args(password_parser)
 
 
+def help_args(subparsers):
+    """Add command line options for the help operation"""
+    help_parser = subparsers.add_parser('help')
+    generic_args(help_parser)
+
+
 def vars_args(parser):
     """Add various command line options for external vars"""
     parser.add_argument('--extra-vars',
@@ -240,7 +280,8 @@ def parser_factory(fake_args=None):
     """Return a proper contextual OptionParser"""
     parser = ArgumentParser(description='aomi')
     subparsers = parser.add_subparsers(dest='operation',
-                                       help='aomi operation')
+                                       help='Specify the data '
+                                       ' or extraction operation')
     extract_file_args(subparsers)
     environment_args(subparsers)
     aws_env_args(subparsers)
@@ -250,7 +291,7 @@ def parser_factory(fake_args=None):
     template_args(subparsers)
     password_args(subparsers)
     token_args(subparsers)
-    subparsers.add_parser('help')
+    help_args(subparsers)
 
     if fake_args is None:
         return parser, parser.parse_args()
@@ -290,11 +331,7 @@ def action_runner(parser, args):
     """Run appropriate action, or throw help"""
 
     if args.operation == 'help':
-        print("aomi v%s" % version)
-        print('Get started with aomi'
-              ' https://autodesk.github.io/aomi/quickstart')
-        parser.print_help()
-        sys.exit(0)
+        help_me(parser, args)
 
     client = aomi.vault.client(args.operation, args)
     if args.operation == 'extract_file':

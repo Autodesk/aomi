@@ -1,5 +1,7 @@
 #!/usr/bin/env bats
 # -*- mode: Shell-script;bash -*-
+# Simple smoke test covering basic functionality as described
+# in the quickstart documentation
 
 load helper
 
