@@ -1,6 +1,7 @@
 #!/usr/bin/env bats
 # -*- mode: Shell-script;bash -*-
-
+# Tests related to the environment extraction operation
+# mostly covers the key mapping options
 load helper
 
 setup() {
