@@ -159,8 +159,8 @@ def base_args(parser):
                         default='10s')
     parser.add_argument('--reuse-token',
                         dest='reuse_token',
-                        help='Whether to reuse the existing token. Note this will' \
-                        ' cause metadata to not be preserved',
+                        help='Whether to reuse the existing token. Note'
+                        ' this will cause metadata to not be preserved',
                         action='store_true')
 
 
@@ -291,7 +291,8 @@ def action_runner(parser, args):
 
     if args.operation == 'help':
         print("aomi v%s" % version)
-        print("Get started with aomi https://autodesk.github.io/aomi/quickstart")
+        print('Get started with aomi'
+              ' https://autodesk.github.io/aomi/quickstart')
         parser.print_help()
         sys.exit(0)
 
