@@ -157,6 +157,11 @@ def base_args(parser):
                         dest='lease',
                         help='Lease time for intermediary token.',
                         default='10s')
+    parser.add_argument('--reuse-token',
+                        dest='reuse_token',
+                        help='Whether to reuse the existing token. Note this will' \
+                        ' cause metadata to not be preserved',
+                        action='store_true')
 
 
 def seed_args(subparsers):
@@ -286,6 +291,7 @@ def action_runner(parser, args):
 
     if args.operation == 'help':
         print("aomi v%s" % version)
+        print("Get started with aomi https://autodesk.github.io/aomi/quickstart")
         parser.print_help()
         sys.exit(0)
 

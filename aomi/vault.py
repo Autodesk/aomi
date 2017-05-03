@@ -143,9 +143,12 @@ def client(operation, opt):
     if not vault_client.is_authenticated():
         raise aomi.exceptions.AomiCredentials('initial token')
 
-    vault_client.token = operational_token(vault_client, operation, opt)
-    if not vault_client.is_authenticated():
-        raise aomi.exceptions.AomiCredentials('operational token')
+    if opt.reuse_token:
+        log("Not creating operational token", opt)
+    else:
+        vault_client.token = operational_token(vault_client, operation, opt)
+        if not vault_client.is_authenticated():
+            raise aomi.exceptions.AomiCredentials('operational token')
 
     return vault_client
 

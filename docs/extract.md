@@ -97,3 +97,4 @@ You may list all included builtin templates by invoking `aomi template --builtin
 * `terraform-aws` will render a Terraform AWS `provider` section. Note you will need to pass in the `aws_region` variable as an extra.
 * `json-kv` will render a JSON key-value file.
 * `docker-auth` will render a Docker `config.json` auth snippet. It expects a `user`, `password`, and `url` variable.
+* `shenv` will render a Shell snippet full of environment variables.
