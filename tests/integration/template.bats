@@ -1,6 +1,7 @@
 #!/usr/bin/env bats
 # -*- mode: Shell-script;bash -*-
-
+# tests around template extraction
+# also covers the internal template mappings
 load helper
 
 setup() {

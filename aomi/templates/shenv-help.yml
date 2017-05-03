@@ -1,0 +1,2 @@
+name: Shell Environment Variable File
+help: This template will iterate over all known variables and generate a simple shell snippet. This snippet is suitable for integration into shell scripts.
