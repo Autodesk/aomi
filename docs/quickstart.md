@@ -156,6 +156,51 @@ $ cat /tmp/secret.json
 }
 ```
 
+# AWS Interactions
+
+It is very easy to get [AWS credentials]({{site.baseurl}}/aws) into and out of Vault with aomi. This example shows how we can easily extract AWS credentials to a shell environment.
+
+----
+
+`Secretfile`
+
+```
+secrets:
+- aws_file: 'aws.yml'
+  mount: 'AWS/1234567890'
+  lease: "1800s"
+  lease_max: "86400s"
+  region: "us-east-1"
+  roles:
+  - name: "root"
+    arn: "arn:aws:iam::aws:policy/AdministratorAccess"
+```
+
+----
+
+`aws.yml`
+
+```
+
+access_key_id: "REDACTED"
+secret_access_key: "REDACTED"
+```
+
+You can then [seed]({{site.baseurl}}/seed) this into Vault and, for example, render out a Terraform AWS provider snippet. We can do this with the [builtin]({{site.baseurl}}/builtin-templates) templates.
+
+```
+$ aomi seed
+$ aomi template \
+  builtin:terraform-aws \
+  /tmp/aws.tf \
+  aws/1234567890/creds/root \
+  --no-merge-path \
+  --extra-vars aws_region=us-east-1
+$ terraform apply 
+...
+
+```
+
 # Conclusion
 
-This is the basic workflow espoused by aomi. Represent the structure of your operational secrets with expressive Jinja2 templates. Write this structure to Vault and provide
+This is the basic workflow espoused by aomi. Represent the structure of your operational secrets with expressive Jinja2 templates. Write this structure to Vault and provide a consistent interface to your operational secrets.
