@@ -85,7 +85,9 @@ Additional variables may be passed in via the command line with the `--extra-var
 
 If your template requires iteration across a bunch of secrets then you may use the `aomi_items` variable, which is Python dictionary accessible from the Jinja2 template. This is automatically added to every `aomi` template context.
 
-`aomi` now includes some built in templates. They are specified them with a `builtin:` prefix. In combination with the key modification and extra variables this should allow easy support of non Vault native applications. When interacting with the builtin templates the `--extra-args` and `--key-map` can be used to help work with existing Vault schemas. 
+## Builtin Templates
+
+`aomi` includes some built in templates. They are specified them with a `builtin:` prefix. In combination with the key modification and extra variables this should allow easy support of non Vault native applications. When interacting with the builtin templates the `--extra-args` and `--key-map` can be used to help work with existing Vault schemas. 
 
 You may list all included builtin templates by invoking `aomi template --builtin-list`. You may get information on the template itself by invoking `aomi template --builtin-info foo` where `foo` is the template name. The following is a list of all templates and their required variables.
 
@@ -98,3 +100,20 @@ You may list all included builtin templates by invoking `aomi template --builtin
 * `json-kv` will render a JSON key-value file.
 * `docker-auth` will render a Docker `config.json` auth snippet. It expects a `user`, `password`, and `url` variable.
 * `shenv` will render a Shell snippet full of environment variables.
+
+As an example, we can use the `terraform-aws` builtin template to render an AWS [provider](https://www.terraform.io/docs/providers/aws/) snippet. Note that we must pass in the required extra variable `aws_region`.
+
+```
+$ aomi template \
+  builtin:terraform-aws \
+  /tmp/aws.tf \
+  aws/1234567890/creds/root \
+  --no-merge-path \
+  --extra-vars aws_region=us-east-1
+$ cat /tmp/aws.tf
+provider "aws" {
+  region = "us-east-1"
+  access_key = "REDACTED"
+  secret_key = "REDACTED"
+}
+```
