@@ -5,7 +5,20 @@ layout: default
 
 The aomi tool may make use of different sources of data when writing to the generic secret backend of Vault. If the mountpoint does not exist it will be created as a [generic](https://www.vaultproject.io/docs/secrets/generic/) secret store.
 
-# Format
+# Mountpoints
+
+You can specify generic secret store mountpoints to be created but not neccesarily provisioned with data. This is helpful when you have one group managing the base Vault instance but another group managing the data within certain mountpoints. The following example will ensure that the default generic backend (`secret)` is always present, along with a new mountpoint named `another_teams_secrets`.
+
+----
+`Secretfile`
+
+```
+mounts:
+- 'secret'
+- 'another_teams_secrets'
+```
+
+# Generic Data Formats
 
 The format will vary slightly depending on what your source data is. There are three types of static data which aomi may operate upon;
 

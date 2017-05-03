@@ -16,7 +16,7 @@ These operations all have some shared constructs which allow the user a fair amo
 
 ## About File Paths
 
-By default the `Secretfile` is searched for in the current directory. You can override this behavior with the `--secretfile` option.
+By default the [`Secretfile`]({{site.baseurl}}/secretfile) is searched for in the current directory. You can override this behavior with the `--secretfile` option.
 
 Supplemental data is loaded from relative paths by default. If files are not found at the relative (but tunable) path, the data will be loaded as an absolute path.
 

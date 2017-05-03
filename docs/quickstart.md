@@ -155,3 +155,7 @@ $ cat /tmp/secret.json
 "secret_fresh_a_secret": "asda"
 }
 ```
+
+# Conclusion
+
+This is the basic workflow espoused by aomi. Represent the structure of your operational secrets with expressive Jinja2 templates. Write this structure to Vault and provide
