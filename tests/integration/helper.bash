@@ -51,7 +51,7 @@ verbose
     # https://www.gnupg.org/documentation/manuals/gnupg/Unattended-GPG-key-generation.html
     PASS="${RANDOM}"
     echo -n "$PASS" > "${FIXTURE_DIR}/pass"
-    export AOMI_PASSPHRASE_FILE="${FIXTURE_DIR}/pass"
+    export CRYPTORITO_PASSPHRASE_FILE="${FIXTURE_DIR}/pass"
     gpg --gen-key --batch <<< "
 %pubring ${FIXTURE_DIR}/.gnupg/pubring.gpg
 %secring ${FIXTURE_DIR}/.gnupg/secring.gpg

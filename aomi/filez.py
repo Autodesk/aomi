@@ -6,12 +6,12 @@ import shutil
 import time
 import datetime
 import zipfile
+from cryptorito import key_from_keybase, has_gpg_key, \
+    import_gpg_key, encrypt, decrypt
 
 from aomi.helpers import warning, hard_path, log, \
     subdir_path
 from aomi.vault import get_secretfile
-from aomi.gpg import key_from_keybase, has_gpg_key, \
-    import_gpg_key, encrypt, decrypt
 from aomi.validation import sanitize_mount
 from aomi.validation import gpg_fingerprint \
     as validate_gpg_fingerprint
@@ -141,7 +141,7 @@ def freeze_encrypt(dest_dir, zip_filename, config, opt):
     timestamp = time.strftime("%H%M%S-%m-%d-%Y",
                               datetime.datetime.now().timetuple())
     ice_file = "%s/aomi-%s-%s.ice" % (dest_dir, ice_handle, timestamp)
-    if not encrypt(zip_filename, ice_file, pgp_keys, opt):
+    if not encrypt(zip_filename, ice_file, pgp_keys):
         raise aomi.exceptions.GPG("Unable to encrypt zipfile")
 
     return ice_file
@@ -174,7 +174,7 @@ def thaw_decrypt(src_file, tmp_dir, opt):
 
     zip_file = "%s/aomi.zip" % tmp_dir
 
-    if not decrypt(src_file, zip_file, opt):
+    if not decrypt(src_file, zip_file):
         raise aomi.exceptions.GPG("Unable to gpg")
 
     return zip_file

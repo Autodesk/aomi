@@ -1,7 +1,5 @@
 """ Helpers for aomi that are used throughout the application """
 from __future__ import print_function
-import collections
-import itertools as IT
 import sys
 import os
 from random import SystemRandom
@@ -185,30 +183,6 @@ def random_word():
     animal = choose_one(load_word_file("animals.txt"))
     academic = choose_one(load_word_file("academic.txt"))
     return "%s-%s" % (academic, animal)
-
-
-def flatten(iterable):
-    """Ensure we are returning an actual list, as that's all we
-    are ever going to flatten within aomi"""
-    return [x for x in actually_flatten(iterable)]
-
-
-def actually_flatten(iterable):
-    """Flatten iterables"""
-    remainder = iter(iterable)
-    while True:
-        first = next(remainder)
-        # Python 2/3 compat
-        try:
-            basestring
-        except NameError:
-            # Python 2/3 compat
-            basestring = str  # pylint: disable=W0622
-        if isinstance(first, collections.Iterable) and \
-           not isinstance(first, basestring):
-            remainder = IT.chain(first, remainder)
-        else:
-            yield first
 
 
 def subdir_path(directory, relative):

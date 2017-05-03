@@ -1,3 +1,5 @@
 --index-url https://pypi.python.org/simple/
 
 -e .
+
+file:///Users/freedmj/src/autodesk-cryptorito

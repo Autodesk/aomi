@@ -9,7 +9,7 @@ def unhandled(exception, opt):
     exmod = type(exception).__module__
     name = "%s.%s" % (exmod, type(exception).__name__)
     # this is a Vault error
-    if exmod == 'aomi.exceptions':
+    if exmod == 'aomi.exceptions' or exmod == 'cryptorito':
         output(exception.message, opt)
     else:
         output("Unexpected error: %s" % name, opt)
