@@ -34,7 +34,7 @@ token_duration: 86400
 token_policies: [default]
 $ docker run \
       -e VAULT_ADDR=$VAULT_ADDR \
-      -v ${HOME}:/.vault-token \
+      -v ${HOME}/.vault-token:/.vault-token \
       autodesk/aomi
 aomi docker container
 usage: aomi [-h]
@@ -43,7 +43,7 @@ usage: aomi [-h]
 aomi: error: too few arguments
 ```
 
-### If you are running vault in dev mode, the authentication will be slightly different. VAULT_ADDR needs to be set to the Docker IP address, NOT 127.0.0.1.
+*If you are running vault in dev mode, the authentication will be slightly different. VAULT_ADDR needs to be set to the Docker IP address, NOT 127.0.0.1.*
 
 #### Dev mode vault auth example ####
 
