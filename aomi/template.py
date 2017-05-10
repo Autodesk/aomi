@@ -16,10 +16,18 @@ from future.utils import iteritems  # pylint: disable=E0401
 def grok_default_vars(parsed_content):
     """Returns a list of vars for which there is a default being set"""
     default_vars = []
-    for node in parsed_content.body[0].nodes:
-        if isinstance(node, jinja2.nodes.Filter):
-            if node.name == 'default' and node.node.name not in default_vars:
-                default_vars.append(node.node.name)
+    for element in parsed_content.body:
+        if isinstance(element, jinja2.nodes.Output):
+            for node in element.nodes:
+                if isinstance(node, jinja2.nodes.Filter):
+                    if node.name == 'default' \
+                       and node.node.name not in default_vars:
+                        default_vars.append(node.node.name)
+        elif isinstance(element, jinja2.nodes.For):
+            if isinstance(element.iter, jinja2.nodes.Filter):
+                if element.iter.name == 'default' \
+                   and element.iter.node.name not in default_vars:
+                    default_vars.append(element.iter.node.name)
 
     return default_vars
 
@@ -34,6 +42,7 @@ def render(filename, obj):
     env.filters['b64decode'] = portable_b64decode
     template_src = env.loader.get_source(env, os.path.basename(template_path))
     parsed_content = env.parse(template_src)
+
     template_vars = meta.find_undeclared_variables(parsed_content)
     if template_vars:
         missing_vars = []

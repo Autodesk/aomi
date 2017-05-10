@@ -31,6 +31,9 @@ def is_aws(data):
 
 def renew_secret(client, creds, opt):
     """Renews a secret if neccesary"""
+    if opt.reuse_token:
+        return
+
     seconds = grok_seconds(opt.lease)
     if not seconds:
         raise aomi.exceptions.AomiCommand("invalid lease %s" % opt.lease)
