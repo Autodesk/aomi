@@ -1,0 +1,2 @@
+name: YAML key value file
+help: This template will iterate over all know variables and generate a simple YAML key value map. It can be used for things like Ansible variable files.
