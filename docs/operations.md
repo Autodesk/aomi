@@ -6,7 +6,7 @@ layout: default
 
 The aomi tool has two themes behind it's operations. The primary mode features a Vault server and handling the cold storage of [data]({{site.baseurl}}/data). There are also a variety of other actions which may be used to [extract]({{site.baseurl}}/extract) information from a Vault server in an easy to consume fashion.
 
-There are also some [miscelaneous]({{site.baseurl}}/misc) operations which you may find helpful.
+There are also some [miscellaneous]({{site.baseurl}}/misc) operations which you may find helpful.
 
 # Common Constructs
 
