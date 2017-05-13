@@ -7,7 +7,7 @@ from pkg_resources import resource_listdir, resource_filename
 import yaml
 from jinja2 import Environment, FileSystemLoader, meta
 import jinja2.nodes
-from aomi.helpers import merge_dicts, abspath
+from aomi.helpers import merge_dicts, abspath, cli_hash
 import aomi.exceptions
 # Python 2/3 compat
 from future.utils import iteritems  # pylint: disable=E0401
@@ -132,3 +132,11 @@ def builtin_info(builtin):
     if help_obj.get('args'):
         for arg, arg_help in iteritems(help_obj['args']):
             print("  %-*s %s" % (20, arg, arg_help))
+
+
+def get_secretfile(opt):
+    """Renders, YAMLs, and returns the Secretfile construct"""
+    secretfile_path = abspath(opt.secretfile)
+    obj = merge_dicts(load_var_files(opt),
+                      cli_hash(opt.extra_vars))
+    return yaml.safe_load(render(secretfile_path, obj))

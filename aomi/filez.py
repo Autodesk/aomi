@@ -9,7 +9,7 @@ import zipfile
 
 from aomi.helpers import warning, hard_path, log, \
     subdir_path
-from aomi.vault import get_secretfile
+from aomi.template import get_secretfile
 from aomi.gpg import key_from_keybase, has_gpg_key, \
     import_gpg_key, encrypt, decrypt
 from aomi.validation import sanitize_mount
