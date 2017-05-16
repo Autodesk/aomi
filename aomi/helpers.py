@@ -4,6 +4,7 @@ import collections
 import itertools as IT
 import sys
 import os
+from base64 import b64encode, b64decode
 from random import SystemRandom
 from getpass import getpass
 from pkg_resources import resource_string, resource_filename
@@ -223,3 +224,19 @@ def subdir_path(directory, relative):
                 return None
 
     return None
+
+
+def portable_b64encode(thing):
+    """Wrap b64encode for Python 2 & 3"""
+    if sys.version_info >= (3, 0):
+        return b64encode(bytes(thing, 'utf-8')).decode('utf-8')
+
+    return b64encode(thing)
+
+
+def portable_b64decode(thing):
+    """Consistent b64decode in Python 2 & 3"""
+    if sys.version_info >= (3, 0):
+        return b64decode(thing).decode('utf-8')
+
+    return b64decode(thing)

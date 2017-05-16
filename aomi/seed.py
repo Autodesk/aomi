@@ -6,10 +6,11 @@ import yaml
 import hvac
 import aomi.exceptions
 from aomi.helpers import hard_path, log, \
-    warning, merge_dicts, cli_hash, random_word
+    warning, merge_dicts, cli_hash, random_word, \
+    portable_b64encode
 import aomi.validation
 from aomi.error import output as error_output
-from aomi.validation import sanitize_mount
+from aomi.validation import sanitize_mount, is_unicode_string
 from aomi.template import render, load_var_files
 from aomi.vault import app_id_name
 from aomi.util import validate_entry
@@ -348,9 +349,16 @@ def files(client, secret, opt):
             filename = hard_path(sfile['source'], opt.secrets)
             aomi.validation.secret_file(filename)
             data = open(filename, 'r').read()
-            obj[sfile['name']] = data
-            log('writing file %s into %s/%s' % (
-                filename,
+            secret_format = 'unicode'
+            try:
+                is_unicode_string(data)
+                obj[sfile['name']] = data
+            except aomi.exceptions.Validation:
+                obj[sfile['name']] = portable_b64encode(data)
+                secret_format = 'binary'
+
+            log('writing %s file %s into %s/%s' % (
+                secret_format, filename,
                 vault_path,
                 sfile['name']), opt)
 

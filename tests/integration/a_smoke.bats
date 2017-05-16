@@ -17,11 +17,15 @@ teardown() {
 
 @test "can seed and extract a file" {
     aomi_seed --tags bar
+    [ "$status" -eq 0 ]    
+    echo "$output"
     run aomi extract_file \
         foo/bar/baz/secret \
-        "${BATS_TMPDIR}/secret.txt"
+        "${BATS_TMPDIR}/secret.txt" \
+        --verbose
+    echo "$output"    
     [ "$status" -eq 0 ]
-    [ "$(cat ${BATS_TMPDIR}/secret.txt)" = "$(cat ${FIXTURE_DIR}/.secrets/secret.txt)" ]
+    [ "$(cat ${BATS_TMPDIR}/secret.txt)" == "$(cat ${FIXTURE_DIR}/.secrets/secret.txt)" ]
 }
 
 @test "can seed and render environment" {

@@ -15,7 +15,9 @@ The format will vary slightly depending on what your source data is. There are t
 
 ## Files
 
-You may specify a list of files and their destination Vault secret item. Each `files` section has a list of source files, and the key name they should use in Vault. Each instance of a `files` section must also include a Vault mount point and path. The following example would create two secrets (`private` and `public`) based on the two files under the secrets directory and place them in the Vault path `foo/bar/baz`.
+You may specify a list of files and their destination Vault secret item. Each `files` section has a list of source files, and the key name they should use in Vault. Each instance of a `files` section must also include a Vault mount point and path. If a file contains non-unicode characters it will be base64 encoded.
+
+The following example would create two secrets (`private` and `public`) based on the two files under the secrets directory and place them in the Vault path `foo/bar/baz`.
 
 ----
 `Secretfile`

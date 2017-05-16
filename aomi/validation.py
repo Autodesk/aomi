@@ -217,5 +217,26 @@ def duo_obj(obj):
 
 def gpg_fingerprint(key):
     """Validates a GPG key fingerprint"""
-    if len(key) != 8 or not re.match(r'[0-9A-F]{8}', key):
+    if len(key) != 8 or not re.match(r'^[0-9A-F]{8}$', key):
         raise aomi.exceptions.Validation('Invalid GPG Fingerprint')
+
+
+def is_plain_string(string):
+    """Validates we are a plain ol' string"""
+    if not string or not re.match(r'^[0-9A-Za-z\-_]+$', string):
+        raise aomi.exceptions.Validation('Not a plain string')
+
+
+def is_unicode_string(string):
+    """Validates that we are some kinda unicode string"""
+    try:
+        string.decode('utf-8')
+    except UnicodeError:
+        raise aomi.exceptions.Validation('Not a unicode string')
+
+
+def is_base64(string):
+    """Determines whether or not a string is likely to
+    be base64 encoded binary nonsense"""
+    return (len(string) % 4 == 0) and \
+        re.match('^[A-Za-z0-9+/]+[=]{0,2}$', string)

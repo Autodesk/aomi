@@ -1,13 +1,12 @@
 """ Render our templates """
 from __future__ import print_function
-import sys
 import os
-from base64 import b64encode, b64decode
 from pkg_resources import resource_listdir, resource_filename
 import yaml
 from jinja2 import Environment, FileSystemLoader, meta
 import jinja2.nodes
-from aomi.helpers import merge_dicts, abspath
+from aomi.helpers import merge_dicts, abspath, portable_b64encode, \
+    portable_b64decode
 import aomi.exceptions
 # Python 2/3 compat
 from future.utils import iteritems  # pylint: disable=E0401
@@ -58,22 +57,6 @@ def render(filename, obj):
     template_obj = env.get_template(os.path.basename(template_path))
     output = template_obj.render(**obj)
     return output
-
-
-def portable_b64encode(thing):
-    """Wrap b64encode for Python 2 & 3"""
-    if sys.version_info >= (3, 0):
-        return b64encode(bytes(thing, 'utf-8')).decode('utf-8')
-
-    return b64encode(thing)
-
-
-def portable_b64decode(thing):
-    """Consistent b64decode in Python 2 & 3"""
-    if sys.version_info >= (3, 0):
-        return b64decode(thing).decode('utf-8')
-
-    return b64decode(thing)
 
 
 def load_var_files(opt):
