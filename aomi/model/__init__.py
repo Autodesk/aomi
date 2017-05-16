@@ -3,16 +3,20 @@
 import re
 import hvac
 import aomi.exceptions
-from aomi.helpers import hard_path, log, \
-    warning, merge_dicts, cli_hash, random_word, \
-    is_tagged
+from aomi.helpers import log, is_tagged
 from aomi.vault import is_mounted
 from aomi.error import output as error_output
 from aomi.validation import sanitize_mount, check_obj
 
 
 def wrap_vault(msg):
+    """Error catching Vault API wrapper
+    This decorator wraps API interactions with Vault. It will
+    catch and return appropriate error output on common
+    problems"""
+    # pylint: disable=missing-docstring
     def wrap_call(func):
+        # pylint: disable=missing-docstring
         def func_wrapper(self, vault_client, opt):
             try:
                 return func(self, vault_client, opt)
@@ -29,6 +33,10 @@ def wrap_vault(msg):
 
 
 class Resource(object):
+    """The base Vault Resource
+    All aomi derived Vault resources should extend this
+    class. It provides functionality for validation and
+    API CRUD operations."""
     required_fields = []
     config_key = None
     resource_key = None
@@ -36,9 +44,12 @@ class Resource(object):
     child = False
 
     def resources(self):
+        """List of included resources"""
         return [self]
 
     def grok_state(self, obj):
+        """Determine the desired state of this
+        resource based on data present"""
         if 'state' in obj:
             my_state = obj['state'].lower()
             if my_state != 'absent' and my_state != 'present':
@@ -49,9 +60,10 @@ class Resource(object):
         self.present = obj.get('state', 'present').lower() == 'present'
 
     def validate(self, obj):
-        if 'tags' in obj:
-            if not isinstance(obj['tags'], list):
-                raise aomi.exceptions.Validation('tags must be a list')
+        """Base validation method. Will inspect class attributes
+        to termine just what should be present"""
+        if 'tags' in obj and not isinstance(obj['tags'], list):
+            raise aomi.exceptions.Validation('tags must be a list')
 
         if self.present:
             check_obj(self.required_fields, self.resource, obj)
@@ -68,6 +80,8 @@ class Resource(object):
         self.tags = obj.get('tags', [])
 
     def fetch(self, vault_client, opt):
+        """Populate internal representation of remote
+        Vault resource contents"""
         result = self.read(vault_client, opt)
         if result:
             if 'data' in result:
@@ -78,6 +92,7 @@ class Resource(object):
             self.existing = None
 
     def sync(self, vault_client, opt):
+        """Update remove Vault resource contents if needed"""
         if self.present and not self.existing:
             log("Writing new data to %s" % self, opt)
             self.write(vault_client, opt)
@@ -91,6 +106,10 @@ class Resource(object):
             self.delete(vault_client, opt)
 
     def filtered(self, opt):
+        """Determines whether or not resource is filtered.
+        Resources may be filtered if the tags do not match
+        or the user has specified explict paths to include
+        or exclude via command line options"""
         if not is_tagged(opt.tags, self.tags):
             log("Skipping %s as it does not have requested tags" %
                 self.path, opt)
@@ -110,7 +129,7 @@ class Resource(object):
         return client.read(self.path)
 
     @wrap_vault("writing")
-    def write(self, client, opt):
+    def write(self, client, _opt):
         """Write to Vault while handling non-surprising errors."""
         client.write(self.path, **self.obj)
 
@@ -122,13 +141,18 @@ class Resource(object):
 
 
 class Secret(Resource):
+    """Vault Secrets
+    These Vault resources will have some kind of secret backend
+    underneath them. Seems to work with generic and AWS"""
     config_key = 'secrets'
-
-    def __init__(self, obj):
-        super(Secret, self).__init__(obj)
 
 
 def filtered_context(context, opt):
+    """Filters a context
+    This will return a new context with only the resources that
+    are actually available for use. Uses tags and command line
+    options to make determination."""
+
     ctx = Context()
     for resource in context.resources():
         if resource.child:
@@ -149,15 +173,19 @@ class Context(object):
         self._logs = []
 
     def mounts(self):
+        """Secret backends within context"""
         return self._mounts
 
     def logs(self):
+        """Audit log backends within context"""
         return self._logs
 
     def auths(self):
+        """Authentication backends within context"""
         return self._auths
 
     def resources(self):
+        """Vault resources within context"""
         res = []
         for resource in self._resources:
             res = res + resource.resources()
@@ -309,6 +337,8 @@ class VaultBackend(object):
             getattr(client, self.unmount_fun)(self.path)
 
     def sync(self, vault_client, opt):
+        """Synchronizes the local and remote Vault resources. Has the net
+        effect of adding backend if needed"""
         if not self.existing:
             self.actually_mount(vault_client)
             log("Mounting %s backend on %s" %
@@ -318,6 +348,8 @@ class VaultBackend(object):
                 (self.backend, self.path), opt)
 
     def fetch(self, backends):
+        """Updates local resource with context on whether this
+        backend is actually mounted and available"""
         self.existing = is_mounted(self.backend, self.path, backends)
 
     def maybe_mount(self, client, opt):
@@ -346,18 +378,21 @@ class VaultBackend(object):
 
 
 class SecretBackend(VaultBackend):
+    """Secret Backends for actual Vault resources"""
     list_fun = 'list_secret_backends'
     unmount_fun = 'disable_secret_backend'
     mount_fun = 'enable_secret_backend'
 
 
 class AuthBackend(VaultBackend):
+    """Authentication backends for Vault access"""
     list_fun = 'list_auth_backends'
     unmount_fun = 'disable_auth_backend'
     mount_fun = 'enable_auth_backend'
 
 
 class LogBackend(VaultBackend):
+    """Audit Log backends"""
     list_fun = 'list_audit_backends'
     unmount_fun = 'disable_audit_backend'
     mount_fun = 'enable_audit_backend'
@@ -383,6 +418,8 @@ class LogBackend(VaultBackend):
 
 
 class AuditLog(Resource):
+    """Vault Resource for Audit Logging.
+    Only supports syslog and file"""
     required_fields = ['type']
     resource = 'Audit Logs'
     config_key = 'audit_logs'
