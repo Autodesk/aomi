@@ -26,7 +26,7 @@ With `--add-prefix ` and `--add-suffix` you can add a string to the front or end
 
 # extract_file
 
-This action takes two arguments - the source path and the destination file. The destination file directory must already exist.
+This action takes two arguments - the source path and the destination file. The destination file directory must already exist. If the data from Vault is base64 encoded it will be decoded prior to being written to disk.
 
 This example extracts a hypothetical SSH private into a users home directory.
 

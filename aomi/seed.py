@@ -1,4 +1,5 @@
 """Handles the various kinds of secret seeding which we do"""
+import sys
 import re
 from uuid import uuid4
 from copy import deepcopy
@@ -6,10 +7,11 @@ import yaml
 import hvac
 import aomi.exceptions
 from aomi.helpers import hard_path, log, \
-    warning, merge_dicts, cli_hash, random_word
+    warning, merge_dicts, cli_hash, random_word, \
+    portable_b64encode
 import aomi.validation
 from aomi.error import output as error_output
-from aomi.validation import sanitize_mount
+from aomi.validation import sanitize_mount, is_unicode_string
 from aomi.template import render, load_var_files
 from aomi.vault import app_id_name
 from aomi.util import validate_entry
@@ -323,6 +325,19 @@ def app(client, app_obj, opt):
         log('created %d users in application %s' % (len(r_users), name), opt)
 
 
+def open_maybe_binary(filename):
+    """Opens something that might be binary but also
+    might be "plain text"."""
+    if sys.version_info >= (3, 0):
+        data = open(filename, 'rb').read()
+        try:
+            return data.decode('utf-8')
+        except UnicodeDecodeError:
+            return data
+
+    return open(filename, 'r').read()
+
+
 def files(client, secret, opt):
     """Seed files into Vault"""
     aomi.validation.file_obj(secret)
@@ -347,10 +362,17 @@ def files(client, secret, opt):
 
             filename = hard_path(sfile['source'], opt.secrets)
             aomi.validation.secret_file(filename)
-            data = open(filename, 'r').read()
-            obj[sfile['name']] = data
-            log('writing file %s into %s/%s' % (
-                filename,
+            data = open_maybe_binary(filename)
+            secret_format = 'unicode'
+            try:
+                is_unicode_string(data)
+                obj[sfile['name']] = data
+            except aomi.exceptions.Validation:
+                obj[sfile['name']] = portable_b64encode(data)
+                secret_format = 'binary'
+
+            log('writing %s file %s into %s/%s' % (
+                secret_format, filename,
                 vault_path,
                 sfile['name']), opt)
 
