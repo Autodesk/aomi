@@ -14,13 +14,25 @@ teardown() {
     rm -rf "$FIXTURE_DIR"
 }
 
-@test "can seed some aws stuff" {
-    aws_creds
-    [ -e "${FIXTURE_DIR}/.secrets/aws.yml" ]
-    ACCOUNT=$(vault_cfg aws_account)
-    [ ! -z "$ACCOUNT" ]
-    aomi_seed --extra-vars "aws_account=${ACCOUNT}"
+@test "can add and remove a role" {
+    aomi_seed --tags double
+    vault list aws/roles | grep bar
+    aomi_seed --tags remove
+    vault list aws/roles | grep bar
+    run vault list aws/roles | grep foo
+    [ "$status" -eq 1 ]
+}
+@test "aws happy path" {
+    aws_creds    
+    aomi_seed
+    check_aws "inline"
     run vault mounts
     scan_lines "aws/.+aws.+" "${lines[@]}"
-    check_aws "inline"
+}
+@test "aws templated role" {
+    aomi_seed \
+        --extra-vars "effect=Allow" \
+        --tags template
+    run vault mounts
+    scan_lines "aws/.+aws.+" "${lines[@]}"
 }

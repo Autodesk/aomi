@@ -1,14 +1,13 @@
 """Hande various kinds of import/export of secrets"""
 from __future__ import print_function
 import os
-import tempfile
 import shutil
 import time
 import datetime
 import zipfile
 
 from aomi.helpers import warning, hard_path, log, \
-    subdir_path
+    subdir_path, ensure_dir, ensure_tmpdir
 from aomi.template import get_secretfile
 from aomi.gpg import key_from_keybase, has_gpg_key, \
     import_gpg_key, encrypt, decrypt
@@ -149,15 +148,13 @@ def freeze_encrypt(dest_dir, zip_filename, config, opt):
 
 def freeze(dest_dir, opt):
     """Iterates over the Secretfile looking for secrets to freeze"""
-    if not (os.path.exists(dest_dir) and
-            os.path.isdir(dest_dir)):
-        os.mkdir(dest_dir)
+    tmp_dir = ensure_tmpdir()
+    ensure_dir(dest_dir)
+    dest_prefix = "%s/dest" % tmp_Dir
+    ensure_dir(dest_prefix)
 
-    tmp_dir = tempfile.mkdtemp('aomi-freeze')
-    dest_prefix = "%s/dest" % tmp_dir
-    os.mkdir(dest_prefix)
+    
     config = get_secretfile(opt)
-
     freeze_files(config, dest_prefix, opt)
     zip_filename = freeze_archive(tmp_dir, dest_prefix)
     ice_file = freeze_encrypt(dest_dir, zip_filename, config, opt)

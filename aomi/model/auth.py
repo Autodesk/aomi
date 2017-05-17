@@ -1,3 +1,11 @@
+"""
+Authentication Vault Resources
+* User/Password auth (with DUO)
+* AppRole role creation
+* AppID
+* Policies
+* Syslog/File Audit Log
+"""
 import yaml
 import hvac
 import aomi.exceptions
@@ -10,26 +18,36 @@ from aomi.validation import secret_file, sanitize_mount
 
 
 class DUOAccess(Resource):
-    required_fields = ['key', 'secret']
+    """DUO API
+    Access Credentials"""
     child = True
-    resource = 'DUO API'
 
-    def __init__(self, duo, obj):
-        super(DUOAccess, self).__init__(obj)
-        self.backend = duo.backend
-        self.path = "auth/%s/duo/access" % self.backend
-        self.duo_path = duo.path
-        self.obj = {
-            'host': duo.host,
+    def secrets(self):
+        return [self.secret]
+
+    def obj(self):
+        aomi.validation.secret_file(self.filename)
+        obj = yaml.safe_load(open(self.filename).read())
+        return {
+            'host': self.host,
             'skey': obj['secret'],
             'ikey': obj['key']
         }
+
+    def __init__(self, duo, secret, opt):
+        super(DUOAccess, self).__init__({})
+        self.path = "auth/%s/duo/access" % duo.backend
+        self.filename = hard_path(secret, opt.secrets)
+        self.secret = secret
+        self.host = duo.host
 
     def fetch(self, vault_client, opt):
         self.existing = False  # always assume because we can never be sure
 
 
 class DUO(Auth):
+    """DUO MFA
+    Authentication Backend Decorator"""
     required_fields = ['host', 'creds', 'backend']
     resource = 'DUO MFA'
     config_key = 'duo'
@@ -42,44 +60,39 @@ class DUO(Auth):
         self.path = "auth/%s/mfa_config" % self.backend
         self.host = obj['host']
         self.mount = 'userpass'
-        self.obj = {
-            'type': 'duo'
-        }
-        creds_file_name = hard_path(obj['creds'], opt.secrets)
-        aomi.validation.secret_file(creds_file_name)
-        creds = yaml.safe_load(open(creds_file_name).read())
-        self.access = DUOAccess(self, creds)
+        self._obj = {'type': 'duo'}
+        self.access = DUOAccess(self, obj['creds'], opt)
 
 
 class AppUser(Resource):
+    """App User"""
     required_fields = ['id']
-    resource = 'App User'
     child = True
 
     def __init__(self, app, obj, opt):
         super(AppUser, self).__init__(obj, opt)
         self.path = "auth/app-id/map/user-id/%s" % obj['id']
-        self.obj = {
-            'value': app.name
+        self._obj = {
+            'value': app.app_name
         }
         if 'cidr' in obj:
-            self.obj['cidr'] = obj['cidr']
+            self._obj['cidr'] = obj['cidr']
 
 
 class App(Auth):
+    """App ID"""
     required_fields = ['app_file', 'policy_name']
-    resource = 'App ID'
     config_key = 'apps'
 
     def __init__(self, obj, opt):
         super(App, self).__init__('app-id', obj)
-        self.name = app_id_name(obj)
+        self.app_name = app_id_name(obj)
         self.mount = 'app-id'
         app_file = hard_path(obj['app_file'], opt.secrets)
         aomi.validation.secret_file(app_file)
         secret_obj = yaml.safe_load(open(app_file).read())
-        self.id = aomi.legacy.app_id_itself(obj, secret_obj)
-        self.path = "auth/app-id/map/app-id/%s" % self.id
+        app_id = aomi.legacy.app_id_itself(obj, secret_obj)
+        self.path = "auth/app-id/map/app-id/%s" % app_id
 
         if 'users' not in secret_obj:
             raise aomi.exceptions.AomiData("Invalid app file %s" % app_file)
@@ -89,12 +102,12 @@ class App(Auth):
                 .exceptions \
                 .AomiData("Inline AppID Policies are no longer supported")
 
-        self.obj = {
+        self._obj = {
             'value': obj['policy_name'],
-            'display_name': self.name
+            'display_name': self.app_name
         }
         self.users = []
-        for user in self.obj.get('users', []):
+        for user in self._obj.get('users', []):
             self.users.append(AppUser(self, user, opt))
 
     def resources(self):
@@ -102,13 +115,13 @@ class App(Auth):
 
 
 class AppRole(Auth):
+    """AppRole"""
     required_fields = ['name', 'policies']
-    resource = 'App Role'
     config_key = 'approles'
 
-    def __init__(self, obj, opt):
+    def __init__(self, obj, _opt):
         super(AppRole, self).__init__('approle', obj)
-        self.name = obj['name']
+        self.app_name = obj['name']
         self.path = '%s'
         self.mount = self.backend
         role_obj = {
@@ -125,48 +138,53 @@ class AppRole(Auth):
         if 'secret_ttl' in obj:
             role_obj['secret_id_ttl'] = obj['secret_ttl']
 
-        self.obj = role_obj
+        self._obj = role_obj
 
     @wrap_vault("writing")
-    def write(self, client, opt):
-        client.create_role(self.name, **self.obj)
+    def write(self, client, _opt):
+        client.create_role(self.app_name, **self.obj())
 
     @wrap_vault("reading")
     def read(self, client, opt):
         try:
-            return client.get_role(self.name)
+            return client.get_role(self.app_name)
         except hvac.exceptions.InvalidPath:
             return None
 
     @wrap_vault("deleting")
     def delete(self, client, opt):
-        client.delete_role(self.name)
+        client.delete_role(self.app_name)
 
 
 class UserPass(Auth):
+    """UserPass"""
     required_fields = ['username', 'password_file', 'policies']
-    resource = 'UserPass Spec'
     config_key = 'users'
 
     def __init__(self, obj, opt):
         super(UserPass, self).__init__('userpass', obj)
-        self.name = obj['username']
+        self.username = obj['username']
         self.mount = 'userpass'
-        self.path = sanitize_mount("auth/userpass/users/%s" % self.name)
-        self.validate(obj)
+        self.path = sanitize_mount("auth/userpass/users/%s" % self.username)
         self.policies = obj['policies']
-        password_file = hard_path(obj['password_file'],
+        self.secret = obj['password_file']
+        self.filename = hard_path(self.secret,
                                   opt.secrets)
-        secret_file(password_file)
-        self.password = open(password_file).readline().strip()
-        self.obj = {
-            'password': self.password,
+
+    def secrets(self):
+        return [self.secret]
+
+    def obj(self):
+        secret_file(self.filename)
+        password = open(self.filename).readline().strip()
+        return {
+            'password': password,
             'policies': ','.join(self.policies)
         }
 
 
 class Policy(Resource):
-    resource = "Vault Policy"
+    """Vault Policy"""
     required_fields = ['file', 'name']
     config_key = 'policies'
 
@@ -177,15 +195,12 @@ class Policy(Resource):
             self.filename = hard_path(obj['file'], opt.policies)
             cli_obj = merge_dicts(load_var_files(opt),
                                   cli_hash(opt.extra_vars))
-            self.obj = merge_dicts(cli_obj, obj.get('vars', {}))
+            self._obj = merge_dicts(cli_obj, obj.get('vars', {}))
 
     def validate(self, obj):
         super(Policy, self).validate(obj)
         if 'vars' in obj and not isinstance(obj['vars'], dict):
             raise aomi.exceptions.Validation('policy vars must be dicts')
-
-    def policy_data(self):
-        return render(self.filename, self.obj)
 
     @wrap_vault("reading")
     def read(self, client, opt):
@@ -193,8 +208,8 @@ class Policy(Resource):
         return client.get_policy(self.path)
 
     @wrap_vault("writing")
-    def write(self, client, opt):
-        client.set_policy(self.path, self.policy_data())
+    def write(self, client, _opt):
+        client.set_policy(self.path, render(self.filename, self._obj))
 
     @wrap_vault("deleting")
     def delete(self, client, opt):

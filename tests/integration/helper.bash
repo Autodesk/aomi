@@ -3,7 +3,7 @@
 VAULT_LOG="${BATS_TMPDIR}/aomi-vault-log"
 
 if [ -z "$AWS_TIMEOUT" ] ; then
-    AWS_TIMEOUT=15
+    AWS_TIMEOUT=20
 fi
 
 function start_vault() {

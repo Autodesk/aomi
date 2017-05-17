@@ -29,6 +29,19 @@ validate_defaults() {
     done
 }
 
+@test "can seed mixed binary/unicode files" {
+    OG_BIN="${BATS_TMPDIR}/fixtures/.secrets/secret.bin"
+    dd if=/dev/urandom of="$OG_BIN" count=1
+    chmod og-rwx "$OG_BIN"    
+    aomi_seed --tags binary
+    [ "$status" -eq 0 ]
+    check_secret true "foo/bar/txt" "$FILE_SECRET1"
+    aomi extract_file foo/bar/bin "${BATS_TMPDIR}/exfile" --verbose
+    [ "$status" -eq 0 ]
+    diff "$OG_BIN" "${BATS_TMPDIR}/exfile"
+    [ "$status" -eq 0 ]
+}
+
 @test "can remove things" {
     aomi_seed
     check_secret true "foo/file/bar/secret" "$FILE_SECRET1"

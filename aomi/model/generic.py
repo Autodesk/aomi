@@ -1,15 +1,24 @@
+"""
+Generic Vault Resources
+* YAML Variable Files
+* Static files
+* Generated/Random Secrets
+"""
 from copy import deepcopy
 from uuid import uuid4
 import yaml
+from future.utils import iteritems  # pylint: disable=E0401
 import aomi.exceptions
 from aomi.model import Secret
-from aomi.helpers import hard_path, log, random_word
-from aomi.validation import sanitize_mount, secret_file, check_obj
+from aomi.helpers import hard_path, log, random_word, \
+    open_maybe_binary, portable_b64encode
+from aomi.validation import sanitize_mount, secret_file, check_obj, \
+    is_unicode_string
 
 
 class Generic(Secret):
+    """Generic Secrets"""
     backend = 'generic'
-
     def __init__(self, obj, _opt):
         super(Generic, self).__init__(obj)
         self.mount = sanitize_mount(obj['mount'])
@@ -17,37 +26,58 @@ class Generic(Secret):
 
 
 class VarFile(Generic):
+    """Generic VarFile"""
     required_fields = ['path', 'mount', 'var_file']
-    resource = 'Generic VarFile'
     resource_key = 'var_file'
+
+    def secrets(self):
+        return [self.secret]
 
     def __init__(self, obj, opt):
         super(VarFile, self).__init__(obj, opt)
+        self.secret = obj['var_file']
         self.filename = hard_path(obj['var_file'], opt.secrets)
+
+    def obj(self):
         secret_file(self.filename)
-        self.obj = yaml.safe_load(open(self.filename).read())
+        return yaml.safe_load(open(self.filename).read())
 
 
 class Files(Generic):
-    resource = 'Generic File'
+    """Generic File"""
     required_fields = ['path', 'mount', 'files']
     resource_key = 'files'
+
+    def secrets(self):
+        return [v for _k, v in self._obj]
 
     def __init__(self, obj, opt):
         super(Files, self).__init__(obj, opt)
         s_obj = {}
         for sfile in obj['files']:
-            filename = hard_path(sfile['source'], opt.secrets)
-            secret_file(filename)
-            data = open(filename, 'r').read()
-            s_obj[sfile['name']] = data
+            s_obj[sfile['name']] = hard_path(sfile['source'],
+                                             opt.secrets)
 
-        self.obj = s_obj
+        self._obj = s_obj
+
+    def obj(self):
+        s_obj = {}
+        for name, filename in iteritems(self._obj):
+            secret_file(filename)
+            data = open_maybe_binary(filename)
+            try:
+                is_unicode_string(data)
+                s_obj[name] = data
+            except aomi.exceptions.Validation:
+                s_obj[name] = portable_b64encode(data)
+                self.secret_format = 'binary'
+
+        return s_obj
 
     def validate(self, obj):
         super(Files, self).validate(obj)
         for fileobj in obj['files']:
-            check_obj(['source', 'name'], self.resource, fileobj)
+            check_obj(['source', 'name'], self.name(), fileobj)
 
 
 def generated_key(key, opt):
@@ -71,7 +101,7 @@ def generated_key(key, opt):
 
 
 class Generated(Generic):
-    resource = 'Generic Generated'
+    """Generic Generated"""
     required_fields = ['mount', 'path', 'keys']
     resource_key = 'generated'
     # TODO: why are generated generics stored slight differently
@@ -103,5 +133,5 @@ class Generated(Generic):
 
     def sync(self, vault_client, opt):
         gen_obj = self.generate_obj(opt)
-        self.obj = gen_obj
+        self._obj = gen_obj
         super(Generated, self).sync(vault_client, opt)

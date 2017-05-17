@@ -6,7 +6,7 @@ If you are new to `aomi`, please checkout our [documentation](https://autodesk.g
 
 # Contributing
 
-All manner of contributions are welcome. The aomi tool is still relatively early, and emphasis has been placed on the data model concept more than staying current with the Vault API. All manner of assistance is welcome, from source code to documentation and community support.
+All manner of contributions are welcome. The aomi tool is still relatively young, and emphasis has been placed on the data model concept more than staying current with the Vault API. All manner of assistance is welcome, from source code to documentation and community support.
 
 ## Code
 
@@ -45,6 +45,6 @@ If you have any questions, please feel free to contact <jonathan.freedman@autode
 
 # Errata
 
-The web page for aomi is based on the [hacker](https://github.com/pages-themes/hacker) Jekyll theme and has been heavily.
+The web page for aomi is based on the [hacker](https://github.com/pages-themes/hacker) Jekyll theme and has been heavily customized.
 
 The Code of Conduct is version 1.4 of the [Contributor Covenant](http://contributor-covenant.org/).

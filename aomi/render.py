@@ -1,11 +1,13 @@
 """ Secret rendering """
 from __future__ import print_function
 # Python 2/3 compat
+import sys
 from future.utils import iteritems  # pylint: disable=E0401
 from pkg_resources import resource_filename
 import hvac
 from aomi.helpers import warning, cli_hash, merge_dicts, \
-    path_pieces, abspath
+    path_pieces, abspath, portable_b64decode, log
+from aomi.validation import is_base64
 from aomi.template import render, load_var_files
 from aomi.error import output as error_output
 import aomi.exceptions
@@ -119,10 +121,22 @@ def raw_file(client, src, dest, opt):
     else:
         if 'data' in resp and key in resp['data']:
             secret = resp['data'][key]
+            if is_base64(secret):
+                log('decoding base64 entry', opt)
+                secret = portable_b64decode(secret)
+
             if is_aws(resp['data']):
                 renew_secret(client, resp, opt)
 
-            open(abspath(dest), 'w').write(secret)
+            secret_file = None
+            if sys.version_info >= (3, 0):
+                if not isinstance(secret, str):
+                    secret_file = open(abspath(dest), 'wb')
+
+            if not secret_file:
+                secret_file = open(abspath(dest), 'w')
+
+            secret_file.write(secret)
         else:
             client.revoke_self_token()
             e_msg = "Key %s not found in %s" % (key, path)

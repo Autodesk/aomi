@@ -8,11 +8,11 @@ class IsTaggedTest(unittest.TestCase):
     def test_exclusion(self):
         self.assertFalse(aomi.helpers.is_tagged([], ['foo']))
         self.assertFalse(aomi.helpers.is_tagged(['foo'], ['bar']))
-        self.assertFalse(aomi.helpers.is_tagged(['foo'], ['foo', 'bar']))
+        self.assertFalse(aomi.helpers.is_tagged(['foo', 'bar'], ['foo']))
 
     def test_inclusion(self):
         self.assertTrue(aomi.helpers.is_tagged(['foo'], ['foo']))
-        self.assertTrue(aomi.helpers.is_tagged(['foo', 'bar'], ['foo']))
+        self.assertTrue(aomi.helpers.is_tagged(['foo'], ['foo', 'bar']))
 
 class CliHashTest(unittest.TestCase):
     def test_happy_path(self):

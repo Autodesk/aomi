@@ -20,6 +20,15 @@ teardown() {
     [ "$status" -eq 0 ]
 }
 
+@test "builtin template help" {
+    run aomi template --builtin-list
+    [ "$status" -eq 0 ]
+    scan_lines "shenv" "${lines[@]}"
+    run aomi template --builtin-info shenv
+    [ "$status" -eq 0 ]
+    scan_lines "snippet" "${lines[@]}"
+}
+
 @test "help if asked" {
       run aomi --help
       [ "$status" -eq 0 ]      
@@ -30,6 +39,9 @@ teardown() {
       run aomi --help
       [ "$status" -eq 0 ]      
       scan_lines "usage: aomi" "${lines[@]}"
+      run aomi
+      [ "$status" -eq 2 ]
+      scan_lines "usage: aomi" "${lines[@]}"      
 }
 
 @test "a single op, help if asked" {
@@ -50,4 +62,3 @@ teardown() {
     [ "$status" -eq 0 ]
     scan_lines "Auth Hints Present" "${lines[@]}"
 }
-
