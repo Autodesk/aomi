@@ -1,6 +1,7 @@
 """ Secret rendering """
 from __future__ import print_function
 # Python 2/3 compat
+import sys
 from future.utils import iteritems  # pylint: disable=E0401
 from pkg_resources import resource_filename
 import hvac
@@ -127,7 +128,15 @@ def raw_file(client, src, dest, opt):
             if is_aws(resp['data']):
                 renew_secret(client, resp, opt)
 
-            open(abspath(dest), 'w').write(secret)
+            secret_file = None
+            if sys.version_info >= (3, 0):
+                if not isinstance(secret, str):
+                    secret_file = open(abspath(dest), 'wb')
+
+            if not secret_file:
+                secret_file = open(abspath(dest), 'w')
+
+            secret_file.write(secret)
         else:
             client.revoke_self_token()
             e_msg = "Key %s not found in %s" % (key, path)

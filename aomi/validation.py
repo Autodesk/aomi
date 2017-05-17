@@ -1,5 +1,6 @@
 """Some validation helpers for aomi"""
 from __future__ import print_function
+import sys
 import os
 import re
 import platform
@@ -223,14 +224,27 @@ def gpg_fingerprint(key):
 
 def is_plain_string(string):
     """Validates we are a plain ol' string"""
-    if not string or not re.match(r'^[0-9A-Za-z\-_]+$', string):
-        raise aomi.exceptions.Validation('Not a plain string')
+    try:
+        if not string or not re.match(r'^[0-9A-Za-z\-_+\.]+$', string):
+            raise aomi.exceptions.Validation('Not a plain string')
+    except TypeError as excep:
+        excep_msg = 'cannot use a string pattern on a bytes-like object'
+        if str(excep) == excep_msg:
+            raise aomi.exceptions.Validation('Not a plain string')
+
+        raise
 
 
 def is_unicode_string(string):
     """Validates that we are some kinda unicode string"""
     try:
-        string.decode('utf-8')
+        if sys.version_info >= (3, 0):
+            # isn't a python 3 str actually unicode
+            if not isinstance(string, str):
+                string.decode('utf-8')
+
+        else:
+            string.decode('utf-8')
     except UnicodeError:
         raise aomi.exceptions.Validation('Not a unicode string')
 

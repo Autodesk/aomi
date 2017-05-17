@@ -229,7 +229,12 @@ def subdir_path(directory, relative):
 def portable_b64encode(thing):
     """Wrap b64encode for Python 2 & 3"""
     if sys.version_info >= (3, 0):
-        return b64encode(bytes(thing, 'utf-8')).decode('utf-8')
+        try:
+            some_bits = bytes(thing, 'utf-8')
+        except TypeError:
+            some_bits = thing
+
+        return b64encode(some_bits).decode('utf-8')
 
     return b64encode(thing)
 
@@ -237,6 +242,10 @@ def portable_b64encode(thing):
 def portable_b64decode(thing):
     """Consistent b64decode in Python 2 & 3"""
     if sys.version_info >= (3, 0):
-        return b64decode(thing).decode('utf-8')
+        decoded = b64decode(thing)
+        try:
+            return decoded.decode('utf-8')
+        except UnicodeDecodeError:
+            return decoded
 
     return b64decode(thing)
