@@ -1,14 +1,64 @@
 """Model definition for various aomi contexts"""
 
+import sys
+import inspect
 import os
 import re
 import shutil
+from future.utils import iteritems  # pylint: disable=E0401
 import hvac
 import aomi.exceptions
+from aomi.template import get_secretfile
 from aomi.helpers import log, is_tagged, hard_path
 from aomi.vault import is_mounted
 from aomi.error import output as error_output
 from aomi.validation import sanitize_mount, check_obj
+
+
+def py_resources():
+    """Discovers all aomi Vault resource models"""
+    aomi_mods = [m for
+                 m, _v in iteritems(sys.modules)
+                 if m.startswith('aomi.model')]
+    mod_list = []
+    mod_map = []
+    for amod in [sys.modules[m] for m in aomi_mods]:
+        for _mod_bit, model in inspect.getmembers(amod):
+            if str(model) in mod_list:
+                continue
+
+            if model == aomi.model.Mount:
+                mod_list.append(str(model))
+                mod_map.append((model.config_key, model))
+            elif (inspect.isclass(model) and
+                  issubclass(model, aomi.model.Resource) and
+                  model.config_key):
+                mod_list.append(str(model))
+                if model.resource_key:
+                    mod_map.append((model.config_key,
+                                    model.resource_key,
+                                    model))
+                elif model.config_key != 'secrets':
+                    mod_map.append((model.config_key, model))
+
+    return mod_map
+
+
+def find_model(config, obj, mods):
+    """Given a list of mods (as returned by py_resources) attempts to
+    determine if a given Python obj fits one of the models"""
+    for mod in mods:
+        if mod[0] != config:
+            continue
+
+        if len(mod) == 2:
+            return mod[1]
+
+        if len(mod) == 3 and mod[1] in obj:
+            return mod[2]
+
+    return None
+
 
 def find_backend(path, backends):
     """Find the backend at a given path"""
@@ -238,6 +288,35 @@ def filtered_context(context, opt):
 
 class Context(object):
     """The overall context of an aomi session"""
+
+    @staticmethod
+    def load(config, opt):
+        """Loads and returns a full context object based on the Secretfile"""
+        ctx = Context()
+        seed_map = py_resources()
+        seed_keys = set([m[0] for m in seed_map])
+        for config_key in seed_keys:
+            if config_key not in config:
+                continue
+            for resource in config[config_key]:
+                mod = find_model(config_key, resource, seed_map)
+                if not mod:
+                    print("unable to find mod for %s" % resource)
+                    continue
+
+                ctx.add(mod(resource, opt))
+
+        for config_key in config.keys():
+            if config_key not in seed_keys:
+                print("missing model for %s" % config_key)
+
+        f_ctx = aomi.model.filtered_context(ctx, opt)
+        return f_ctx
+
+
+    def freeze(self, dest_dir, opt):
+        for resource in self.resources():
+            resource.freeze(dest_dir, opt)
 
     def __init__(self):
         self._mounts = []

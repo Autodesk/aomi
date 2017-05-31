@@ -16,6 +16,7 @@ from aomi.validation import gpg_fingerprint \
     as validate_gpg_fingerprint
 import aomi.exceptions
 from aomi.util import validate_entry
+from aomi.model import Context
 
 
 def from_keybase(username, opt):
@@ -150,12 +151,11 @@ def freeze(dest_dir, opt):
     """Iterates over the Secretfile looking for secrets to freeze"""
     tmp_dir = ensure_tmpdir()
     ensure_dir(dest_dir)
-    dest_prefix = "%s/dest" % tmp_Dir
+    dest_prefix = "%s/dest" % tmp_dir
     ensure_dir(dest_prefix)
-
-    
     config = get_secretfile(opt)
-    freeze_files(config, dest_prefix, opt)
+    ctx = Context.load(config, opt)
+    ctx.freeze(dest_dir, opt)
     zip_filename = freeze_archive(tmp_dir, dest_prefix)
     ice_file = freeze_encrypt(dest_dir, zip_filename, config, opt)
     shutil.rmtree(tmp_dir)
