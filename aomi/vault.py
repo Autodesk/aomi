@@ -5,16 +5,11 @@ import socket
 import atexit
 import hvac
 import yaml
-# need to override those SSL warnings
-import requests
-from requests.packages.urllib3.exceptions import InsecureRequestWarning
 from aomi.helpers import log
 from aomi.error import output as error_output
 from aomi.util import token_file, appid_file
 import aomi.error
 import aomi.exceptions
-
-requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
 
 def approle_token(vault_client, role_id, secret_id):
@@ -155,17 +150,6 @@ def client(operation, opt):
             raise aomi.exceptions.AomiCredentials('operational token')
 
     return vault_client
-
-
-def app_id_name(app_obj):
-    """Determines the proper app id name"""
-    name = None
-    if 'name' in app_obj:
-        name = app_obj['name']
-    else:
-        name = os.path.splitext(os.path.basename(app_obj['app_file']))[0]
-
-    return name
 
 
 def is_mounted(backend, path, backends):

@@ -72,19 +72,6 @@ def password(client, path, opt):
         update_generic_password(client, path, opt)
 
 
-def validate_entry(obj, path, opt):
-    """Determines whether or not to interpret this particular
-    aomi construct based on combination of tags and what
-    is passed via the CLI"""
-    if not aomi.validation.tag_check(obj, path, opt):
-        return False
-
-    if not aomi.validation.specific_path_check(path, opt):
-        return False
-
-    return True
-
-
 def vault_file(env, default):
     """The path to a misc Vault file
     This function will check for the env override on a file

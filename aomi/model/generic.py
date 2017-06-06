@@ -10,7 +10,7 @@ import yaml
 from future.utils import iteritems  # pylint: disable=E0401
 import aomi.exceptions
 from aomi.model import Secret
-from aomi.helpers import hard_path, log, random_word, \
+from aomi.helpers import log, random_word, hard_path, \
     open_maybe_binary, portable_b64encode
 from aomi.validation import sanitize_mount, secret_file, check_obj, \
     is_unicode_string
@@ -19,8 +19,9 @@ from aomi.validation import sanitize_mount, secret_file, check_obj, \
 class Generic(Secret):
     """Generic Secrets"""
     backend = 'generic'
-    def __init__(self, obj, _opt):
-        super(Generic, self).__init__(obj)
+
+    def __init__(self, obj, opt):
+        super(Generic, self).__init__(obj, opt)
         self.mount = sanitize_mount(obj['mount'])
         self.path = "%s/%s" % (self.mount, obj['path'])
 
@@ -36,11 +37,12 @@ class VarFile(Generic):
     def __init__(self, obj, opt):
         super(VarFile, self).__init__(obj, opt)
         self.secret = obj['var_file']
-        self.filename = hard_path(obj['var_file'], opt.secrets)
+        self.filename = obj['var_file']
 
     def obj(self):
-        secret_file(self.filename)
-        return yaml.safe_load(open(self.filename).read())
+        filename = hard_path(self.filename, self.opt.secrets)
+        secret_file(filename)
+        return yaml.safe_load(open(filename).read())
 
 
 class Files(Generic):
@@ -49,22 +51,22 @@ class Files(Generic):
     resource_key = 'files'
 
     def secrets(self):
-        return [v for _k, v in self._obj]
+        return [v for _k, v in iteritems(self._obj)]
 
     def __init__(self, obj, opt):
         super(Files, self).__init__(obj, opt)
         s_obj = {}
         for sfile in obj['files']:
-            s_obj[sfile['name']] = hard_path(sfile['source'],
-                                             opt.secrets)
+            s_obj[sfile['name']] = sfile['source']
 
         self._obj = s_obj
 
     def obj(self):
         s_obj = {}
         for name, filename in iteritems(self._obj):
-            secret_file(filename)
-            data = open_maybe_binary(filename)
+            actual_file = hard_path(filename, self.opt.secrets)
+            secret_file(actual_file)
+            data = open_maybe_binary(actual_file)
             try:
                 is_unicode_string(data)
                 s_obj[name] = data
@@ -104,7 +106,7 @@ class Generated(Generic):
     """Generic Generated"""
     required_fields = ['mount', 'path', 'keys']
     resource_key = 'generated'
-    # TODO: why are generated generics stored slight differently
+    # why are generated generics stored slight differently
 
     def __init__(self, obj, opt):
         super(Generated, self).__init__(obj['generated'], opt)
@@ -112,7 +114,7 @@ class Generated(Generic):
             check_obj(['name', 'method'], 'generated secret entry', key)
         self.keys = obj['generated']['keys']
 
-    def generate_obj(self, opt):
+    def generate_obj(self):
         """Generates the secret object, respecting existing information
         and user specified options"""
         secret_obj = {}
@@ -124,14 +126,14 @@ class Generated(Generic):
             if self.existing and \
                key_name in self.existing and \
                not key.get('overwrite'):
-                log("Not overwriting %s/%s" % (self.path, key_name), opt)
+                log("Not overwriting %s/%s" % (self.path, key_name), self.opt)
                 continue
             else:
-                secret_obj[key_name] = generated_key(key, opt)
+                secret_obj[key_name] = generated_key(key, self.opt)
 
         return secret_obj
 
-    def sync(self, vault_client, opt):
-        gen_obj = self.generate_obj(opt)
+    def sync(self, vault_client):
+        gen_obj = self.generate_obj()
         self._obj = gen_obj
-        super(Generated, self).sync(vault_client, opt)
+        super(Generated, self).sync(vault_client)

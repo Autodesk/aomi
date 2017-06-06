@@ -49,10 +49,10 @@ verbose
     echo "pinentry-program /Users/freedmj/src/autodesk-aomi/scripts/pinentry-dummy.sh" > "${FIXTURE_DIR}/.gnupg/gpg-agent.conf"
     chmod -R og-rwx "$GNUPGHOME"    
     # https://www.gnupg.org/documentation/manuals/gnupg/Unattended-GPG-key-generation.html
-    PASS="${RANDOM}"
-    echo -n "$PASS" > "${FIXTURE_DIR}/pass"
+    PASS="some gpg pass ${RANDOM}"
     export AOMI_PASSPHRASE_FILE="${FIXTURE_DIR}/pass"
-    gpg --gen-key --batch <<< "
+    echo -n "$PASS" > "$AOMI_PASSPHRASE_FILE"
+    gpg --gen-key --verbose --batch <<< "
 %pubring ${FIXTURE_DIR}/.gnupg/pubring.gpg
 %secring ${FIXTURE_DIR}/.gnupg/secring.gpg
 Key-Type: RSA
@@ -65,6 +65,7 @@ Passphrase: ${PASS}
 %commit
 "
     GPGID=$(gpg --list-keys 2>/dev/null | grep -e 'pub   2048' | cut -f 2 -d '/' | cut -f 1 -d ' ')
+    gpg --list-secret-keys
     [ ! -z "$GPGID" ]
 }
 

@@ -18,7 +18,7 @@ teardown() {
     aomi_seed --tags double
     vault list aws/roles | grep bar
     aomi_seed --tags remove
-    vault list aws/roles | grep bar
+    ! vault list aws/roles | grep bar
     run vault list aws/roles | grep foo
     [ "$status" -eq 1 ]
 }

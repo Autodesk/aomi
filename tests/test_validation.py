@@ -95,3 +95,5 @@ class StringTests(unittest.TestCase):
         assert aomi.validation.is_base64(portable_b64encode(self.some_binary))
         assert aomi.validation.is_base64(portable_b64encode(self.ghost_emoji))
         self.assertFalse(aomi.validation.is_base64("foo"))
+        self.assertFalse(aomi.validation.is_base64("2454"))
+        self.assertFalse(aomi.validation.is_base64("1234"))

@@ -271,7 +271,8 @@ def ensure_dir(path):
             os.path.isdir(path)):
         os.mkdir(path)
 
+
 def ensure_tmpdir():
     """Ensures a temporary directory exists"""
-    path = tempfile.mkdtemp('aomi-freeze')
+    path = tempfile.mkdtemp('aomi')
     return path

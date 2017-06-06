@@ -5,7 +5,7 @@ import os
 import re
 import platform
 import stat
-from aomi.helpers import abspath, is_tagged, log, subdir_path
+from aomi.helpers import abspath, log, subdir_path
 import aomi.exceptions
 
 
@@ -95,16 +95,6 @@ def validate_obj(keys, obj):
     return msg
 
 
-def tag_check(obj, path, opt):
-    """If we require tags, validate for that"""
-    if not is_tagged(obj.get('tags', []), opt.tags):
-        log("Skipping %s as it does not have requested tags" %
-            path, opt)
-        return False
-
-    return True
-
-
 def specific_path_check(path, opt):
     """Will make checks against include/exclude to determine if we
     actually care about the path in question."""
@@ -175,5 +165,6 @@ def is_unicode_string(string):
 def is_base64(string):
     """Determines whether or not a string is likely to
     be base64 encoded binary nonsense"""
-    return (len(string) % 4 == 0) and \
+    return (not re.match('^[0-9]+$', string)) and \
+        (len(string) % 4 == 0) and \
         re.match('^[A-Za-z0-9+/]+[=]{0,2}$', string)

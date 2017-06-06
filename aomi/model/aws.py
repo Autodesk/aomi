@@ -33,14 +33,13 @@ class AWSRole(Resource):
     child = True
 
     def __init__(self, mount, obj, opt):
-        super(AWSRole, self).__init__(obj)
+        super(AWSRole, self).__init__(obj, opt)
         self.path = "%s/roles/%s" % (mount, obj['name'])
         if self.present:
             self._obj = obj
             if 'policy' in self._obj:
                 self._obj['policy'] = hard_path(self._obj['policy'],
                                                 opt.policies)
-                self.opt = opt
 
     def obj(self):
         s_obj = {}
@@ -60,8 +59,8 @@ class AWSTTL(Resource):
     """AWS Lease"""
     child = True
 
-    def __init__(self, mount, obj, msg, _opt):
-        super(AWSTTL, self).__init__(obj)
+    def __init__(self, mount, obj, msg, opt):
+        super(AWSTTL, self).__init__(obj, opt)
         self.path = "%s/config/lease" % mount
         self._obj = obj
         self.msg = msg
@@ -80,22 +79,23 @@ class AWS(Secret):
             self.ttl,
         ] + self.roles
 
-    def fetch(self, vault_client, opt):
+    def fetch(self, vault_client):
         if is_mounted(self.backend,
                       self.mount,
                       vault_client.list_secret_backends()):
             self.existing = True
 
-    def sync(self, vault_client, opt):
+    def sync(self, vault_client):
         if self.present and not self.existing:
-            log("Writing AWS root to %s" % self.path, opt)
+            log("Writing AWS root to %s" % self.path, self.opt)
         elif self.present and self.existing:
-            log("Updating AWS root at %s" % self.path, opt)
+            log("Updating AWS root at %s" % self.path, self.opt)
 
     def obj(self):
         _secret, filename, region = self._obj
-        secret_file(filename)
-        aws_obj = yaml.safe_load(open(filename, 'r').read())
+        actual_filename = hard_path(filename, self.opt.secrets)
+        secret_file(actual_filename)
+        aws_obj = yaml.safe_load(open(actual_filename, 'r').read())
         check_obj(['access_key_id', 'secret_access_key'],
                   self, aws_obj)
         return {
@@ -108,10 +108,10 @@ class AWS(Secret):
         return [self._obj[0]]
 
     def __init__(self, obj, opt):
-        super(AWS, self).__init__(obj)
+        super(AWS, self).__init__(obj, opt)
         self.mount = sanitize_mount(obj['mount'])
         self.path = "%s/config/root" % self.mount
-        aws_file_path = hard_path(obj['aws_file'], opt.secrets)
+        aws_file_path = obj['aws_file']
         self._obj = (obj['aws_file'],
                      aws_file_path,
                      obj['region'])

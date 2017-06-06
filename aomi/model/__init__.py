@@ -1,5 +1,5 @@
 """Model definition for various aomi contexts"""
-
+from __future__ import print_function
 import sys
 import inspect
 import os
@@ -8,7 +8,6 @@ import shutil
 from future.utils import iteritems  # pylint: disable=E0401
 import hvac
 import aomi.exceptions
-from aomi.template import get_secretfile
 from aomi.helpers import log, is_tagged, hard_path
 from aomi.vault import is_mounted
 from aomi.error import output as error_output
@@ -68,20 +67,22 @@ def find_backend(path, backends):
 
     return None
 
-def ensure_backend(resource, backend, backends):
+
+def ensure_backend(resource, backend, backends, opt):
     """Ensure the backend for a resource is properly in context"""
     existing_mount = find_backend(resource.mount, backends)
     if not existing_mount:
         new_mount = None
         if backend == LogBackend:
-            new_mount = backend(resource)
+            new_mount = backend(resource, opt)
         else:
-            new_mount = backend(resource.mount, resource.backend)
+            new_mount = backend(resource.mount, resource.backend, opt)
 
         backends.append(new_mount)
         return new_mount
 
     return existing_mount
+
 
 def wrap_vault(msg):
     """Error catching Vault API wrapper
@@ -91,14 +92,14 @@ def wrap_vault(msg):
     # pylint: disable=missing-docstring
     def wrap_call(func):
         # pylint: disable=missing-docstring
-        def func_wrapper(self, vault_client, opt):
+        def func_wrapper(self, vault_client):
             try:
-                return func(self, vault_client, opt)
+                return func(self, vault_client)
             except (hvac.exceptions.InvalidRequest,
                     hvac.exceptions.Forbidden) as vault_exception:
                 if vault_exception.errors[0] == 'permission denied':
                     error_output("Permission denied %s from %s" %
-                                 (msg, self.path), opt)
+                                 (msg, self.path), self.opt)
                 else:
                     raise
 
@@ -117,12 +118,12 @@ class Resource(object):
     child = False
     secret_format = 'data'
 
-    def thaw(self, tmp_dir, opt):
+    def thaw(self, tmp_dir):
         """Will perform some validation and copy a
         decrypted secret to it's final location"""
         for sfile in self.secrets():
             src_file = "%s/%s" % (tmp_dir, sfile)
-            dest_file = "%s/%s" % (opt.secrets, sfile)
+            dest_file = "%s/%s" % (self.opt.secrets, sfile)
             if not os.path.exists(src_file):
                 raise aomi \
                     .exceptions \
@@ -130,22 +131,23 @@ class Resource(object):
                              (self))
 
             shutil.copy(src_file, dest_file)
-            log("Thawed %s %s" % (self, sfile), opt)
+            log("Thawed %s %s" % (self, sfile), self.opt)
 
-    # def freeze_secret(src, dest, flav, tmp_dir, opt):
-    def freeze(self, tmp_dir, opt):
+    def freeze(self, tmp_dir):
         """Copies a secret into a particular location"""
         for sfile in self.secrets():
-            src_file = hard_path(sfile, opt.secrets)
-            if not os.path.exists(sfile):
-                raise aomi.exceptions.IceFile("%s secret missing" % self)
+            src_file = hard_path(sfile, self.opt.secrets)
+            if not os.path.exists(src_file):
+                raise aomi.exceptions.IceFile("%s secret not found at %s" %
+                                              (self, src_file))
+
             dest_file = "%s/%s" % (tmp_dir, sfile)
             dest_dir = os.path.dirname(dest_file)
             if not os.path.isdir(dest_dir):
                 os.mkdir(dest_dir, 0o700)
 
             shutil.copy(src_file, dest_file)
-            log("Froze %s %s" % (self, sfile), opt)
+            log("Froze %s %s" % (self, sfile), self.opt)
 
     def resources(self):
         """List of included resources"""
@@ -174,7 +176,7 @@ class Resource(object):
 
     def name(self):
         """A Friendly Name for our Resource"""
-        return self.__doc__.split('\n')
+        return self.__doc__.split('\n')[0]
 
     def __str__(self):
         return "%s %s" % (self.name(), self.path)
@@ -190,18 +192,19 @@ class Resource(object):
         locally by this Vault resource"""
         return []
 
-    def __init__(self, obj):
+    def __init__(self, obj, opt):
         self.grok_state(obj)
         self.validate(obj)
         self.path = None
         self.existing = None
         self._obj = {}
         self.tags = obj.get('tags', [])
+        self.opt = opt
 
-    def fetch(self, vault_client, opt):
+    def fetch(self, vault_client):
         """Populate internal representation of remote
         Vault resource contents"""
-        result = self.read(vault_client, opt)
+        result = self.read(vault_client)
         if result:
             if 'data' in result:
                 self.existing = result['data']
@@ -210,56 +213,56 @@ class Resource(object):
         else:
             self.existing = None
 
-    def sync(self, vault_client, opt):
+    def sync(self, vault_client):
         """Update remove Vault resource contents if needed"""
         if self.present and not self.existing:
             log("Writing new %s to %s" %
-                (self.secret_format, self), opt)
-            self.write(vault_client, opt)
+                (self.secret_format, self), self.opt)
+            self.write(vault_client)
         elif self.present and self.existing:
             log("Updating %s in %s" %
-                (self.secret_format, self), opt)
-            self.write(vault_client, opt)
+                (self.secret_format, self), self.opt)
+            self.write(vault_client)
         elif not self.present and not self.existing:
             log("No %s to remove from %s" %
-                (self.secret_format, self), opt)
+                (self.secret_format, self), self.opt)
         elif not self.present and self.existing:
             log("Removing %s from %s" %
-                (self.secret_format, self), opt)
-            self.delete(vault_client, opt)
+                (self.secret_format, self), self.opt)
+            self.delete(vault_client)
 
-    def filtered(self, opt):
+    def filtered(self):
         """Determines whether or not resource is filtered.
         Resources may be filtered if the tags do not match
         or the user has specified explict paths to include
         or exclude via command line options"""
-        if not is_tagged(self.tags, opt.tags):
+        if not is_tagged(self.tags, self.opt.tags):
             log("Skipping %s as it does not have requested tags" %
-                self.path, opt)
+                self.path, self.opt)
             return False
 
-        if not aomi.validation.specific_path_check(self.path, opt):
+        if not aomi.validation.specific_path_check(self.path, self.opt):
             log("Skipping %s as it does not match specified paths" %
-                self.path, opt)
+                self.path, self.opt)
             return False
 
         return True
 
     @wrap_vault("reading")
-    def read(self, client, opt):
+    def read(self, client):
         """Read from Vault while handling non surprising errors."""
-        log("Reading from %s" % self, opt)
+        log("Reading from %s" % self, self.opt)
         return client.read(self.path)
 
     @wrap_vault("writing")
-    def write(self, client, _opt):
+    def write(self, client):
         """Write to Vault while handling non-surprising errors."""
         client.write(self.path, **self.obj())
 
     @wrap_vault("deleting")
-    def delete(self, client, opt):
+    def delete(self, client):
         """Delete from Vault while handling non-surprising errors."""
-        log("Deleting %s" % self, opt)
+        log("Deleting %s" % self, self.opt)
         client.delete(self.path)
 
 
@@ -270,17 +273,17 @@ class Secret(Resource):
     config_key = 'secrets'
 
 
-def filtered_context(context, opt):
+def filtered_context(context):
     """Filters a context
     This will return a new context with only the resources that
     are actually available for use. Uses tags and command line
     options to make determination."""
 
-    ctx = Context()
+    ctx = Context(context.opt)
     for resource in context.resources():
         if resource.child:
             continue
-        if resource.filtered(opt):
+        if resource.filtered():
             ctx.add(resource)
 
     return ctx
@@ -292,7 +295,7 @@ class Context(object):
     @staticmethod
     def load(config, opt):
         """Loads and returns a full context object based on the Secretfile"""
-        ctx = Context()
+        ctx = Context(opt)
         seed_map = py_resources()
         seed_keys = set([m[0] for m in seed_map])
         for config_key in seed_keys:
@@ -310,19 +313,25 @@ class Context(object):
             if config_key not in seed_keys:
                 print("missing model for %s" % config_key)
 
-        f_ctx = aomi.model.filtered_context(ctx, opt)
+        f_ctx = aomi.model.filtered_context(ctx)
         return f_ctx
 
-
-    def freeze(self, dest_dir, opt):
+    def thaw(self, tmp_dir):
+        """Will thaw a secret into an appropriate location"""
         for resource in self.resources():
-            resource.freeze(dest_dir, opt)
+            resource.thaw(tmp_dir)
 
-    def __init__(self):
+    def freeze(self, dest_dir):
+        """Freezes everyt resource within a context"""
+        for resource in self.resources():
+            resource.freeze(dest_dir)
+
+    def __init__(self, opt):
         self._mounts = []
         self._resources = []
         self._auths = []
         self._logs = []
+        self.opt = opt
 
     def mounts(self):
         """Secret backends within context"""
@@ -348,11 +357,11 @@ class Context(object):
         """Add a resource to the context"""
         if isinstance(resource, Resource):
             if isinstance(resource, (Secret, Mount)):
-                ensure_backend(resource, SecretBackend, self._mounts)
+                ensure_backend(resource, SecretBackend, self._mounts, self.opt)
             elif isinstance(resource, (Auth)):
-                ensure_backend(resource, AuthBackend, self._auths)
+                ensure_backend(resource, AuthBackend, self._auths, self.opt)
             elif isinstance(resource, (AuditLog)):
-                ensure_backend(resource, LogBackend, self._logs)
+                ensure_backend(resource, LogBackend, self._logs, self.opt)
 
             self._resources.append(resource)
         else:
@@ -360,38 +369,28 @@ class Context(object):
                   "added to context" % resource.__class__
             raise aomi.exceptions.AomiError(msg)
 
-    def uses_mount(self, path):
-        """Returns a list of resources which make use of the
-        provided mount point"""
-        rsrcs = []
-        for resource in self._resources:
-            if hasattr(resource, 'mount') and resource.mount == path:
-                rsrcs.append(resource)
-
-        return rsrcs
-
     def remove(self, resource):
         """Removes a resource from the context"""
         if isinstance(resource, Resource):
             self._resources.remove(resource)
 
-    def sync(self, vault_client, opt):
+    def sync(self, vault_client):
         """Synchronizes the context to the Vault server. This
         has the effect of updating every resource which is
         in the context."""
         for mount in self.mounts():
             if not mount.existing:
-                mount.sync(vault_client, opt)
+                mount.sync(vault_client)
         for auth in self.auths():
             if not auth.existing:
-                auth.sync(vault_client, opt)
+                auth.sync(vault_client)
         for blog in self.logs():
             if not blog.existing:
-                blog.sync(vault_client, opt)
+                blog.sync(vault_client)
         for resource in self.resources():
-            resource.sync(vault_client, opt)
+            resource.sync(vault_client)
 
-    def fetch(self, vault_client, opt):
+    def fetch(self, vault_client):
         """Updates the context based on the contents of the Vault
         server. Note that some resources can not be read after
         they have been written to and it is up to those classes
@@ -406,30 +405,19 @@ class Context(object):
         for resource in self.resources():
             if issubclass(type(resource), aomi.model.Secret):
                 if find_backend(resource.mount, self._mounts).existing:
-                    resource.fetch(vault_client, opt)
+                    resource.fetch(vault_client)
             elif issubclass(type(resource), aomi.model.Auth):
                 if find_backend(resource.mount, self._auths).existing:
-                    resource.fetch(vault_client, opt)
+                    resource.fetch(vault_client)
             else:
-                resource.fetch(vault_client, opt)
+                resource.fetch(vault_client)
 
 
 class Auth(Resource):
     """Auth Backend"""
-    def __init__(self, backend, obj):
-        super(Auth, self).__init__(obj)
+    def __init__(self, backend, obj, opt):
+        super(Auth, self).__init__(obj, opt)
         self.backend = backend
-
-    def backend_exists(self, client):
-        """Checks to see if an auth backend exists yet"""
-        backends = client.list_auth_backends().keys()
-        backends = [x.rstrip('/') for x in backends]
-        return self.backend in backends
-
-    def ensure_auth(self, client):
-        """Will ensure a particular auth endpoint is mounted"""
-        if not self.backend_exists(client):
-            client.enable_auth_backend(self.backend)
 
 
 class Mount(Resource):
@@ -438,17 +426,17 @@ class Mount(Resource):
     config_key = 'mounts'
     backend = 'generic'
 
-    def __init__(self, obj, _opt):
-        super(Mount, self).__init__(obj)
+    def __init__(self, obj, opt):
+        super(Mount, self).__init__(obj, opt)
         self.mount = obj['path']
 
-    def write(self, client, opt):
+    def write(self, client):
         pass
 
-    def read(self, client, opt):
+    def read(self, client):
         pass
 
-    def delete(self, client, opt):
+    def delete(self, client):
         pass
 
 
@@ -470,10 +458,11 @@ class VaultBackend(object):
 
         return "%s %s" % (self.backend, self.path)
 
-    def __init__(self, path, backend):
+    def __init__(self, path, backend, opt):
         self.path = sanitize_mount(path)
         self.backend = backend
         self.existing = False
+        self.opt = opt
 
     def unmount(self, client):
         """Unmount a given mountpoint"""
@@ -481,29 +470,29 @@ class VaultBackend(object):
         if is_mounted(self.backend, self.path, backends):
             getattr(client, self.unmount_fun)(self.path)
 
-    def sync(self, vault_client, opt):
+    def sync(self, vault_client):
         """Synchronizes the local and remote Vault resources. Has the net
         effect of adding backend if needed"""
         if not self.existing:
             self.actually_mount(vault_client)
             log("Mounting %s backend on %s" %
-                (self.backend, self.path), opt)
+                (self.backend, self.path), self.opt)
         else:
             log("%s backend already mounted on %s" %
-                (self.backend, self.path), opt)
+                (self.backend, self.path), self.opt)
 
     def fetch(self, backends):
         """Updates local resource with context on whether this
         backend is actually mounted and available"""
         self.existing = is_mounted(self.backend, self.path, backends)
 
-    def maybe_mount(self, client, opt):
+    def maybe_mount(self, client):
         """Will ensure a mountpoint exists, or bail with a polite error"""
         backends = getattr(client, self.list_fun)()
         if not is_mounted(self.backend, self.path, backends):
             if self.backend == 'generic':
                 log("Specifying a inline generic mountpoint is deprecated",
-                    opt)
+                    self.opt)
 
         self.actually_mount(client)
 
@@ -542,9 +531,9 @@ class LogBackend(VaultBackend):
     unmount_fun = 'disable_audit_backend'
     mount_fun = 'enable_audit_backend'
 
-    def __init__(self, resource):
+    def __init__(self, resource, opt):
         self.description = None
-        super(LogBackend, self).__init__(resource.path, resource.backend)
+        super(LogBackend, self).__init__(resource.path, resource.backend, opt)
         if resource.description:
             self.description = resource.description
 
@@ -568,11 +557,11 @@ class AuditLog(Resource):
     required_fields = ['type']
     config_key = 'audit_logs'
 
-    def write(self, _vault_client, _opt):
+    def write(self, _vault_client):
         pass
 
-    def __init__(self, log_obj, _opt):
-        super(AuditLog, self).__init__(log_obj)
+    def __init__(self, log_obj, opt):
+        super(AuditLog, self).__init__(log_obj, opt)
         self.backend = log_obj['type']
         self.mount = self.backend
         self.description = None
