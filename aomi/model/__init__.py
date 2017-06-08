@@ -123,12 +123,16 @@ class Resource(object):
         decrypted secret to it's final location"""
         for sfile in self.secrets():
             src_file = "%s/%s" % (tmp_dir, sfile)
-            dest_file = "%s/%s" % (self.opt.secrets, sfile)
             if not os.path.exists(src_file):
                 raise aomi \
                     .exceptions \
                     .IceFile("%s secret missing from icefile" %
                              (self))
+
+            dest_file = "%s/%s" % (self.opt.secrets, sfile)
+            dest_dir = os.path.dirname(dest_file)
+            if not os.path.exists(dest_dir):
+                os.mkdir(dest_dir)
 
             shutil.copy(src_file, dest_file)
             log("Thawed %s %s" % (self, sfile), self.opt)
@@ -310,7 +314,8 @@ class Context(object):
                 ctx.add(mod(resource, opt))
 
         for config_key in config.keys():
-            if config_key not in seed_keys:
+            if config_key != 'pgp_keys' and \
+               config_key not in seed_keys:
                 print("missing model for %s" % config_key)
 
         f_ctx = aomi.model.filtered_context(ctx)

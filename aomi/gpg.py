@@ -17,8 +17,7 @@ def passphrase_file():
         if not os.path.isfile(pass_file):
             raise aomi.exceptions.AomiFile('AOMI_PASSPHRASE_FILE is invalid')
 
-        return ["--batch", "--passphrase-file",
-                pass_file]
+        return ["--batch", "--passphrase-file", pass_file]
     else:
         return []
 
@@ -79,8 +78,7 @@ def has_gpg_key(fingerprint):
     cmd = flatten([gnupg_bin(), gnupg_home(), "--list-public-keys"])
     keys = subprocess.check_output(cmd)  # nosec
     lines = keys.split('\n')
-    pub_keys = [line for line in lines if line.startswith('pub')]
-    return len([key for key in pub_keys if key.find(fingerprint) > -1]) == 1
+    return len([key for key in lines if key.find(fingerprint) > -1]) == 1
 
 
 def import_gpg_key(key):
@@ -115,7 +113,8 @@ def encrypt(source, dest, keys, opt):
 
 def decrypt(source, dest, opt):
     """Attempts to decrypt a file"""
-    cmd = flatten([gnupg_bin(), "--output", dest, "--decrypt",
+    cmd = flatten([gnupg_bin(), "--output", dest, "--decrypt", "--verbose",
+                   "--pinentry-mode", "loopback",
                    gnupg_home(), passphrase_file(), source])
     # we confirm the source file exists in filez.thaw
     try:

@@ -130,9 +130,14 @@ def sanitize_mount(mount):
 
 
 def gpg_fingerprint(key):
-    """Validates a GPG key fingerprint"""
-    if len(key) != 8 or not re.match(r'^[0-9A-F]{8}$', key):
-        raise aomi.exceptions.Validation('Invalid GPG Fingerprint')
+    """Validates a GPG key fingerprint
+
+    This handles both pre and post GPG 2.1"""
+    if (len(key) == 8 and re.match(r'^[0-9A-F]{8}$', key)) or \
+       (len(key) == 40 and re.match(r'^[0-9A-F]{40}$', key)):
+        return
+
+    raise aomi.exceptions.Validation('Invalid GPG Fingerprint')
 
 
 def is_plain_string(string):
