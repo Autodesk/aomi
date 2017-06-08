@@ -140,19 +140,6 @@ def gpg_fingerprint(key):
     raise aomi.exceptions.Validation('Invalid GPG Fingerprint')
 
 
-def is_plain_string(string):
-    """Validates we are a plain ol' string"""
-    try:
-        if not string or not re.match(r'^[0-9A-Za-z\-_+\.]+$', string):
-            raise aomi.exceptions.Validation('Not a plain string')
-    except TypeError as excep:
-        excep_msg = 'cannot use a string pattern on a bytes-like object'
-        if str(excep) == excep_msg:
-            raise aomi.exceptions.Validation('Not a plain string')
-
-        raise
-
-
 def is_unicode_string(string):
     """Validates that we are some kinda unicode string"""
     try:

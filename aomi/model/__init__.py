@@ -449,7 +449,6 @@ class VaultBackend(object):
     """The abstract concept of a Vault backend"""
     backend = None
     list_fun = None
-    unmount_fun = None
     mount_fun = None
 
     @staticmethod
@@ -469,12 +468,6 @@ class VaultBackend(object):
         self.existing = False
         self.opt = opt
 
-    def unmount(self, client):
-        """Unmount a given mountpoint"""
-        backends = getattr(client, self.list_fun)()
-        if is_mounted(self.backend, self.path, backends):
-            getattr(client, self.unmount_fun)(self.path)
-
     def sync(self, vault_client):
         """Synchronizes the local and remote Vault resources. Has the net
         effect of adding backend if needed"""
@@ -490,16 +483,6 @@ class VaultBackend(object):
         """Updates local resource with context on whether this
         backend is actually mounted and available"""
         self.existing = is_mounted(self.backend, self.path, backends)
-
-    def maybe_mount(self, client):
-        """Will ensure a mountpoint exists, or bail with a polite error"""
-        backends = getattr(client, self.list_fun)()
-        if not is_mounted(self.backend, self.path, backends):
-            if self.backend == 'generic':
-                log("Specifying a inline generic mountpoint is deprecated",
-                    self.opt)
-
-        self.actually_mount(client)
 
     def actually_mount(self, client):
         """Actually mount something in Vault"""
@@ -519,21 +502,18 @@ class VaultBackend(object):
 class SecretBackend(VaultBackend):
     """Secret Backends for actual Vault resources"""
     list_fun = 'list_secret_backends'
-    unmount_fun = 'disable_secret_backend'
     mount_fun = 'enable_secret_backend'
 
 
 class AuthBackend(VaultBackend):
     """Authentication backends for Vault access"""
     list_fun = 'list_auth_backends'
-    unmount_fun = 'disable_auth_backend'
     mount_fun = 'enable_auth_backend'
 
 
 class LogBackend(VaultBackend):
     """Audit Log backends"""
     list_fun = 'list_audit_backends'
-    unmount_fun = 'disable_audit_backend'
     mount_fun = 'enable_audit_backend'
 
     def __init__(self, resource, opt):
