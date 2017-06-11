@@ -23,6 +23,7 @@ This project features the following tests (all are invoked with `make test`).
 * Some unit [tests](https://github.com/Autodesk/aomi/tree/master/tests) powered by [nose2](http://nose2.readthedocs.io/en/latest/getting_started.html)
 * Static security analysis with [bandit](https://pypi.python.org/pypi/bandit/1.0.1)
 * Some integration [tests](https://github.com/Autodesk/aomi/tree/master/tests/integration) powered by [bats](https://github.com/sstephenson/bats).
+* Checking for unused code paths with [vulture](https://pypi.python.org/pypi/vulture)
 
 ## Documentation
 
