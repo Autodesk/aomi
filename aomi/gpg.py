@@ -11,13 +11,16 @@ import aomi.exceptions
 
 def passphrase_file():
     """Read passphrase from a file. This should only ever be
-    used by our built in integration tests."""
+    used by our built in integration tests. At this time,
+    during normal operation, only pinentry is supported for
+    entry of passwords."""
     if 'AOMI_PASSPHRASE_FILE' in os.environ:
         pass_file = os.environ['AOMI_PASSPHRASE_FILE']
         if not os.path.isfile(pass_file):
             raise aomi.exceptions.AomiFile('AOMI_PASSPHRASE_FILE is invalid')
 
-        return ["--batch", "--passphrase-file", pass_file]
+        return ["--batch", "--passphrase-file", pass_file, \
+                "--pinentry-mode", "loopback"]
     else:
         return []
 
@@ -114,7 +117,6 @@ def encrypt(source, dest, keys, opt):
 def decrypt(source, dest, opt):
     """Attempts to decrypt a file"""
     cmd = flatten([gnupg_bin(), "--output", dest, "--decrypt", "--verbose",
-                   "--pinentry-mode", "loopback",
                    gnupg_home(), passphrase_file(), source])
     # we confirm the source file exists in filez.thaw
     try:
