@@ -19,7 +19,7 @@ def passphrase_file():
         if not os.path.isfile(pass_file):
             raise aomi.exceptions.AomiFile('AOMI_PASSPHRASE_FILE is invalid')
 
-        return ["--batch", "--passphrase-file", pass_file, \
+        return ["--batch", "--passphrase-file", pass_file,
                 "--pinentry-mode", "loopback"]
     else:
         return []
