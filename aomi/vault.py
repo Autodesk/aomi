@@ -2,19 +2,14 @@
 from __future__ import print_function
 import os
 import socket
+import atexit
 import hvac
 import yaml
-# need to override those SSL warnings
-import requests
-from requests.packages.urllib3.exceptions import InsecureRequestWarning
-from aomi.helpers import log, cli_hash, merge_dicts, abspath
-from aomi.template import render, load_var_files
+from aomi.helpers import log
 from aomi.error import output as error_output
 from aomi.util import token_file, appid_file
 import aomi.error
 import aomi.exceptions
-
-requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
 
 def approle_token(vault_client, role_id, secret_id):
@@ -119,6 +114,14 @@ def operational_token(vault_client, operation, opt):
     return token['auth']['client_token']
 
 
+def cleanup_vault(vault_client):
+    """Ensures that our Vault token gets revoked"""
+    if not vault_client.token or not vault_client.is_authenticated():
+        return
+
+    vault_client.revoke_self_token()
+
+
 def client(operation, opt):
     """Return a vault client"""
     if 'VAULT_ADDR' not in os.environ:
@@ -135,6 +138,7 @@ def client(operation, opt):
     log("Connecting to %s" % vault_host, opt)
     vault_client = hvac.Client(vault_host, verify=ssl_verify)
     vault_client.token = initial_token(vault_client, opt)
+    atexit.register(cleanup_vault, vault_client)
     if not vault_client.is_authenticated():
         raise aomi.exceptions.AomiCredentials('initial token')
 
@@ -148,20 +152,12 @@ def client(operation, opt):
     return vault_client
 
 
-def get_secretfile(opt):
-    """Renders, YAMLs, and returns the Secretfile construct"""
-    secretfile_path = abspath(opt.secretfile)
-    obj = merge_dicts(load_var_files(opt),
-                      cli_hash(opt.extra_vars))
-    return yaml.safe_load(render(secretfile_path, obj))
+def is_mounted(backend, path, backends):
+    """Determine whether a backend of a certain type is mounted"""
+    for mount_name, values in backends.items():
+        b_norm = '/'.join([x for x in mount_name.split('/') if x])
+        m_norm = '/'.join([x for x in path.split('/') if x])
+        if (m_norm == b_norm) and values['type'] == backend:
+            return True
 
-
-def app_id_name(app_obj):
-    """Determines the proper app id name"""
-    name = None
-    if 'name' in app_obj:
-        name = app_obj['name']
-    else:
-        name = os.path.splitext(os.path.basename(app_obj['app_file']))[0]
-
-    return name
+    return False

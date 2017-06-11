@@ -37,7 +37,6 @@ validate_defaults() {
     [ "$status" -eq 0 ]
     check_secret true "foo/bar/txt" "$FILE_SECRET1"
     aomi extract_file foo/bar/bin "${BATS_TMPDIR}/exfile" --verbose
-    echo "$output"
     [ "$status" -eq 0 ]
     diff "$OG_BIN" "${BATS_TMPDIR}/exfile"
     [ "$status" -eq 0 ]

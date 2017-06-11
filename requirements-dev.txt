@@ -4,5 +4,5 @@ nose2
 shyaml
 awscli
 pylint
-future
 bandit
+vulture

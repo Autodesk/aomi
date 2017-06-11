@@ -1,6 +1,7 @@
 """ Helpers for aomi that are used throughout the application """
 from __future__ import print_function
 import collections
+import tempfile
 import itertools as IT
 import sys
 import os
@@ -57,7 +58,7 @@ def hard_path(path, prefix_dir):
     return abspath(path)
 
 
-def is_tagged(has_tags, required_tags):
+def is_tagged(required_tags, has_tags):
     """Checks if tags match"""
     if not required_tags and not has_tags:
         return True
@@ -249,3 +250,29 @@ def portable_b64decode(thing):
             return decoded
 
     return b64decode(thing)
+
+
+def open_maybe_binary(filename):
+    """Opens something that might be binary but also
+    might be "plain text"."""
+    if sys.version_info >= (3, 0):
+        data = open(filename, 'rb').read()
+        try:
+            return data.decode('utf-8')
+        except UnicodeDecodeError:
+            return data
+
+    return open(filename, 'r').read()
+
+
+def ensure_dir(path):
+    """Ensures a directory exists"""
+    if not (os.path.exists(path) and
+            os.path.isdir(path)):
+        os.mkdir(path)
+
+
+def ensure_tmpdir():
+    """Ensures a temporary directory exists"""
+    path = tempfile.mkdtemp('aomi')
+    return path

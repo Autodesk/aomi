@@ -6,39 +6,6 @@ layout: default
 
 Vault offers a variety of means for users and systems to authenticate and receive a token. Aomi supports a handful of these.
 
-# AppID
-
-One of the authentication types supported by Vault is that of an Application/UserID combination. You may provision these with `aomi` as well. You may specify an Application ID, a series of User ID's, and a [Vault policy](https://www.vaultproject.io/docs/concepts/policies.html) to apply to resulting tokens. The following example would create an application named `foo` with two users (`bar` and `baz`) who read anything under the `foo/bar` Vault path. In this example the policy will be created _inline_. You may also re-use an existing policy by _only_ specifying a `policy_name`. When creating inline policies, you can _not_ modify the existing policy. This is a safeguard designed to prevent overwriting shared policies. It is recommended that you do not use inline policies for real world deployments.
-
-----
-
-`Secretfile`
-
-```
-secrets:
-apps:
-- app_file: 'foo.yml'
-```
-
-`.secrets/foo.yml`
-
-```
-app_id: 'foo'
-users:
-- 'bar'
-- 'baz'
-policy: 'foo.hcl'
-policy_name: 'foo'
-```
-
-`vault/foo.hcl`
-
-```
-path "foo/bar/*" {
-  policy = "read"
-}
-```
-
 # App Role
 
 The succesor to the AppID authentication type is [AppRole](https://www.vaultproject.io/docs/auth/approle.html). This is a mechanism which is meant for system usage. The aomi tool only supports provisioning of roles, it does not currently support manual creation of associated secret ids. If you wish to have that style of authentication it is best to stick with App ID for now.

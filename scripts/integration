@@ -18,7 +18,7 @@ if [ $# == 1 ] ; then
     fi
 fi
 
-CIDIR=${SCRIPTDIR%/*}
+export CIDIR=${SCRIPTDIR%/*}
 BATSGIT="${CIDIR}/.bats-git"
 BATSBIN="${CIDIR}/.bats"
 

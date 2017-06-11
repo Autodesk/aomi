@@ -22,7 +22,7 @@ setup(name='aomi',
       url='https://github.com/autodesk/aomi',
       install_requires=['PyYAML', 'hvac', 'jinja2', 'future'],
       include_package_data=True,
-      packages=['aomi'],
+      packages=['aomi', 'aomi.model'],
       entry_points={
           'console_scripts': ['aomi = aomi.cli:main']
       },

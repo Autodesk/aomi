@@ -299,16 +299,6 @@ def parser_factory(fake_args=None):
     return parser, parser.parse_args(fake_args)
 
 
-def parse_extra_vars(extra_vars):
-    """Parse out a hash from a list of key=value strings"""
-    ev_obj = {}
-    for extra_var in extra_vars:
-        key, val = extra_var.split('=')
-        ev_obj[key] = val
-
-    return ev_obj
-
-
 def template_runner(client, parser, args):
     """Executes template related operations"""
     if args.builtin_list:
