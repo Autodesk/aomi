@@ -19,9 +19,9 @@ teardown() {
     vault list aws/roles | grep bar
     aomi_seed --tags remove
     ! vault list aws/roles | grep bar
-    run vault list aws/roles | grep foo
-    [ "$status" -eq 1 ]
+    vault list aws/roles | grep foo
 }
+
 @test "aws happy path" {
     aws_creds    
     aomi_seed

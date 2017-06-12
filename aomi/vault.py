@@ -2,7 +2,6 @@
 from __future__ import print_function
 import os
 import socket
-import atexit
 import hvac
 import yaml
 from aomi.helpers import log
@@ -114,14 +113,6 @@ def operational_token(vault_client, operation, opt):
     return token['auth']['client_token']
 
 
-def cleanup_vault(vault_client):
-    """Ensures that our Vault token gets revoked"""
-    if not vault_client.token or not vault_client.is_authenticated():
-        return
-
-    vault_client.revoke_self_token()
-
-
 def client(operation, opt):
     """Return a vault client"""
     if 'VAULT_ADDR' not in os.environ:
@@ -138,7 +129,6 @@ def client(operation, opt):
     log("Connecting to %s" % vault_host, opt)
     vault_client = hvac.Client(vault_host, verify=ssl_verify)
     vault_client.token = initial_token(vault_client, opt)
-    atexit.register(cleanup_vault, vault_client)
     if not vault_client.is_authenticated():
         raise aomi.exceptions.AomiCredentials('initial token')
 
