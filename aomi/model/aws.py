@@ -74,10 +74,11 @@ class AWS(Secret):
     backend = 'aws'
 
     def resources(self):
-        return [
-            self,
-            self.ttl,
-        ] + self.roles
+        pieces = [self]
+        if self.present:
+            pieces = pieces + [self.ttl] + self.roles
+
+        return pieces
 
     def fetch(self, vault_client):
         if is_mounted(self.backend,
@@ -112,17 +113,18 @@ class AWS(Secret):
         self.mount = sanitize_mount(obj['mount'])
         self.path = "%s/config/root" % self.mount
         aws_file_path = obj['aws_file']
-        self._obj = (obj['aws_file'],
-                     aws_file_path,
-                     obj['region'])
+        if self.present:
+            self._obj = (obj['aws_file'],
+                         aws_file_path,
+                         obj['region'])
 
-        self.roles = []
-        for role in obj['roles']:
-            self.roles.append(AWSRole(self.mount, role, opt))
+            self.roles = []
+            for role in obj['roles']:
+                self.roles.append(AWSRole(self.mount, role, opt))
 
-        if self.roles is None:
-            raise aomi.exceptions.AomiData('missing aws roles')
+            if self.roles is None:
+                raise aomi.exceptions.AomiData('missing aws roles')
 
-        ttl_obj, lease_msg = grok_ttl(obj)
-        if ttl_obj:
-            self.ttl = AWSTTL(self.mount, ttl_obj, lease_msg, opt)
+            ttl_obj, lease_msg = grok_ttl(obj)
+            if ttl_obj:
+                self.ttl = AWSTTL(self.mount, ttl_obj, lease_msg, opt)

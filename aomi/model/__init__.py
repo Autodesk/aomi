@@ -210,7 +210,7 @@ class Resource(object):
         Vault resource contents"""
         result = self.read(vault_client)
         if result:
-            if 'data' in result:
+            if isinstance(result, dict) and 'data' in result:
                 self.existing = result['data']
             else:
                 self.existing = result
@@ -324,12 +324,14 @@ class Context(object):
     def thaw(self, tmp_dir):
         """Will thaw a secret into an appropriate location"""
         for resource in self.resources():
-            resource.thaw(tmp_dir)
+            if resource.present:
+                resource.thaw(tmp_dir)
 
     def freeze(self, dest_dir):
         """Freezes everyt resource within a context"""
         for resource in self.resources():
-            resource.freeze(dest_dir)
+            if resource.present:
+                resource.freeze(dest_dir)
 
     def __init__(self, opt):
         self._mounts = []
@@ -383,6 +385,7 @@ class Context(object):
         """Synchronizes the context to the Vault server. This
         has the effect of updating every resource which is
         in the context."""
+        active_mounts = []
         for mount in self.mounts():
             if not mount.existing:
                 mount.sync(vault_client)
@@ -393,7 +396,18 @@ class Context(object):
             if not blog.existing:
                 blog.sync(vault_client)
         for resource in self.resources():
+            if isinstance(resource, (Secret, Mount)) and resource.present:
+                active_mount = find_backend(resource.mount, active_mounts)
+                if not active_mount:
+                    actual_mount = find_backend(resource.mount, self._mounts)
+                    if actual_mount:
+                        active_mounts.append(actual_mount)
+
             resource.sync(vault_client)
+
+        for mount in self.mounts():
+            if not find_backend(mount.path, active_mounts):
+                mount.unmount(vault_client)
 
     def fetch(self, vault_client):
         """Updates the context based on the contents of the Vault
@@ -434,15 +448,16 @@ class Mount(Resource):
     def __init__(self, obj, opt):
         super(Mount, self).__init__(obj, opt)
         self.mount = obj['path']
+        self.path = self.mount
 
     def write(self, client):
-        pass
+        return
 
     def read(self, client):
-        pass
+        return
 
     def delete(self, client):
-        pass
+        return
 
 
 class VaultBackend(object):
@@ -450,6 +465,7 @@ class VaultBackend(object):
     backend = None
     list_fun = None
     mount_fun = None
+    unmount_fun = None
 
     @staticmethod
     def list(vault_client, backend_class):
@@ -484,6 +500,12 @@ class VaultBackend(object):
         backend is actually mounted and available"""
         self.existing = is_mounted(self.backend, self.path, backends)
 
+    def unmount(self, client):
+        """Unmounts a backend within Vault"""
+        log("Unmounting %s backend from %s" %
+            (self.backend, self.path), self.opt)
+        getattr(client, self.unmount_fun)(mount_point=self.path)
+
     def actually_mount(self, client):
         """Actually mount something in Vault"""
         try:
@@ -503,18 +525,21 @@ class SecretBackend(VaultBackend):
     """Secret Backends for actual Vault resources"""
     list_fun = 'list_secret_backends'
     mount_fun = 'enable_secret_backend'
+    unmount_fun = 'disable_secret_backend'
 
 
 class AuthBackend(VaultBackend):
     """Authentication backends for Vault access"""
     list_fun = 'list_auth_backends'
     mount_fun = 'enable_auth_backend'
+    unmount_fun = 'disable_auth_backend'
 
 
 class LogBackend(VaultBackend):
     """Audit Log backends"""
     list_fun = 'list_audit_backends'
     mount_fun = 'enable_audit_backend'
+    unmount_fun = 'disable_audit_backend'
 
     def __init__(self, resource, opt):
         self.description = None

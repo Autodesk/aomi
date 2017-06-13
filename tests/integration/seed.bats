@@ -52,7 +52,8 @@ validate_defaults() {
     check_secret false "foo/file/bar/secret" "$FILE_SECRET1"
     check_secret false "foo/var/bar/secret" "$YAML_SECRET1"
     check_secret false "auth/userpass/users/foo/ttl" "0"
-    check_mount false "bar"    
+    check_mount false "bar"
+    check_mount false "foo"
 }
 
 @test "can set a policy variable in secretfile" {
