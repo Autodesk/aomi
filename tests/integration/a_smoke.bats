@@ -22,8 +22,8 @@ teardown() {
         foo/bar/baz/secret \
         "${BATS_TMPDIR}/secret.txt" \
         --verbose
+    echo "$output"    
     [ "$status" -eq 0 ]
-    echo "$output"
     diff "${BATS_TMPDIR}/secret.txt" "${FIXTURE_DIR}/.secrets/secret.txt"
     [ "$status" -eq 0 ]    
 }

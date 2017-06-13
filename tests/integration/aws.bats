@@ -14,6 +14,15 @@ teardown() {
     rm -rf "$FIXTURE_DIR"
 }
 
+@test "can add and remove an aws" {
+    aomi_seed
+    vault mounts ; vault list aws/roles
+    echo $output
+    vault list aws/roles | grep inline
+    aomi_seed --tags remove_mount
+    ! vault list aws/roles | grep inline
+}
+
 @test "can add and remove a role" {
     aomi_seed --tags double
     vault list aws/roles | grep bar
