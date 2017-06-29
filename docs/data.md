@@ -16,13 +16,13 @@ These operations all have some shared constructs which allow the user a fair amo
 
 ## About File Paths
 
-By default the `Secretfile` is searched for in the current directory. You can override this behavior with the `--secretfile` option.
+By default the [`Secretfile`]({{site.baseurl}}/secretfile) is searched for in the current directory. You can override this behavior with the `--secretfile` option.
 
 Supplemental data is loaded from relative paths by default. If files are not found at the relative (but tunable) path, the data will be loaded as an absolute path.
 
-All Vault and AWS policy files will be searched for first in a relative location. This relative directory defaults to `vault` adjacent to the `Secretfile` however you may override it with `--policies`. 
+All Vault and AWS policy files will be searched for first in a relative location. This relative "metadata directory" defaults to `vault` adjacent to the `Secretfile` however you may override it with `--policies`. 
 
-All files containing secrets referenced from the `Secretfile` will be searched for in an adjacent directory named `.secrets`. You are able to override the directory used for static secrets with the `--secrets` option. 
+All files containing secrets referenced from the `Secretfile` will be searched for in an adjacent "secret directory" named `.secrets`. You are able to override the directory used for static secrets with the `--secrets` option. 
 
 ## Tags
 

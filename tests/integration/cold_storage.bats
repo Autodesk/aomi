@@ -1,5 +1,6 @@
 #!/usr/bin/env bats
 # -*- mode: Shell-script;bash -*-
+# Tests related to cold storage data operations
 
 load helper
 

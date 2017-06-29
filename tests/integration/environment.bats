@@ -1,12 +1,14 @@
 #!/usr/bin/env bats
 # -*- mode: Shell-script;bash -*-
-
+# Tests related to the environment extraction operation
+# mostly covers the key mapping options
 load helper
 
 setup() {
     start_vault
     use_fixture minimal
     aomi_seed
+    [ "$status" -eq 0 ]    
 }
 
 teardown() {
@@ -16,6 +18,8 @@ teardown() {
 
 @test "can render a base secret" {
     run aomi environment foo/bar --no-merge-path
+    echo "$output"
+    [ "$status" -eq 0 ]
     scan_lines "SECRET=\"${FILE_SECRET1}\"" "${lines[@]}"
 }
 

@@ -1,5 +1,7 @@
 #!/usr/bin/env bats
 # -*- mode: Shell-script;bash -*-
+# Simple smoke test covering basic functionality as described
+# in the quickstart documentation
 
 load helper
 
@@ -14,12 +16,16 @@ teardown() {
 }
 
 @test "can seed and extract a file" {
-    aomi_seed --tags bar
+    aomi_seed --tags bar --verbose
+    [ "$status" -eq 0 ]    
     run aomi extract_file \
         foo/bar/baz/secret \
-        "${BATS_TMPDIR}/secret.txt"
+        "${BATS_TMPDIR}/secret.txt" \
+        --verbose
+    echo "$output"    
     [ "$status" -eq 0 ]
-    [ "$(cat ${BATS_TMPDIR}/secret.txt)" = "$(cat ${FIXTURE_DIR}/.secrets/secret.txt)" ]
+    diff "${BATS_TMPDIR}/secret.txt" "${FIXTURE_DIR}/.secrets/secret.txt"
+    [ "$status" -eq 0 ]    
 }
 
 @test "can seed and render environment" {
@@ -47,12 +53,6 @@ teardown() {
 @test "can seed a policy" {
     aomi_seed
     run vault policies foo
-    [ "$status" -eq 0 ]
-}
-
-@test "can seed an app and user with builtin policy" {
-    aomi_seed
-    run vault read -field=key auth/app-id/map/app-id/test
     [ "$status" -eq 0 ]
 }
 

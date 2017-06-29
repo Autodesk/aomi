@@ -3,7 +3,7 @@
 VAULT_LOG="${BATS_TMPDIR}/aomi-vault-log"
 
 if [ -z "$AWS_TIMEOUT" ] ; then
-    AWS_TIMEOUT=15
+    AWS_TIMEOUT=20
 fi
 
 function start_vault() {
@@ -45,16 +45,15 @@ function gpg_fixture() {
     echo "use-agent
 always-trust
 verbose
-" > "${FIXTURE_DIR}/.gnupg/gpg.conf"
-    echo "pinentry-program /Users/freedmj/src/autodesk-aomi/scripts/pinentry-dummy.sh" > "${FIXTURE_DIR}/.gnupg/gpg-agent.conf"
+" > "${GNUPGHOME}/gpg.conf"
+    PINENTRY="${CIDIR}/scripts/pinentry-dummy.sh"
+    echo "pinentry-program ${PINENTRY}" > "${GNUPGHOME}/gpg-agent.conf"
     chmod -R og-rwx "$GNUPGHOME"    
     # https://www.gnupg.org/documentation/manuals/gnupg/Unattended-GPG-key-generation.html
-    PASS="${RANDOM}"
-    echo -n "$PASS" > "${FIXTURE_DIR}/pass"
+    PASS="somegpgpass${RANDOM}"
     export CRYPTORITO_PASSPHRASE_FILE="${FIXTURE_DIR}/pass"
-    gpg --gen-key --batch <<< "
-%pubring ${FIXTURE_DIR}/.gnupg/pubring.gpg
-%secring ${FIXTURE_DIR}/.gnupg/secring.gpg
+    echo "$PASS" > "$CRYPTORITO_PASSPHRASE_FILE"
+    gpg --gen-key --verbose --batch <<< "
 Key-Type: RSA
 Key-Length: 2048
 Subkey-Type: RSA
@@ -64,7 +63,7 @@ Expire-Date: 300
 Passphrase: ${PASS}
 %commit
 "
-    GPGID=$(gpg --list-keys 2>/dev/null | grep -e 'pub   2048' | cut -f 2 -d '/' | cut -f 1 -d ' ')
+    GPGID=$(gpg --list-keys 2>/dev/null | grep -A1 -e 'pub   rsa2048'  | tail -n 1 | sed -e 's! !!g')
     [ ! -z "$GPGID" ]
 }
 

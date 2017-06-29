@@ -9,3 +9,4 @@ fi
 "${PREFIX}pylint" --rcfile=/dev/null aomi
 "${PREFIX}nose2"
 "${PREFIX}bandit" -r aomi
+"${PREFIX}vulture" aomi

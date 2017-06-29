@@ -2,15 +2,38 @@
 
 # Aomi: Opinionlessly Express Opinions on Vault
 
-If you are new to `aomi`, please checkout our [documentation](https://autodesk.github.io/aomi) and you may be particularily interested in the [quickstart](https://autodesk.github.io/aomi/quickstart).
+If you are new to `aomi`, please checkout our [documentation](https://autodesk.github.io/aomi) and you may be particularly interested in the [quickstart](https://autodesk.github.io/aomi/quickstart) guide.
 
-# Test
+# Contributing
 
-Run with: `make test`
+All manner of contributions are welcome. The aomi tool is still relatively young, and emphasis has been placed on the data model concept more than staying current with the Vault API. All manner of assistance is welcome, from source code to documentation and community support.
 
-Unit testing is performed with nosetests, simply add new python modules to the tests directory prefixed with `test_`. Integration testing is done with BATS and involves a standalone Vault server. These tests are located under `tests/integration`.
+## Code
 
-# Contribution Guidelines
+The aomi project is entirely Python, with some shell scripts binding the tests together. The structure is pretty standard for Python projects. Everything lives in one module [namespace](https://github.com/Autodesk/aomi/tree/master/aomi) and is loosely grouped into modules by context. Minimal PyDoc is required (and enforced by pylint) on each function.
+
+When adding new [builtin](https://github.com/Autodesk/aomi/tree/master/aomi/templates) templates, a accompanying help file must be provided. This is a YAML file with a `name` and `help` element and it will feed the command line help for templates.
+
+## Test
+
+This project features the following tests (all are invoked with `make test`).
+
+* Validation against the [pep8](https://www.python.org/dev/peps/pep-0008/) spec
+* [pylint](https://www.pylint.org/) with default options
+* Some unit [tests](https://github.com/Autodesk/aomi/tree/master/tests) powered by [nose2](http://nose2.readthedocs.io/en/latest/getting_started.html)
+* Static security analysis with [bandit](https://pypi.python.org/pypi/bandit/1.0.1)
+* Some integration [tests](https://github.com/Autodesk/aomi/tree/master/tests/integration) powered by [bats](https://github.com/sstephenson/bats).
+* Checking for unused code paths with [vulture](https://pypi.python.org/pypi/vulture)
+
+## Documentation
+
+The README is being kept to contribution guidelines. Operational docs are available on a static GitHub [page](https://autodesk.github.io/aomi/). These docs are maintained as [markdown](https://github.com/adam-p/markdown-here/wiki/Markdown-Cheatsheet) formatted documents within the [docs](https://github.com/Autodesk/aomi/tree/master/docs) directory. The static site is updated automatically based on the contents of this directory.
+
+## Deployment
+
+New docker containers are generated on merge to the `master` branch. New Python packages are pushed on every tagged commit, which happens during a [semantic version](http://semver.org/) bump. I tend to use the [avakas](https://github.com/otakup0pe/avakas) to handle these version changes.
+
+## Guidelines
 
 * This project operates under a [Code of Conduct](https://autodesk.github.io/aomi/code_of_conduct).
 * Changes are welcome via pull request!
@@ -23,6 +46,6 @@ If you have any questions, please feel free to contact <jonathan.freedman@autode
 
 # Errata
 
-The web page for aomi is based on the [hacker](https://github.com/pages-themes/hacker) Jekyll theme and has been heavily.
+The web page for aomi is based on the [hacker](https://github.com/pages-themes/hacker) Jekyll theme and has been heavily customized.
 
 The Code of Conduct is version 1.4 of the [Contributor Covenant](http://contributor-covenant.org/).

@@ -5,6 +5,18 @@ layout: default
 
 There is a underlying assumption here that you have access to a working Vault server. If not, you can easily use Vault in [dev mode](https://www.vaultproject.io/docs/concepts/dev-server.html).
 
+### Vault dev mode quickstart. Start vault server in dev mode listening to all interfaces. ####
+
+```
+vault server -dev -dev-listen-address="0.0.0.0:8200"
+...
+Unseal Key (hex)   : 38058131e3e451fe0073f27ef2992e803fa2777f0075afffe3d21d90db75635c
+Unseal Key (base64): OAWBMePkUf4Ac/J+8pkugD+id38Ada//49IdkNt1Y1w=
+Root Token: fab4819e-9929-794d-1c5e-d3e036a25246
+...
+```
+
+
 # First Steps
 
 You can pull aomi from [Docker Hub](https://hub.docker.com/r/autodesk/aomi/) and run it either on a workstation or within a continuous delivery pipeline. You can pass authentication information in through a variety of hints, but the easiest is to just use your already established Vault credentials.
@@ -22,7 +34,7 @@ token_duration: 86400
 token_policies: [default]
 $ docker run \
       -e VAULT_ADDR=$VAULT_ADDR \
-      -v ${HOME}:/.vault-token \
+      -v ${HOME}/.vault-token:/.vault-token \
       autodesk/aomi
 aomi docker container
 usage: aomi [-h]
@@ -30,6 +42,34 @@ usage: aomi [-h]
                         ...
 aomi: error: too few arguments
 ```
+
+*If you are running vault in dev mode, the authentication will be slightly different. VAULT_ADDR needs to be set to the Docker IP address, NOT 127.0.0.1.*
+
+#### Dev mode vault auth example ####
+
+```
+$ ifconfig -a | grep netmask | grep 172
+	inet 172.28.128.1 netmask 0xffffff00 broadcast 172.28.128.255
+```
+Above is output from my machine. Your machine will give different ips.
+Set the VAULT_ADDR to the docker ip address
+```
+$ export VAULT_ADDR="172.28.128.1"
+```
+
+### Authenticate to dev vault, using root token as credential.
+
+Root token is part of output when starting vault in dev mode. In above example
+root token is fab4819e-9929-794d-1c5e-d3e036a25246
+
+```
+$ vault auth
+    Token (will be hidden):
+    Successfully authenticated! You are now logged in.
+    token: fab4819e-9929-794d-1c5e-d3e036a25246
+    token_duration: 0
+```
+
 
 We are now authenticated with a Vault instance and have `aomi` locally available for execution under Docker.
 
@@ -115,3 +155,52 @@ $ cat /tmp/secret.json
 "secret_fresh_a_secret": "asda"
 }
 ```
+
+# AWS Interactions
+
+It is very easy to get [AWS credentials]({{site.baseurl}}/aws) into and out of Vault with aomi. This example shows how we can easily extract AWS credentials to a shell environment.
+
+----
+
+`Secretfile`
+
+```
+secrets:
+- aws_file: 'aws.yml'
+  mount: 'AWS/1234567890'
+  lease: "1800s"
+  lease_max: "86400s"
+  region: "us-east-1"
+  roles:
+  - name: "root"
+    arn: "arn:aws:iam::aws:policy/AdministratorAccess"
+```
+
+----
+
+`aws.yml`
+
+```
+
+access_key_id: "REDACTED"
+secret_access_key: "REDACTED"
+```
+
+You can then [seed]({{site.baseurl}}/seed) this into Vault and, for example, render out a Terraform AWS provider snippet. We can do this with the [builtin]({{site.baseurl}}/builtin-templates) templates.
+
+```
+$ aomi seed
+$ aomi template \
+  builtin:terraform-aws \
+  /tmp/aws.tf \
+  aws/1234567890/creds/root \
+  --no-merge-path \
+  --extra-vars aws_region=us-east-1
+$ terraform apply 
+...
+
+```
+
+# Conclusion
+
+This is the basic workflow espoused by aomi. Represent the structure of your operational secrets with expressive Jinja2 templates. Write this structure to Vault and provide a consistent interface to your operational secrets.

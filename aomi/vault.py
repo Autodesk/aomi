@@ -4,16 +4,11 @@ import os
 import socket
 import hvac
 import yaml
-# need to override those SSL warnings
-import requests
-from requests.packages.urllib3.exceptions import InsecureRequestWarning
-from aomi.helpers import log, cli_hash, merge_dicts, abspath
-from aomi.template import render, load_var_files
+from aomi.helpers import log
 from aomi.error import output as error_output
+from aomi.util import token_file, appid_file
 import aomi.error
 import aomi.exceptions
-
-requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
 
 def approle_token(vault_client, role_id, secret_id):
@@ -36,15 +31,9 @@ def app_token(vault_client, app_id, user_id):
 
 def initial_token(vault_client, opt):
     """Generate our first token based on workstation configuration"""
-    home = os.environ['HOME'] if 'HOME' in os.environ else \
-        os.environ['USERPROFILE']
 
-    token_file = os.environ.get('VAULT_TOKEN_FILE',
-                                os.path.join(home, ".vault-token"))
-    app_file = os.environ.get('AOMI_APP_FILE',
-                              os.path.join(home, ".aomi-app-token"))
-    token_file = abspath(token_file)
-    app_file = abspath(app_file)
+    app_filename = appid_file()
+    token_filename = token_file()
     if 'VAULT_TOKEN' in os.environ and os.environ['VAULT_TOKEN']:
         log('Token derived from VAULT_TOKEN environment variable', opt)
         return os.environ['VAULT_TOKEN'].strip()
@@ -64,17 +53,17 @@ def initial_token(vault_client, opt):
                               os.environ['VAULT_SECRET_ID'])
         log("Token derived from VAULT_ROLE_ID and VAULT_SECRET_ID", opt)
         return token
-    elif os.path.exists(app_file):
-        token = yaml.safe_load(open(app_file).read().strip())
+    elif app_filename:
+        token = yaml.safe_load(open(app_filename).read().strip())
         if 'app_id' in token and 'user_id' in token:
             token = app_token(vault_client,
                               token['app_id'],
                               token['user_id'])
-            log("Token derived from %s" % app_file, opt)
+            log("Token derived from %s" % app_filename, opt)
             return token
-    elif os.path.exists(token_file):
-        log("Token derived from %s" % token_file, opt)
-        return open(token_file, 'r').read().strip()
+    elif token_filename:
+        log("Token derived from %s" % token_filename, opt)
+        return open(token_filename, 'r').read().strip()
     else:
         raise aomi.exceptions.AomiCredentials('unknown method')
 
@@ -143,27 +132,22 @@ def client(operation, opt):
     if not vault_client.is_authenticated():
         raise aomi.exceptions.AomiCredentials('initial token')
 
-    vault_client.token = operational_token(vault_client, operation, opt)
-    if not vault_client.is_authenticated():
-        raise aomi.exceptions.AomiCredentials('operational token')
+    if opt.reuse_token:
+        log("Not creating operational token", opt)
+    else:
+        vault_client.token = operational_token(vault_client, operation, opt)
+        if not vault_client.is_authenticated():
+            raise aomi.exceptions.AomiCredentials('operational token')
 
     return vault_client
 
 
-def get_secretfile(opt):
-    """Renders, YAMLs, and returns the Secretfile construct"""
-    secretfile_path = abspath(opt.secretfile)
-    obj = merge_dicts(load_var_files(opt),
-                      cli_hash(opt.extra_vars))
-    return yaml.safe_load(render(secretfile_path, obj))
+def is_mounted(backend, path, backends):
+    """Determine whether a backend of a certain type is mounted"""
+    for mount_name, values in backends.items():
+        b_norm = '/'.join([x for x in mount_name.split('/') if x])
+        m_norm = '/'.join([x for x in path.split('/') if x])
+        if (m_norm == b_norm) and values['type'] == backend:
+            return True
 
-
-def app_id_name(app_obj):
-    """Determines the proper app id name"""
-    name = None
-    if 'name' in app_obj:
-        name = app_obj['name']
-    else:
-        name = os.path.splitext(os.path.basename(app_obj['app_file']))[0]
-
-    return name
+    return False

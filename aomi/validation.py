@@ -1,10 +1,11 @@
 """Some validation helpers for aomi"""
 from __future__ import print_function
+import sys
 import os
 import re
 import platform
 import stat
-from aomi.helpers import abspath, is_tagged, log, subdir_path
+from aomi.helpers import abspath, log, subdir_path
 import aomi.exceptions
 
 
@@ -71,7 +72,7 @@ def validate_obj(keys, obj):
     msg = ''
     for k in keys:
         if isinstance(k, str):
-            if k not in obj or not obj[k]:
+            if k not in obj or (not isinstance(obj[k], list) and not obj[k]):
                 if msg:
                     msg = "%s," % msg
 
@@ -94,45 +95,6 @@ def validate_obj(keys, obj):
     return msg
 
 
-def var_file_obj(obj):
-    """Does some validation around a var_file object"""
-    check_obj(['var_file', 'mount', 'path'], 'var_file', obj)
-
-
-def aws_file_obj(obj):
-    """Does some validation around an aws_file object"""
-    check_obj([['aws_file', 'aws'], 'mount'], 'aws_file', obj)
-
-
-def aws_secret_obj(filename, obj):
-    """Does some validation around AWS secrets"""
-    check_obj(['access_key_id', 'secret_access_key'],
-              "aws secret %s" % (filename),
-              obj)
-
-
-def aws_role_obj(obj):
-    """Does some validation around an AWS role"""
-    check_obj(['name'], 'aws role', obj)
-    if obj.get('state', 'present') == 'present':
-        check_obj([['policy', 'arn'], 'name'], 'aws role', obj)
-
-
-def file_obj(obj):
-    """Basic validation around file objects"""
-    check_obj(['mount', 'path'], 'file element', obj)
-
-
-def tag_check(obj, path, opt):
-    """If we require tags, validate for that"""
-    if not is_tagged(opt.tags, obj.get('tags', [])):
-        log("Skipping %s as it does not have requested tags" %
-            path, opt)
-        return False
-
-    return True
-
-
 def specific_path_check(path, opt):
     """Will make checks against include/exclude to determine if we
     actually care about the path in question."""
@@ -150,45 +112,9 @@ def specific_path_check(path, opt):
 def check_obj(keys, name, obj):
     """Do basic validation on an object"""
     msg = validate_obj(keys, obj)
+
     if msg:
         raise aomi.exceptions.AomiData("object check : %s in %s" % (msg, name))
-
-
-def policy_obj(obj):
-    """Basic validation around policy objects"""
-    state = obj.get('state', 'present')
-    if state == 'present':
-        check_obj(['name', 'file'], 'policy', obj)
-    elif state == 'absent':
-        check_obj(['name'], 'policy', obj)
-    else:
-        raise aomi.exceptions.AomiData("Invalid policy state: %s" % state)
-
-
-def user_obj(obj):
-    """Do basic validation on a user obj"""
-    check_obj(['username', 'password_file', 'policies'],
-              'user specification',
-              obj)
-
-
-def audit_log_obj(obj):
-    """Do basic validation on an audit log object"""
-    check_obj(['type'], 'audit log object', obj)
-    if obj['type'] == 'file':
-        check_obj(['file_path'], 'file audit log', obj)
-
-
-def approle_obj(obj):
-    """Do some basic approle validation"""
-    check_obj(['name', 'policies'], 'app role', obj)
-
-
-def generated_obj(obj):
-    """Do some basic generated secret validation"""
-    check_obj(['mount', 'path', 'keys'], 'generated secret object', obj)
-    for key in obj['keys']:
-        check_obj(['name', 'method'], 'generated secret entry', key)
 
 
 def sanitize_mount(mount):
@@ -203,19 +129,34 @@ def sanitize_mount(mount):
     return sanitized_mount
 
 
-def mount_obj(mount):
-    """validates a mountpoint object"""
-    check_obj(['path'], 'mount object', mount)
-
-
-def duo_obj(obj):
-    """Validates a duo obj"""
-    check_obj(['host', 'creds', 'backend'], 'duo object', obj)
-    if obj['backend'] != 'userpass':
-        raise aomi.exceptions.AomiData('Invalid duo backend selected')
-
-
 def gpg_fingerprint(key):
-    """Validates a GPG key fingerprint"""
-    if len(key) != 8 or not re.match(r'[0-9A-F]{8}', key):
-        raise aomi.exceptions.Validation('Invalid GPG Fingerprint')
+    """Validates a GPG key fingerprint
+
+    This handles both pre and post GPG 2.1"""
+    if (len(key) == 8 and re.match(r'^[0-9A-F]{8}$', key)) or \
+       (len(key) == 40 and re.match(r'^[0-9A-F]{40}$', key)):
+        return
+
+    raise aomi.exceptions.Validation('Invalid GPG Fingerprint')
+
+
+def is_unicode_string(string):
+    """Validates that we are some kinda unicode string"""
+    try:
+        if sys.version_info >= (3, 0):
+            # isn't a python 3 str actually unicode
+            if not isinstance(string, str):
+                string.decode('utf-8')
+
+        else:
+            string.decode('utf-8')
+    except UnicodeError:
+        raise aomi.exceptions.Validation('Not a unicode string')
+
+
+def is_base64(string):
+    """Determines whether or not a string is likely to
+    be base64 encoded binary nonsense"""
+    return (not re.match('^[0-9]+$', string)) and \
+        (len(string) % 4 == 0) and \
+        re.match('^[A-Za-z0-9+/]+[=]{0,2}$', string)

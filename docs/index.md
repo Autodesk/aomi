@@ -6,7 +6,7 @@ If you want to just jump in, check out the [quickstart]({{site.baseurl}}/quickst
 
 # Overview
 
-The purpose of aomi is providing a data model, suitable for use in a continuous delivery pipeline, to facilitate the storing of operational secrets within Hashicorp [Vault](https://www.vaultproject.io/). This data model is expressed as [YAML](http://www.yaml.org/) in a file (generally) named [`Secretfile`]({{site.baseurl}}/secretfile). You can then leverage this data model to provide consistent deployment of secrets in isolated environments with distinct Hashicorp Vault servers.
+The purpose of aomi is to provide a data model, suitable for use in a continuous delivery pipeline, to facilitate the storing of operational secrets within Hashicorp [Vault](https://www.vaultproject.io/). This data model is expressed as [YAML](http://www.yaml.org/) in a file (generally) named [`Secretfile`]({{site.baseurl}}/secretfile). You can then leverage this data model to provide consistent deployment of secrets in isolated environments with distinct Hashicorp Vault servers.
 
 The aomi tool itself is quite flexible, but can be used to enforce rigorous opinions upon how an organization chooses to leverage Vault. The `aomi` tool may write to a variety of Vault backends.
 
