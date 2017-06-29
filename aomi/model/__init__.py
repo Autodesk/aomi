@@ -256,7 +256,11 @@ class Resource(object):
     def read(self, client):
         """Read from Vault while handling non surprising errors."""
         log("Reading from %s" % self, self.opt)
-        return client.read(self.path)
+        try:
+            return client.read(self.path)
+        except hvac.exceptions.InvalidRequest as vault_exception:
+            if vault_exception.message.startswith('no handler for route'):
+                return None
 
     @wrap_vault("writing")
     def write(self, client):
