@@ -43,6 +43,8 @@ The Secretfile is interpreted as a YAML file. Prior to parsing, aomi will render
 * Vault policies and audit logs are also configurable. These do not have any secrets associated with them.
 * You can define some metadata which is limited to GPG/Keybase information, used for cold storage of secrets.
 
+It is possible to be explict about the presence of a Vault construct on the server. Every entry should support the `state` value, which can be set to either `present` (the default) or `absent`.
+
 # Tagging
 
 Every entry which will affect Vault may be "tagged". Any and all tags must be referenced in order for the resource to be processed. Untagged resources will only be processed if tags are not specified on the command line. The following example shows two sets of static files, each tied to a different tag. This is one way of having a single `Secretfile` which can be used to populate multiple environments.

@@ -76,7 +76,7 @@ def ensure_backend(resource, backend, backends, opt):
         if backend == LogBackend:
             new_mount = backend(resource, opt)
         else:
-            new_mount = backend(resource.mount, resource.backend, opt)
+            new_mount = backend(resource, opt)
 
         backends.append(new_mount)
         return new_mount
@@ -271,7 +271,11 @@ class Resource(object):
     def delete(self, client):
         """Delete from Vault while handling non-surprising errors."""
         log("Deleting %s" % self, self.opt)
-        client.delete(self.path)
+        try:
+            client.delete(self.path)
+        except hvac.exceptions.InvalidPath as vault_exception:
+            if vault_exception.message.startswith('no handler for route'):
+                return None
 
 
 class Secret(Resource):
@@ -390,23 +394,32 @@ class Context(object):
         has the effect of updating every resource which is
         in the context."""
         active_mounts = []
-        for mount in self.mounts():
-            if not mount.existing:
-                mount.sync(vault_client)
         for auth in self.auths():
-            if not auth.existing:
-                auth.sync(vault_client)
-        for blog in self.logs():
-            if not blog.existing:
-                blog.sync(vault_client)
-        for resource in self.resources():
-            if isinstance(resource, (Secret, Mount)) and resource.present:
-                active_mount = find_backend(resource.mount, active_mounts)
-                if not active_mount:
-                    actual_mount = find_backend(resource.mount, self._mounts)
-                    if actual_mount:
-                        active_mounts.append(actual_mount)
+            auth.sync(vault_client)
+        for audit_log in self.logs():
+            audit_log.sync(vault_client)
 
+        # Handle mounts only on the first pass. This allows us to
+        # ensure that everything is in order prior to actually
+        # provisioning secrets. Note we handle removals before
+        # anything else, allowing us to address mount conflicts.
+        mounts = [x for x in self.resources()
+                  if isinstance(x, (Secret, Mount))]
+        s_resources = sorted(mounts, cmp=lambda x, y:
+                             cmp(x.present, y.present))
+
+        for resource in s_resources:
+            active_mount = find_backend(resource.mount, active_mounts)
+            if not active_mount:
+                actual_mount = find_backend(resource.mount, self._mounts)
+                active_mounts.append(actual_mount)
+                actual_mount.sync(vault_client)
+
+        # Now handle everything else. If "best practices" are being
+        # adhered to then every generic mountpoint should exist by now
+        not_mounts = [x for x in self.resources()
+                      if not isinstance(x, (Mount))]
+        for resource in not_mounts:
             resource.sync(vault_client)
 
         for mount in self.mounts():
@@ -448,6 +461,7 @@ class Mount(Resource):
     required_fields = ['path']
     config_key = 'mounts'
     backend = 'generic'
+    secret_format = 'mount point'
 
     def __init__(self, obj, opt):
         super(Mount, self).__init__(obj, opt)
@@ -482,21 +496,29 @@ class VaultBackend(object):
 
         return "%s %s" % (self.backend, self.path)
 
-    def __init__(self, path, backend, opt):
-        self.path = sanitize_mount(path)
-        self.backend = backend
+    def __init__(self, resource, opt):
+        self.path = sanitize_mount(resource.mount)
+        self.backend = resource.backend
         self.existing = False
+        self.present = resource.present
         self.opt = opt
 
     def sync(self, vault_client):
         """Synchronizes the local and remote Vault resources. Has the net
         effect of adding backend if needed"""
-        if not self.existing:
+        if not self.existing and self.present:
             self.actually_mount(vault_client)
             log("Mounting %s backend on %s" %
                 (self.backend, self.path), self.opt)
-        else:
+        elif self.existing and self.present:
             log("%s backend already mounted on %s" %
+                (self.backend, self.path), self.opt)
+        elif self.existing and not self.present:
+            self.unmount(vault_client)
+            log("Unmounting %s backend on %s" %
+                (self.backend, self.path), self.opt)
+        elif not self.existing and not self.present:
+            log("%s backend already unmounted on %s" %
                 (self.backend, self.path), self.opt)
 
     def fetch(self, backends):
@@ -506,8 +528,6 @@ class VaultBackend(object):
 
     def unmount(self, client):
         """Unmounts a backend within Vault"""
-        log("Unmounting %s backend from %s" %
-            (self.backend, self.path), self.opt)
         getattr(client, self.unmount_fun)(mount_point=self.path)
 
     def actually_mount(self, client):
