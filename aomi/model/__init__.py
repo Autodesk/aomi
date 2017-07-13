@@ -14,6 +14,13 @@ from aomi.error import output as error_output
 from aomi.validation import sanitize_mount, check_obj
 
 
+def absent_sort(resource):
+    """Used to sort resources in a way where things that
+    are being removed are prioritized over things that
+    are being added or modified"""
+    return resource.present
+
+
 def py_resources():
     """Discovers all aomi Vault resource models"""
     aomi_mods = [m for
@@ -259,7 +266,7 @@ class Resource(object):
         try:
             return client.read(self.path)
         except hvac.exceptions.InvalidRequest as vault_exception:
-            if vault_exception.message.startswith('no handler for route'):
+            if str(vault_exception).startswith('no handler for route'):
                 return None
 
     @wrap_vault("writing")
@@ -274,7 +281,7 @@ class Resource(object):
         try:
             client.delete(self.path)
         except hvac.exceptions.InvalidPath as vault_exception:
-            if vault_exception.message.startswith('no handler for route'):
+            if str(vault_exception).startswith('no handler for route'):
                 return None
 
 
@@ -405,8 +412,8 @@ class Context(object):
         # anything else, allowing us to address mount conflicts.
         mounts = [x for x in self.resources()
                   if isinstance(x, (Secret, Mount))]
-        s_resources = sorted(mounts, cmp=lambda x, y:
-                             cmp(x.present, y.present))
+
+        s_resources = sorted(mounts, key=absent_sort)
 
         for resource in s_resources:
             active_mount = find_backend(resource.mount, active_mounts)
