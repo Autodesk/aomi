@@ -574,7 +574,7 @@ class LogBackend(VaultBackend):
 
     def __init__(self, resource, opt):
         self.description = None
-        super(LogBackend, self).__init__(resource.path, resource.backend, opt)
+        super(LogBackend, self).__init__(resource, opt)
         if resource.description:
             self.description = resource.description
 

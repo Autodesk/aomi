@@ -2,11 +2,11 @@
 
 # Aomi: Opinionlessly Express Opinions on Vault
 
-If you are new to `aomi`, please checkout our [documentation](https://autodesk.github.io/aomi) and you may be particularly interested in the [quickstart](https://autodesk.github.io/aomi/quickstart) guide.
+If you are new to `aomi`, please checkout our [documentation](https://autodesk.github.io/aomi). You may be particularly interested in the [quickstart](https://autodesk.github.io/aomi/quickstart) guide.
 
 # Contributing
 
-All manner of contributions are welcome. The aomi tool is still relatively young, and emphasis has been placed on the data model concept more than staying current with the Vault API. All manner of assistance is welcome, from source code to documentation and community support.
+All manner of contributions are welcome. The aomi tool is still relatively young, and emphasis has been placed on the data model concept more than staying current with the Vault API. We are looking for contributors of source code, documentation, and community support.
 
 ## Code
 
@@ -27,11 +27,11 @@ This project features the following tests (all are invoked with `make test`).
 
 ## Documentation
 
-The README is being kept to contribution guidelines. Operational docs are available on a static GitHub [page](https://autodesk.github.io/aomi/). These docs are maintained as [markdown](https://github.com/adam-p/markdown-here/wiki/Markdown-Cheatsheet) formatted documents within the [docs](https://github.com/Autodesk/aomi/tree/master/docs) directory. The static site is updated automatically based on the contents of this directory.
+The README is focused on contribution guidelines. Operational docs are available on a static GitHub [page](https://autodesk.github.io/aomi/). These docs are maintained as [markdown](https://github.com/adam-p/markdown-here/wiki/Markdown-Cheatsheet) formatted documents within the [docs](https://github.com/Autodesk/aomi/tree/master/docs) directory. The static site is updated automatically based on the contents of this directory.
 
 ## Deployment
 
-New docker containers are generated on merge to the `master` branch. New Python packages are pushed on every tagged commit, which happens during a [semantic version](http://semver.org/) bump. I tend to use the [avakas](https://github.com/otakup0pe/avakas) to handle these version changes.
+New docker containers are generated on merge to the `master` branch. New Python packages are pushed on every tagged commit, which happens during a [semantic version](http://semver.org/) bump. I tend to use the [avakas](https://github.com/otakup0pe/avakas) to handle version changes.
 
 ## Guidelines
 
@@ -46,6 +46,6 @@ If you have any questions, please feel free to contact <jonathan.freedman@autode
 
 # Errata
 
-The web page for aomi is based on the [hacker](https://github.com/pages-themes/hacker) Jekyll theme and has been heavily customized.
+The [web page](https://autodesk.github.io/aomi) for `aomi` is based on the [hacker](https://github.com/pages-themes/hacker) Jekyll theme and has been heavily customized.
 
 The Code of Conduct is version 1.4 of the [Contributor Covenant](http://contributor-covenant.org/).
