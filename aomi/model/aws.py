@@ -84,7 +84,7 @@ class AWS(Secret):
         if is_mounted(self.backend,
                       self.mount,
                       vault_client.list_secret_backends()):
-            self.existing = True
+            self.existing = False
 
     def sync(self, vault_client):
         if self.present and not self.existing:
