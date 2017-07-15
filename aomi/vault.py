@@ -93,7 +93,9 @@ def token_meta(operation, opt):
 
 
 def operational_token(vault_client, operation, opt):
-    """Return a properly annotated token for our use."""
+    """Return a properly annotated token for our use. This
+    token will be revoked at the end of the session. The token
+    will have some decent amounts of metadata tho."""
     display_name = vault_client.lookup_token()['data']['display_name']
     args = {
         'lease': opt.lease,

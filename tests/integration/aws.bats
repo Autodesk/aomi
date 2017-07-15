@@ -10,7 +10,6 @@ setup() {
 }
 
 teardown() {
-    vault token-revoke "$VAULT_TOKEN"
     stop_vault
     rm -rf "$FIXTURE_DIR"
 }

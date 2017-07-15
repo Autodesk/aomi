@@ -32,7 +32,8 @@ def is_aws(data):
 
 
 def renew_secret(client, creds, opt):
-    """Renews a secret if neccesary"""
+    """Renews a secret. This will occur unless the user has
+    specified on the command line that it is not neccesary"""
     if opt.reuse_token:
         return
 
@@ -112,7 +113,9 @@ def template(client, src, dest, paths, opt):
 
 
 def raw_file(client, src, dest, opt):
-    """Write the contents of a vault path/key to a file"""
+    """Write the contents of a vault path/key to a file. Is
+    smart enough to attempt and handle binary files that are
+    base64 encoded."""
     path, key = path_pieces(src)
     resp = client.read(path)
     if not resp:

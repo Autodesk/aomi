@@ -2,6 +2,7 @@
 set -e
 SCRIPTDIR=$( cd ${0%/*} && pwd)
 ROOTDIR="${SCRIPTDIR%/*}"
+TOKEN_FILE="${ROOTDIR}/.aomi-test/vault-token"
 
 if [ -z "$GUDRUN_TRAVIS_URL" ] || \
        [ -z "$TRAVIS_BUILD_ID" ] || \
@@ -44,11 +45,11 @@ fi
 TOKEN=$(vault write -field=token \
       auth/approle/login \
       role_id="$ROLE_ID" \
-      secret_id="$SECRET_ID" 2> /dev/null || true)
+      secret_id="$SECRET_ID" || true)
 if [ -z "$TOKEN" ] ; then
     echo "could not retrieve a token"
     exit 1
 fi
 echo "Seemed to retrieve a token"
-mkdir -p "${ROOTDIR}/.aomi-test"
-echo "$TOKEN" > "${ROOTDIR}/.aomi-test/vault-token"
+mkdir -p $(dirname "$TOKEN_FILE")
+echo -n "$TOKEN" > "$TOKEN_FILE"
