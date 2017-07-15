@@ -3,25 +3,23 @@ layout: default
 ---
 # Prelude
 
-There is a underlying assumption here that you have access to a working Vault server. If not, you can easily use Vault in [dev mode](https://www.vaultproject.io/docs/concepts/dev-server.html).
-
-### Vault dev mode quickstart. Start vault server in dev mode listening to all interfaces. ####
+There is a underlying assumption here that you have access to a working Vault server. If this is not currently the case, Vault has a great out of the box [developer mode](https://www.vaultproject.io/docs/concepts/dev-server.html).
 
 ```
-vault server -dev -dev-listen-address="0.0.0.0:8200"
+$ vault server -dev -dev-listen-address="0.0.0.0:8200"
 ...
 Unseal Key (hex)   : 38058131e3e451fe0073f27ef2992e803fa2777f0075afffe3d21d90db75635c
 Unseal Key (base64): OAWBMePkUf4Ac/J+8pkugD+id38Ada//49IdkNt1Y1w=
 Root Token: fab4819e-9929-794d-1c5e-d3e036a25246
 ...
 ```
-
+You can then either write the token to the `~/.vault-token` file, or set it as the `VAULT_TOKEN` environment variable. If you have multiple Vault environments then you may find the [hcvswitch](https://github.com/otakup0pe/hcvswitch) tool to be helpful.
 
 # First Steps
 
 You can pull aomi from [Docker Hub](https://hub.docker.com/r/autodesk/aomi/) and run it either on a workstation or within a continuous delivery pipeline. You can pass authentication information in through a variety of hints, but the easiest is to just use your already established Vault credentials.
 
-To start, we will authenticate to Vault and run the container once.
+To start, we will authenticate against Vault and run the container once.
 
 ```
 $ vault auth -method=userpass username=foo
@@ -192,7 +190,7 @@ You can then [seed]({{site.baseurl}}/seed) this into Vault and, for example, ren
 $ aomi seed
 $ aomi template \
   builtin:terraform-aws \
-  /tmp/aws.tf \
+  ./aws.tf \
   aws/1234567890/creds/root \
   --no-merge-path \
   --extra-vars aws_region=us-east-1
@@ -203,4 +201,8 @@ $ terraform apply
 
 # Conclusion
 
-This is the basic workflow espoused by aomi. Represent the structure of your operational secrets with expressive Jinja2 templates. Write this structure to Vault and provide a consistent interface to your operational secrets.
+The steps described in the quickstart are the basic workflow espoused by aomi.
+
+* Represent the structure of your operational secrets with expressive Jinja2 templates.
+* Write this structure to Vault and provide a consistent interface to your operational secrets.
+* Iterate, repeat, and enjoy.

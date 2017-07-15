@@ -10,9 +10,9 @@ All manner of contributions are welcome. The aomi tool is still relatively young
 
 ## Code
 
-The aomi project is entirely Python, with some shell scripts binding the tests together. The structure is pretty standard for Python projects. Everything lives in one module [namespace](https://github.com/Autodesk/aomi/tree/master/aomi) and is loosely grouped into modules by context. Minimal PyDoc is required (and enforced by pylint) on each function.
+The aomi project is entirely Python, with some shell scripts binding the tests together. It is compatible wtih both Python 2.7.x and 3.6 (and above). The structure is pretty standard for Python projects. Everything lives in one module [namespace](https://github.com/Autodesk/aomi/tree/master/aomi) and is loosely grouped into modules by context. Minimal PyDoc is required (and enforced by pylint) on each function. The cryptographic functions used for cold storage are implemented in the [`cryptorito`](https://github.com/autodesk/cryptorito) Python module.
 
-When adding new [builtin](https://github.com/Autodesk/aomi/tree/master/aomi/templates) templates, a accompanying help file must be provided. This is a YAML file with a `name` and `help` element and it will feed the command line help for templates.
+When adding new [builtin](https://github.com/Autodesk/aomi/tree/master/aomi/templates) templates, a accompanying help file must be provided. Help is represented as a YAML file with a `name` and `help` element and it is used to generate command line help for templates.
 
 ## Test
 
@@ -40,7 +40,7 @@ New docker containers are generated on merge to the `master` branch. New Python 
 * Please use informative commit messages and pull request descriptions.
 * Please remember to update the documentation if needed.
 * Please keep style consistent. This means PEP8 and pylint compliance at a minimum.
-* Please add both unit and integration tests.
+* Please add both unit and integration tests. Unit tests should run in complete isolation with all disk/network calls mocked out.
 
 If you have any questions, please feel free to contact <jonathan.freedman@autodesk.com>.
 

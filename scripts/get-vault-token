@@ -5,7 +5,8 @@ ROOTDIR="${SCRIPTDIR%/*}"
 
 if [ -z "$GUDRUN_TRAVIS_URL" ] || \
        [ -z "$TRAVIS_BUILD_ID" ] || \
-       [ -z "$TRAVIS_REPO_SLUG" ] ; then
+       [ -z "$TRAVIS_REPO_SLUG" ] || \
+       [ -z "$TRAVIS_COMMIT" ] ; then
     echo "must be run in travis"
     exit 1
 fi
@@ -43,10 +44,11 @@ fi
 TOKEN=$(vault write -field=token \
       auth/approle/login \
       role_id="$ROLE_ID" \
-      secret_id="$SECRET_ID" || true)
+      secret_id="$SECRET_ID" 2> /dev/null || true)
 if [ -z "$TOKEN" ] ; then
     echo "could not retrieve a token"
     exit 1
 fi
+echo "Seemed to retrieve a token"
 mkdir -p "${ROOTDIR}/.aomi-test"
 echo "$TOKEN" > "${ROOTDIR}/.aomi-test/vault-token"

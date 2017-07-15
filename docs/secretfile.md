@@ -37,11 +37,12 @@ secrets:
 
 # General Structure
 
-The Secretfile is interpreted as a YAML file. Prior to parsing, aomi will render it as a [Jinja2](http://jinja.pocoo.org/) template. This means you can have conditionals, includes, and external variables. There is a fair amount of flexibility in terms of how you may structure data. Once in YAML format, the data is interpreted based on a few broad categories.
+The Secretfile is interpreted as a YAML file. Prior to parsing out Vault constructs, aomi will render it as a [Jinja2](http://jinja.pocoo.org/) template. This means you can have conditionals, includes, and external variables. There is a fair amount of flexibility in terms of how you may structure data. Once in YAML format, the data is interpreted based on a few broad categories.
 
-* `secrets` is the most widely used section. It contains definitions for data that represents operational secrets. With the exception of the `generated` generic secret type, all of these entries must have companion files within the secrets directory as [interpreted](https://www.vaultproject.io/docs/auth/userpass.html) by aomi.
+* `secrets` is the most widely used section. It contains definitions for data that represents operational secrets. With the exception of the `generated` generic secret type, all of these entries must have companion files within the secrets directory as [interpreted](http://autodesk.github.io/aomi/data#about-file-paths) by aomi.
 * Vault policies and audit logs are also configurable. These do not have any secrets associated with them.
 * You can define some metadata which is limited to GPG/Keybase information, used for cold storage of secrets.
+* The `userpass` authenticaiton backend is currently supported. The use of DUO with this backend is also supported.
 
 It is possible to be explict about the presence of a Vault construct on the server. Every entry should support the `state` value, which can be set to either `present` (the default) or `absent`.
 
