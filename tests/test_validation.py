@@ -2,7 +2,7 @@ import unittest
 import aomi.exceptions
 import aomi.validation
 from aomi.cli import parser_factory
-from aomi.helpers import portable_b64encode, portable_b64decode
+from cryptorito import portable_b64encode, portable_b64decode
 
 
 class VaultPathTest(unittest.TestCase):
@@ -82,10 +82,3 @@ class StringTests(unittest.TestCase):
         with self.assertRaises(aomi.exceptions.Validation):
             aomi.validation.is_unicode_string(self.some_binary)
 
-    def test_is_base64(self):
-        assert aomi.validation.is_base64(portable_b64encode("foo"))
-        assert aomi.validation.is_base64(portable_b64encode(self.some_binary))
-        assert aomi.validation.is_base64(portable_b64encode(self.ghost_emoji))
-        self.assertFalse(aomi.validation.is_base64("foo"))
-        self.assertFalse(aomi.validation.is_base64("2454"))
-        self.assertFalse(aomi.validation.is_base64("1234"))

@@ -152,11 +152,3 @@ def is_unicode_string(string):
             string.decode('utf-8')
     except UnicodeError:
         raise aomi.exceptions.Validation('Not a unicode string')
-
-
-def is_base64(string):
-    """Determines whether or not a string is likely to
-    be base64 encoded binary nonsense"""
-    return (not re.match('^[0-9]+$', string)) and \
-        (len(string) % 4 == 0) and \
-        re.match('^[A-Za-z0-9+/]+[=]{0,2}$', string)

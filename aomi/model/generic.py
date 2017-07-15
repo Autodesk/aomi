@@ -8,10 +8,11 @@ from copy import deepcopy
 from uuid import uuid4
 import yaml
 from future.utils import iteritems  # pylint: disable=E0401
+from cryptorito import portable_b64encode
 import aomi.exceptions
 from aomi.model import Secret
 from aomi.helpers import log, random_word, hard_path, \
-    open_maybe_binary, portable_b64encode
+    open_maybe_binary
 from aomi.validation import sanitize_mount, secret_file, check_obj, \
     is_unicode_string
 

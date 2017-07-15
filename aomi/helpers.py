@@ -3,7 +3,6 @@ from __future__ import print_function
 import sys
 import os
 import tempfile
-from base64 import b64encode, b64decode
 from random import SystemRandom
 from getpass import getpass
 from pkg_resources import resource_string, resource_filename
@@ -199,31 +198,6 @@ def subdir_path(directory, relative):
                 return None
 
     return None
-
-
-def portable_b64encode(thing):
-    """Wrap b64encode for Python 2 & 3"""
-    if sys.version_info >= (3, 0):
-        try:
-            some_bits = bytes(thing, 'utf-8')
-        except TypeError:
-            some_bits = thing
-
-        return b64encode(some_bits).decode('utf-8')
-
-    return b64encode(thing)
-
-
-def portable_b64decode(thing):
-    """Consistent b64decode in Python 2 & 3"""
-    if sys.version_info >= (3, 0):
-        decoded = b64decode(thing)
-        try:
-            return decoded.decode('utf-8')
-        except UnicodeDecodeError:
-            return decoded
-
-    return b64decode(thing)
 
 
 def open_maybe_binary(filename):
