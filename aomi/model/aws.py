@@ -84,13 +84,15 @@ class AWS(Secret):
         if is_mounted(self.backend,
                       self.mount,
                       vault_client.list_secret_backends()):
-            self.existing = True
+            self.existing = False
 
     def sync(self, vault_client):
-        if self.present and not self.existing:
+        if self.present:
             log("Writing AWS root to %s" % self.path, self.opt)
-        elif self.present and self.existing:
-            log("Updating AWS root at %s" % self.path, self.opt)
+            self.write(vault_client)
+        else:
+            log("Removing AWS root at %s" % self.path, self.opt)
+            self.delete(vault_client)
 
     def obj(self):
         _secret, filename, region = self._obj

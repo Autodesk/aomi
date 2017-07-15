@@ -6,10 +6,10 @@ load helper
 setup() {
     start_vault
     use_fixture aws
+    aws_creds
 }
 
 teardown() {
-    vault token-revoke "$VAULT_TOKEN"
     stop_vault
     rm -rf "$FIXTURE_DIR"
 }
@@ -32,7 +32,6 @@ teardown() {
 }
 
 @test "aws happy path" {
-    aws_creds    
     aomi_seed
     check_aws "inline"
     run vault mounts
