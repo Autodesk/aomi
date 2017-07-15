@@ -1,7 +1,6 @@
 # -*- mode: Shell-script;bash -*-
 
 VAULT_LOG="${BATS_TMPDIR}/aomi-vault-log"
-
 if [ -z "$AWS_TIMEOUT" ] ; then
     AWS_TIMEOUT=20
 fi
@@ -173,14 +172,12 @@ function aws_creds() {
     [ -e "${CIDIR}/.aomi-test/vault-addr" ]
     [ -e "${CIDIR}/.aomi-test/vault-token" ]
     local TMP="/tmp/aomi-int-aws${RANDOM}"
-    set +e
     VAULT_TOKEN="$(cat "${CIDIR}/.aomi-test/vault-token")" \
                VAULT_ADDR=$(cat "${CIDIR}/.aomi-test/vault-addr") \
                aomi aws_environment \
                "$VAULT_AWS_PATH" \
-               --export --lease 300s 1> "$TMP"
+               --export --lease 300s --verbose 1> "$TMP"
     RC="$?"
-    set -e
     if [ "$RC" != 0 ] || [ "$(cat $TMP)" == "" ] ; then
         return 1
     fi

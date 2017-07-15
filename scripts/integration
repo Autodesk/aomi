@@ -4,10 +4,12 @@ SCRIPTDIR=$( cd ${0%/*} && pwd)
 TESTS="a_smoke environment exec_context seed template"
 VAULT_TESTS="aws"
 GPG_TESTS="cold_storage"
-export VAULT_AWS_PATH="travis/aws/creds/aomi"
+export VAULT_AWS_PATH="aomi/aws/creds/travis"
 export VAULT_SECRET_PATH="secrets/aomi"
 
-VAULT_VERSION="0.6.1"
+if [ -z "$VAULT_VERSION" ] ; then
+    VAULT_VERSION="0.6.2"
+fi
 
 set -e
 
@@ -18,9 +20,12 @@ if [ $# == 1 ] ; then
     fi
 fi
 
-export CIDIR=${SCRIPTDIR%/*}
-BATSGIT="${CIDIR}/.bats-git"
-BATSBIN="${CIDIR}/.bats"
+ROOTDIR=${SCRIPTDIR%/*}
+export CIDIR="$ROOTDIR"
+BATSGIT="${ROOTDIR}/.bats-git"
+BATSBIN="${ROOTDIR}/.bats"
+VAULTDIR="${ROOTDIR}/.vault"
+VAULTBIN="${VAULTDIR}/vault"
 
 if ! which shyaml &> /dev/null ; then
     echo "shyaml required"
@@ -33,10 +38,10 @@ if [ -z "$TRAVIS" ] && ! which gpg2 &> /dev/null ; then
 fi
 
 if [ -z "$TRAVIS" ] ; then
-    . "${CIDIR}/.ci-env/bin/activate"
+    . "${ROOTDIR}/.ci-env/bin/activate"
 fi
 OWD="$PWD"
-cd "$CIDIR"
+cd "$ROOTDIR"
 python setup.py install
 cd "$OWD"
 if [ ! -d "$BATSGIT" ] ; then
@@ -49,18 +54,18 @@ fi
 
 # when switching between local osx/docker you can end up
 # with incorrect vault binaries
-if [ -d "${CIDIR}/.vault" ] ; then
+if [ -d "$VAULTDIR" ] ; then
     if [ "$(uname -s)" == "Darwin" ] && \
-           ! file "${CIDIR}/.vault/vault" | grep "Mach-O" &> /dev/null ; then
-        rm -rf "${CIDIR}/.vault"
+           ! file "$VAULTBIN" | grep "Mach-O" &> /dev/null ; then
+        rm -rf "$VAULTDIR"
     elif [ "$(uname -s)" == "Linux" ] && \
-             ! file "${CIDIR}/.vault/vault" | grep LSB &> /dev/null ; then
-        rm -rf "${CIDIR}/.vault"
+             ! file "$VAULTBIN" | grep "LSB" &> /dev/null ; then
+        rm -rf "$VAULTDIR"
     fi
 fi
 
-if [ ! -d "${CIDIR}/.vault" ] ; then
-    mkdir -p "${CIDIR}/.vault/"
+if [ ! -d "$VAULTDIR" ] ; then
+    mkdir -p "$VAULTDIR"
     OS=$(uname -s)
     if [ "$OS" == "Darwin" ] ; then
         URL="https://releases.hashicorp.com/vault/${VAULT_VERSION}/vault_${VAULT_VERSION}_darwin_amd64.zip"
@@ -69,63 +74,90 @@ if [ ! -d "${CIDIR}/.vault" ] ; then
     fi
 
     wget -O  "/tmp/vault.zip"  "$URL"
-    unzip -d "${CIDIR}/.vault" "/tmp/vault.zip"
-    chmod +x "${CIDIR}/.vault/vault"
+    unzip -d "$VAULTDIR" "/tmp/vault.zip"
+    rm -f "/tmp/vault.zip"
+    chmod +x "$VAULTBIN"
 fi
-PATH="${PATH}:${CIDIR}/.vault"
+PATH="${VAULTDIR}:${PATH}"
+VAULTPATH=$(which vault)
+if [ -z "$VAULTPATH" ] ; then
+    echo "Unable to find vault executable"
+    exit 1
+fi
+echo "Testing with ${VAULTPATH} v${VAULT_VERSION}"
+
 export PATH
 
+
+CI_TOKEN="${ROOTDIR}/.aomi-test/vault-token"
 if [ ! -z "$TRAVIS" ] && [ ! -z "$CI" ] ; then
     echo "Looking under couch for Vault token"
     "${SCRIPTDIR}/get-vault-token" || true
+    if [ -e "$CI_TOKEN" ] ; then
+        VAULT_TOKEN=$(cat "$CI_TOKEN")
+        echo "Using derived vault token"
+    else
+        echo "No vault token"
+    fi
+else
+    if [ ! -z "$VAULT_TOKEN" ] ; then
+        echo "Using env vault token"
+    elif [ -e "${HOME}/.vault-token" ] ; then
+         VAULT_TOKEN=$(cat "${HOME}/.vault-token")
+         echo "Using user vault token"
+    else
+        echo "No vault token"
+    fi
 fi
 
-export CIDIR
+export ROOTDIR
 
 EXEC_TESTS=""
 for a_test in $TESTS ; do
-    EXEC_TESTS="${EXEC_TESTS} ${CIDIR}/tests/integration/${a_test}.bats"
+    EXEC_TESTS="${EXEC_TESTS} ${ROOTDIR}/tests/integration/${a_test}.bats"
 done
 if [ -z "$TRAVIS" ] ; then
-    EXEC_TESTS="${EXEC_TESTS} ${CIDIR}/tests/integration/${GPG_TESTS}.bats"
-fi
-
-CI_TOKEN="${CIDIR}/.aomi-test/vault-token"
-if [ -e "$CI_TOKEN" ] ; then
-    VAULT_TOKEN=$(cat "$CI_TOKEN")
-elif [ -e "${HOME}/.vault-token" ] ; then
-    VAULT_TOKEN=$(cat "${HOME}/.vault-token")
+    EXEC_TESTS="${EXEC_TESTS} ${ROOTDIR}/tests/integration/${GPG_TESTS}.bats"
 fi
 
 if [ ! -z "$VAULT_TOKEN" ] && \
        [ ! -z "$VAULT_ADDR" ] ; then
     echo "Vault detected..."
-    if VAULT_TOKEN=$VAULT_TOKEN "${CIDIR}/.vault/vault" read -field=refresh_interval "$VAULT_SECRET_PATH" &> /dev/null ; then
+    if VAULT_TOKEN=$VAULT_TOKEN "$VAULTBIN" read -field=refresh_interval "$VAULT_SECRET_PATH" &> /dev/null ; then
         echo "Vault server seems legit..."
-        if [ ! -d "${CIDIR}/.aomi-test" ] ; then
-            mkdir -p "${CIDIR}/.aomi-test"
+        if [ ! -d "${ROOTDIR}/.aomi-test" ] ; then
+            mkdir -p "${ROOTDIR}/.aomi-test"
         fi
         echo "$VAULT_TOKEN" > "$CI_TOKEN"
         for a_test in $VAULT_TESTS ; do
-            EXEC_TESTS="${EXEC_TESTS} ${CIDIR}/tests/integration/${a_test}.bats"
+            EXEC_TESTS="${EXEC_TESTS} ${ROOTDIR}/tests/integration/${a_test}.bats"
         done
-        echo "$VAULT_ADDR" > "${CIDIR}/.aomi-test/vault-addr"
+        echo "$VAULT_ADDR" > "${ROOTDIR}/.aomi-test/vault-addr"
     else
-        rm -rf "${CIDIR}/.aomi-test"
+        echo "Unable to confirm vault"
+        rm -rf "${ROOTDIR}/.aomi-test"
     fi
 else
-    rm -rf "${CIDIR}/.aomi-test"
+    echo "No vault detected"
+    rm -rf "${ROOTDIR}/.aomi-test"
 fi
 
-if [ ! -e "${CIDIR}/.aomi-test/vault-token" ] ; then
-    echo "WARNING: Skipping AWS tests!"
+if [ ! -e "${ROOTDIR}/.aomi-test/vault-token" ] ; then
+    if [ ! -z "$TEST" ] && [ "$TEST" == "aws" ] ; then
+        echo "Unable to execute AWS tests!"
+        exit 1
+    else
+        echo "WARNING: Skipping AWS tests!"
+    fi
+else
+    echo "Actually found a token!"
 fi
 
-cmd="${CIDIR}/.bats/bin/bats"
+cmd="${ROOTDIR}/.bats/bin/bats"
 if [ -z "$TEST" ] ; then
     cmd="${cmd} ${EXEC_TESTS}"
 else
-    cmd="${cmd} ${CIDIR}/tests/integration/${TEST}.bats"
+    cmd="${cmd} ${ROOTDIR}/tests/integration/${TEST}.bats"
 fi
 RC=0
 if ! $cmd ; then
@@ -134,8 +166,8 @@ fi
 
 if [ ! -z "$TRAVIS" ] && \
        [ ! -z "$CI" ] && \
-       [ -e "${CIDIR}/.aomi-test/vault-token" ] ; then
+       [ -e "${ROOTDIR}/.aomi-test/vault-token" ] ; then
     echo "Tearing up our Vault token"
-    VAULT_TOKEN=$VAULT_TOKEN "${CIDIR}/.vault/vault" write -f auth/token/revoke-self &> /dev/null
+    VAULT_TOKEN=$VAULT_TOKEN "$VAULTBIN" write -f auth/token/revoke-self &> /dev/null
 fi
 exit "$RC"
