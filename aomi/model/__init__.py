@@ -280,7 +280,9 @@ class Resource(object):
         log("Deleting %s" % self, self.opt)
         try:
             client.delete(self.path)
-        except hvac.exceptions.InvalidPath as vault_exception:
+        except (hvac.exceptions.InvalidPath,
+                hvac.exceptions.InvalidRequest) \
+                as vault_exception:
             if str(vault_exception).startswith('no handler for route'):
                 return None
 
@@ -574,7 +576,7 @@ class LogBackend(VaultBackend):
 
     def __init__(self, resource, opt):
         self.description = None
-        super(LogBackend, self).__init__(resource.path, resource.backend, opt)
+        super(LogBackend, self).__init__(resource, opt)
         if resource.description:
             self.description = resource.description
 
