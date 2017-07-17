@@ -122,7 +122,7 @@ class Context(object):
             for resource in config[config_key]:
                 mod = find_model(config_key, resource, seed_map)
                 if not mod:
-                    LOG.warn("unable to find mod for %s", resource)
+                    LOG.warning("unable to find mod for %s", resource)
                     continue
 
                 ctx.add(mod(resource, opt))
@@ -130,7 +130,7 @@ class Context(object):
         for config_key in config.keys():
             if config_key != 'pgp_keys' and \
                config_key not in seed_keys:
-                LOG.warn("missing model for %s", config_key)
+                LOG.warning("missing model for %s", config_key)
 
         return filtered_context(ctx)
 

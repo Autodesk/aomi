@@ -126,7 +126,7 @@ def client(operation, opt):
     ssl_verify = True
     if 'VAULT_SKIP_VERIFY' in os.environ:
         if os.environ['VAULT_SKIP_VERIFY'] == '1':
-            LOG.warn('Skipping SSL Validation!')
+            LOG.warning('Skipping SSL Validation!')
             ssl_verify = False
 
     LOG.info("Connecting to %s", vault_host)
