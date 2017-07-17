@@ -324,9 +324,9 @@ def action_runner(parser, args):
     if args.operation == 'help':
         help_me(parser, args)
 
-        # cryptorito uses native logging (as aomi should tbh)
-        if args.verbose:
-            logging.basicConfig(level="DEBUG")
+    # cryptorito uses native logging (as aomi should tbh)
+    if args.verbose:
+        logging.basicConfig(level=logging.DEBUG)
 
     client = aomi.vault.client(args.operation, args)
     if args.operation == 'extract_file':

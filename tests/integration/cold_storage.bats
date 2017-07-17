@@ -19,11 +19,11 @@ teardown() {
 
 @test "can freeze and thaw" {
     run aomi freeze "${BATS_TMPDIR}/cold" --extra-vars pgp_key="$GPGID" --verbose
-    echo $output
+    echo -e $output
     [ "$status" -eq 0 ]
     ICEFILE=$(ls "${BATS_TMPDIR}/cold")
-    run aomi thaw "${BATS_TMPDIR}/cold/${ICEFILE}" --extra-vars pgp_key="$GPGID" --verbose
-    echo $output
+    run aomi thaw "${BATS_TMPDIR}/cold/${ICEFILE}" --extra-vars "pgp_key=${GPGID}" --verbose
+    echo -e $output
     [ "$status" -eq 0 ]
 }
 

@@ -86,8 +86,8 @@ def freeze(dest_dir, opt):
     ensure_dir(dest_dir)
     ensure_dir(dest_prefix)
     config = get_secretfile(opt)
-    ctx = Context.load(config, opt)
-    ctx.freeze(dest_prefix)
+    Context.load(config, opt) \
+           .freeze(dest_prefix)
     zip_filename = freeze_archive(tmp_dir, dest_prefix)
     ice_file = freeze_encrypt(dest_dir, zip_filename, config, opt)
     shutil.rmtree(tmp_dir)
@@ -125,5 +125,5 @@ def thaw(src_file, opt):
 
     log("Thawing secrets into %s" % opt.secrets, opt)
     config = get_secretfile(opt)
-    ctx = Context.load(config, opt)
-    ctx.thaw(tmp_dir)
+    Context.load(config, opt) \
+           .thaw(tmp_dir)

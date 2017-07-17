@@ -345,7 +345,7 @@ class Context(object):
                 resource.thaw(tmp_dir)
 
     def freeze(self, dest_dir):
-        """Freezes everyt resource within a context"""
+        """Freezes every resource within a context"""
         for resource in self.resources():
             if resource.present:
                 resource.freeze(dest_dir)
@@ -456,6 +456,8 @@ class Context(object):
                     resource.fetch(vault_client)
             else:
                 resource.fetch(vault_client)
+
+        return self
 
 
 class Auth(Resource):
