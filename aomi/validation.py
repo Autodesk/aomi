@@ -5,8 +5,10 @@ import os
 import re
 import platform
 import stat
-from aomi.helpers import abspath, log, subdir_path
+import logging
+from aomi.helpers import abspath, subdir_path
 import aomi.exceptions
+LOG = logging.getLogger(__name__)
 
 
 def find_file(name, directory):
@@ -44,7 +46,7 @@ def gitignore(opt):
                         % (secrets_path, gitignore_file)
                 raise aomi.exceptions.AomiFile(e_msg)
         else:
-            log("Using a non-relative secret directory", opt)
+            LOG.debug("Using a non-relative secret directory")
 
     else:
         raise aomi.exceptions.AomiFile("You should really have a .gitignore")

@@ -1,13 +1,15 @@
 """Utilities which are generally that are tied into actual command line
 operations processing but do not really fit under seed or render."""
 import os
-from aomi.helpers import log, get_password, path_pieces, \
+import logging
+from aomi.helpers import get_password, path_pieces, \
     backend_type, mount_for_path, abspath
 import aomi.validation
 import aomi.exceptions
+LOG = logging.getLogger(__name__)
 
 
-def update_user_password(client, userpass, opt):
+def update_user_password(client, userpass):
     """Will update the password for a userpass user"""
     vault_path = ''
     user = ''
@@ -15,17 +17,17 @@ def update_user_password(client, userpass, opt):
     if len(user_path_bits) == 1:
         user = user_path_bits[0]
         vault_path = "auth/userpass/users/%s/password" % user
-        log("Updating password for user %s at the default path" % user, opt)
+        LOG.debug("Updating password for user %s at the default path", user)
     elif len(user_path_bits) == 2:
         mount = user_path_bits[0]
         user = user_path_bits[1]
         vault_path = "auth/%s/users/%s/password" % (mount, user)
-        log("Updating password for user %s at path %s" % (user, mount), opt)
+        LOG.debug("Updating password for user %s at path %s", user, mount)
     else:
         client.revoke_self_token()
         raise aomi.exceptions.AomiCommand("invalid user path")
 
-    new_password = get_password(opt)
+    new_password = get_password()
     obj = {
         'user': user,
         'password': new_password
@@ -33,7 +35,7 @@ def update_user_password(client, userpass, opt):
     client.write(vault_path, **obj)
 
 
-def update_generic_password(client, path, opt):
+def update_generic_password(client, path):
     """Will update a single key in a generic secret backend as
     thought it were a password"""
     vault_path, key = path_pieces(path)
@@ -46,16 +48,16 @@ def update_generic_password(client, path, opt):
         client.revoke_self_token()
         raise aomi.exceptions.AomiData("Unsupported backend type")
 
-    log("Updating generic password at %s" % path, opt)
+    LOG.debug("Updating generic password at %s", path)
     existing = client.read(vault_path)
     if not existing or 'data' not in existing:
-        log("Nothing exists yet at %s!" % vault_path, opt)
+        LOG.debug("Nothing exists yet at %s!", vault_path)
         existing = {}
     else:
-        log("Updating %s at %s" % (key, vault_path), opt)
+        LOG.debug("Updating %s at %s", key, vault_path)
         existing = existing['data']
 
-    new_password = get_password(opt)
+    new_password = get_password()
     if key in existing and existing[key] == new_password:
         client.revoke_self_token()
         raise aomi.exceptions.AomiData("Password is same as existing")
@@ -64,12 +66,12 @@ def update_generic_password(client, path, opt):
     client.write(vault_path, **existing)
 
 
-def password(client, path, opt):
+def password(client, path):
     """Will attempt to contextually update a password in Vault"""
     if path.startswith('user:'):
-        update_user_password(client, path[5:], opt)
+        update_user_password(client, path[5:])
     else:
-        update_generic_password(client, path, opt)
+        update_generic_password(client, path)
 
 
 def vault_file(env, default):

@@ -3,46 +3,47 @@ from __future__ import print_function
 import os
 import shutil
 import time
+import logging
 import datetime
 import zipfile
 from cryptorito import key_from_keybase, has_gpg_key, \
     import_gpg_key, encrypt, decrypt
 
-from aomi.helpers import warning, log, subdir_path, \
-    ensure_dir, ensure_tmpdir
+from aomi.helpers import subdir_path, ensure_dir, ensure_tmpdir
 from aomi.template import get_secretfile
 from aomi.validation import gpg_fingerprint \
     as validate_gpg_fingerprint
 import aomi.exceptions
 from aomi.model import Context
+LOG = logging.getLogger(__name__)
 
 
-def from_keybase(username, opt):
+def from_keybase(username):
     """Will attempt to retrieve a GPG public key from
     Keybase, importing if neccesary"""
     public_key = key_from_keybase(username)
     fingerprint = public_key['fingerprint'][-8:].upper().encode('ascii')
     key = public_key['bundle'].encode('ascii')
     if not has_gpg_key(fingerprint):
-        log("Importing gpg key for %s" % username, opt)
+        LOG.debug("Importing gpg key for %s", username)
         if not import_gpg_key(key):
             raise aomi.exceptions.KeybaseAPI("import key for %s" % username)
 
     return fingerprint
 
 
-def grok_keys(config, opt):
+def grok_keys(config):
     """Will retrieve a GPG key from either Keybase or GPG directly"""
     key_ids = []
     for key in config['pgp_keys']:
         if key.startswith('keybase:'):
-            key_id = from_keybase(key[8:], opt)
-            log("Encrypting for keybase user %s" % key[8:], opt)
+            key_id = from_keybase(key[8:])
+            LOG.debug("Encrypting for keybase user %s", key[8:])
         else:
             if not has_gpg_key(key):
                 raise aomi.exceptions.GPG("Do not actually have key %s" % key)
 
-            log("Encrypting for gpg id %s" % key, opt)
+            LOG.debug("Encrypting for gpg id %s", key)
             key_id = key
 
         validate_gpg_fingerprint(key_id)
@@ -68,7 +69,7 @@ def freeze_archive(tmp_dir, dest_prefix):
 
 def freeze_encrypt(dest_dir, zip_filename, config, opt):
     """Encrypts the zip file"""
-    pgp_keys = grok_keys(config, opt)
+    pgp_keys = grok_keys(config)
     ice_handle = os.path.basename(os.path.dirname(opt.secretfile))
     timestamp = time.strftime("%H%M%S-%m-%d-%Y",
                               datetime.datetime.now().timetuple())
@@ -91,14 +92,14 @@ def freeze(dest_dir, opt):
     zip_filename = freeze_archive(tmp_dir, dest_prefix)
     ice_file = freeze_encrypt(dest_dir, zip_filename, config, opt)
     shutil.rmtree(tmp_dir)
-    log("Generated file is %s" % ice_file, opt)
+    LOG.debug("Generated file is %s", ice_file)
 
 
 def thaw_decrypt(src_file, tmp_dir, opt):
     """Decrypts the encrypted ice file"""
 
     if not os.path.isdir(opt.secrets):
-        warning("Creating secret directory %s" % opt.secrets)
+        LOG.info("Creating secret directory %s", opt.secrets)
         os.mkdir(opt.secrets)
 
     zip_file = "%s/aomi.zip" % tmp_dir
@@ -121,9 +122,9 @@ def thaw(src_file, opt):
     for archive_file in archive.namelist():
         archive.extract(archive_file, tmp_dir)
         os.chmod("%s/%s" % (tmp_dir, archive_file), 0o640)
-        log("Extracted %s from archive" % archive_file, opt)
+        LOG.debug("Extracted %s from archive", archive_file)
 
-    log("Thawing secrets into %s" % opt.secrets, opt)
+    LOG.info("Thawing secrets into %s", opt.secrets)
     config = get_secretfile(opt)
     Context.load(config, opt) \
            .thaw(tmp_dir)

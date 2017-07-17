@@ -1,11 +1,13 @@
 """AWS Secret Backend"""
+import logging
 import yaml
 import aomi.exceptions
 from aomi.vault import is_mounted
-from aomi.model import Secret, Resource
-from aomi.helpers import hard_path, merge_dicts, cli_hash, log
+from aomi.model.resource import Secret, Resource
+from aomi.helpers import hard_path, merge_dicts, cli_hash
 from aomi.template import load_var_files, render
 from aomi.validation import sanitize_mount, secret_file, check_obj
+LOG = logging.getLogger(__name__)
 
 
 def grok_ttl(secret):
@@ -88,10 +90,10 @@ class AWS(Secret):
 
     def sync(self, vault_client):
         if self.present:
-            log("Writing AWS root to %s" % self.path, self.opt)
+            LOG.info("Writing AWS root to %s", self.path)
             self.write(vault_client)
         else:
-            log("Removing AWS root at %s" % self.path, self.opt)
+            LOG.info("Removing AWS root at %s", self.path)
             self.delete(vault_client)
 
     def obj(self):

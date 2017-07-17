@@ -5,10 +5,12 @@ import os
 import tempfile
 from random import SystemRandom
 from getpass import getpass
+import logging
 from pkg_resources import resource_string, resource_filename
 # Python 2/3 compat
 from future.utils import iteritems  # pylint: disable=E0401
 import aomi.exceptions
+LOG = logging.getLogger()
 
 
 def my_version():
@@ -20,17 +22,6 @@ def my_version():
                              "..", "version")).read()
 
 VERSION = my_version()
-
-
-def log(msg, opt):
-    """Verbose messaging!"""
-    if opt.verbose:
-        print(msg, file=sys.stderr)
-
-
-def warning(msg):
-    """Print a warning message to stderr"""
-    print("Warning {0}".format(msg), file=sys.stderr)
 
 
 def abspath(raw):
@@ -98,10 +89,10 @@ def merge_dicts(dict_a, dict_b):
     return obj
 
 
-def get_tty_password(opt, confirm):
+def get_tty_password(confirm):
     """When returning a password from a TTY we assume a user
     is entering it on a keyboard so we ask for confirmation."""
-    log("Reading password from TTY", opt)
+    LOG.debug("Reading password from TTY")
     new_password = getpass('Enter Password: ', stream=sys.stderr)
     if not new_password:
         raise aomi.exceptions.AomiCommand("Must specify a password")
@@ -116,18 +107,18 @@ def get_tty_password(opt, confirm):
     return new_password
 
 
-def get_stdin_password(opt):
+def get_stdin_password():
     """Returns a password from stdin, no confirmation neccesary"""
-    log("Reading password from stdin", opt)
+    LOG.debug("Reading password from stdin")
     return sys.stdin.readline().rstrip()
 
 
-def get_password(opt, confirm=True):
+def get_password(confirm=True):
     """Will return a password in an appropriate fashion"""
     if sys.stdin.isatty():
-        return get_tty_password(opt, confirm)
+        return get_tty_password(confirm)
 
-    return get_stdin_password(opt)
+    return get_stdin_password()
 
 
 def path_pieces(vault_path):

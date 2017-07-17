@@ -2,15 +2,17 @@
 from __future__ import print_function
 # Python 2/3 compat
 import sys
+import logging
 from future.utils import iteritems  # pylint: disable=E0401
 from pkg_resources import resource_filename
 import hvac
 from cryptorito import portable_b64decode, is_base64
-from aomi.helpers import warning, cli_hash, merge_dicts, \
-    path_pieces, abspath, log
+from aomi.helpers import cli_hash, merge_dicts, \
+    path_pieces, abspath
 from aomi.template import render, load_var_files
 from aomi.error import output as error_output
 import aomi.exceptions
+LOG = logging.getLogger(__name__)
 
 
 def grok_seconds(lease):
@@ -125,7 +127,7 @@ def raw_file(client, src, dest, opt):
         if 'data' in resp and key in resp['data']:
             secret = resp['data'][key]
             if is_base64(secret):
-                log('decoding base64 entry', opt)
+                LOG.debug('decoding base64 entry')
                 secret = portable_b64decode(secret)
 
             if is_aws(resp['data']):
@@ -153,11 +155,11 @@ def env(client, paths, opt):
                                      opt.add_suffix or
                                      not opt.merge_path)
     if old_prefix:
-        warning("the prefix option is deprecated but being used "
-                "due to not passing in new options")
+        LOG.warn("the prefix option is deprecated but being used "
+                 "due to not passing in new options")
     elif opt.prefix:
-        warning("the prefix option is deprecated but not being "
-                "used due to passing in new options")
+        LOG.warn("the prefix option is deprecated but not being "
+                 "used due to passing in new options")
     key_map = cli_hash(opt.key_map)
     for path in paths:
         secrets = client.read(path)
