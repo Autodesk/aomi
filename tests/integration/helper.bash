@@ -50,8 +50,8 @@ verbose
     chmod -R og-rwx "$GNUPGHOME"    
     # https://www.gnupg.org/documentation/manuals/gnupg/Unattended-GPG-key-generation.html
     PASS="somegpgpass${RANDOM}"
-    export AOMI_PASSPHRASE_FILE="${FIXTURE_DIR}/pass"
-    echo "$PASS" > "$AOMI_PASSPHRASE_FILE"
+    export CRYPTORITO_PASSPHRASE_FILE="${FIXTURE_DIR}/pass"
+    echo "$PASS" > "$CRYPTORITO_PASSPHRASE_FILE"
     gpg --gen-key --verbose --batch <<< "
 Key-Type: RSA
 Key-Length: 2048

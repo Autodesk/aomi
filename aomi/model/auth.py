@@ -6,13 +6,16 @@ Authentication Vault Resources
 * Policies
 * Syslog/File Audit Log
 """
+import logging
 import yaml
 import hvac
 import aomi.exceptions
-from aomi.helpers import hard_path, merge_dicts, cli_hash, log
+from aomi.vault import wrap_hvac as wrap_vault
+from aomi.helpers import hard_path, merge_dicts, cli_hash
 from aomi.template import load_var_files, render
-from aomi.model import Auth, Resource, wrap_vault
+from aomi.model.resource import Auth, Resource
 from aomi.validation import secret_file, sanitize_mount
+LOG = logging.getLogger(__name__)
 
 
 class DUOAccess(Resource):
@@ -86,7 +89,7 @@ class AppRole(Auth):
     def __init__(self, obj, opt):
         super(AppRole, self).__init__('approle', obj, opt)
         self.app_name = obj['name']
-        self.path = '%s'
+        self.path = "auth/approle/role/%s" % obj['name']
         self.mount = self.backend
         role_obj = {
             'policies': ','.join(obj['policies'])
@@ -168,7 +171,7 @@ class Policy(Resource):
 
     @wrap_vault("reading")
     def read(self, client):
-        log("Reading %s" % (self), self.opt)
+        LOG.debug("Reading %s", self)
         return client.get_policy(self.path)
 
     @wrap_vault("writing")
@@ -177,5 +180,5 @@ class Policy(Resource):
 
     @wrap_vault("deleting")
     def delete(self, client):
-        log("Deleting %s" % (self), self.opt)
+        LOG.debug("Deleting %s", self)
         client.delete_policy(self.path)

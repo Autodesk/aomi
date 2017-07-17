@@ -6,14 +6,17 @@ Generic Vault Resources
 """
 from copy import deepcopy
 from uuid import uuid4
+import logging
 import yaml
 from future.utils import iteritems  # pylint: disable=E0401
+from cryptorito import portable_b64encode
 import aomi.exceptions
-from aomi.model import Secret
-from aomi.helpers import log, random_word, hard_path, \
-    open_maybe_binary, portable_b64encode
+from aomi.model.resource import Secret
+from aomi.helpers import random_word, hard_path, \
+    open_maybe_binary
 from aomi.validation import sanitize_mount, secret_file, check_obj, \
     is_unicode_string
+LOG = logging.getLogger(__name__)
 
 
 class Generic(Secret):
@@ -82,20 +85,20 @@ class Files(Generic):
             check_obj(['source', 'name'], self.name(), fileobj)
 
 
-def generated_key(key, opt):
+def generated_key(key):
     """Create the proper generated key value"""
     key_name = key['name']
     if key['method'] == 'uuid':
-        log("Setting %s to a uuid" % key_name, opt)
+        LOG.debug("Setting %s to a uuid", key_name)
         return str(uuid4())
     elif key['method'] == 'words':
-        log("Setting %s to random words" % key_name, opt)
+        LOG.debug("Setting %s to random words", key_name)
         return random_word()
     elif key['method'] == 'static':
         if 'value' not in key.keys():
             raise aomi.exceptions.AomiData("Missing static value")
 
-        log("Setting %s to a static value" % key_name, opt)
+        LOG.debug("Setting %s to a static value", key_name)
         return key['value']
     else:
         raise aomi.exceptions.AomiData("Unexpected generated secret method %s"
@@ -126,10 +129,10 @@ class Generated(Generic):
             if self.existing and \
                key_name in self.existing and \
                not key.get('overwrite'):
-                log("Not overwriting %s/%s" % (self.path, key_name), self.opt)
+                LOG.debug("Not overwriting %s/%s", self.path, key_name)
                 continue
             else:
-                secret_obj[key_name] = generated_key(key, self.opt)
+                secret_obj[key_name] = generated_key(key)
 
         return secret_obj
 

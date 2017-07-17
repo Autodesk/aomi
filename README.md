@@ -27,7 +27,7 @@ This project features the following tests (all are invoked with `make test`).
 
 ## Documentation
 
-The README is focused on contribution guidelines. Operational docs are available on a static GitHub [page](https://autodesk.github.io/aomi/). These docs are maintained as [markdown](https://github.com/adam-p/markdown-here/wiki/Markdown-Cheatsheet) formatted documents within the [docs](https://github.com/Autodesk/aomi/tree/master/docs) directory. The static site is updated automatically based on the contents of this directory.
+The README is focused on contribution guidelines. Operational docs are available on a static GitHub [page](https://autodesk.github.io/aomi/). These docs are maintained as [markdown](https://github.com/adam-p/markdown-here/wiki/Markdown-Cheatsheet) formatted documents within the [docs](https://github.com/Autodesk/aomi/tree/master/docs) directory. The static site is updated automatically on every commit into the mainline branch based on the contents of this directory.
 
 ## Deployment
 

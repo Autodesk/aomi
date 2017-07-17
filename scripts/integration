@@ -1,25 +1,14 @@
 #!/usr/bin/env bash
-
-SCRIPTDIR=$( cd ${0%/*} && pwd)
-TESTS="a_smoke environment exec_context seed template"
-VAULT_TESTS="aws"
-GPG_TESTS="cold_storage"
-export VAULT_AWS_PATH="aomi/aws/creds/travis"
-export VAULT_SECRET_PATH="secrets/aomi"
-
-if [ -z "$VAULT_VERSION" ] ; then
-    VAULT_VERSION="0.6.2"
-fi
-
+# This script will execute our BATS based tests. It sets up the test
+# environment with AWS credentials and other run time dependencies.
+# Executed with no options it will attempt to run every test that is
+# supported by the platform and dependencies. You may also pass in
+# a single option in order to run only one test suite.
 set -e
 
-if [ $# == 1 ] ; then
-    TEST="$1"
-    if [ "$TEST" == "smoke" ] ; then
-        TEST="a_smoke"
-    fi
-fi
-
+# These path variables are used in this script and within
+# the BATS execution context.
+SCRIPTDIR=$( cd ${0%/*} && pwd)
 ROOTDIR=${SCRIPTDIR%/*}
 export CIDIR="$ROOTDIR"
 BATSGIT="${ROOTDIR}/.bats-git"
@@ -27,16 +16,48 @@ BATSBIN="${ROOTDIR}/.bats"
 VAULTDIR="${ROOTDIR}/.vault"
 VAULTBIN="${VAULTDIR}/vault"
 
+# Define our test groups. Currently not every test is executed
+# in every single execution context.
+GPG_TESTS="cold_storage"
+TESTS="a_smoke environment exec_context seed template"
+VAULT_TESTS="aws"
+
+# These are the HCV paths where we can find the secrets used
+# during integration tests interacting with third parties.
+export VAULT_AWS_PATH="aomi/aws/creds/travis"
+export VAULT_SECRET_PATH="secrets/aomi"
+
+# Default to a unreasonably old version of HCV because reasons.
+if [ -z "$VAULT_VERSION" ] ; then
+    VAULT_VERSION="0.6.2"
+fi
+
+# This way the smoke tests always get executed first when running
+# every single suite.
+if [ $# == 1 ] ; then
+    TEST="$1"
+    if [ "$TEST" == "smoke" ] ; then
+        TEST="a_smoke"
+    fi
+fi
+
+# We always need shyaml
 if ! which shyaml &> /dev/null ; then
     echo "shyaml required"
     exit 1
 fi
 
+# We only need gpg2 on non-travis hosts as it doesn't
+# work on their docker infrastructure
 if [ -z "$TRAVIS" ] && ! which gpg2 &> /dev/null ; then
     echo "gpg2 required"
     exit 1
 fi
 
+# If we are not in a travis environment then always ensure
+# we are running our tests in a virtualenv to try and
+# minimize the amount of drama from heterogenous developer
+# workstations.
 if [ -z "$TRAVIS" ] ; then
     . "${ROOTDIR}/.ci-env/bin/activate"
 fi
@@ -44,6 +65,8 @@ OWD="$PWD"
 cd "$ROOTDIR"
 python setup.py install
 cd "$OWD"
+
+# Ensure the BATS shell script test framework is installed.
 if [ ! -d "$BATSGIT" ] ; then
     git clone --depth 1 https://github.com/sstephenson/bats.git "$BATSGIT"
 fi
@@ -64,6 +87,8 @@ if [ -d "$VAULTDIR" ] ; then
     fi
 fi
 
+# Fetch our requisite version of HCVault. Yeah that's
+# right, only testable on mac/linux right now.
 if [ ! -d "$VAULTDIR" ] ; then
     mkdir -p "$VAULTDIR"
     OS=$(uname -s)

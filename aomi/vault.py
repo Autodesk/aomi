@@ -2,13 +2,14 @@
 from __future__ import print_function
 import os
 import socket
+import logging
 import hvac
 import yaml
-from aomi.helpers import log
 from aomi.error import output as error_output
 from aomi.util import token_file, appid_file
 import aomi.error
 import aomi.exceptions
+LOG = logging.getLogger(__name__)
 
 
 def approle_token(vault_client, role_id, secret_id):
@@ -29,13 +30,13 @@ def app_token(vault_client, app_id, user_id):
         raise aomi.exceptions.AomiCredentials('invalid apptoken')
 
 
-def initial_token(vault_client, opt):
+def initial_token(vault_client):
     """Generate our first token based on workstation configuration"""
 
     app_filename = appid_file()
     token_filename = token_file()
     if 'VAULT_TOKEN' in os.environ and os.environ['VAULT_TOKEN']:
-        log('Token derived from VAULT_TOKEN environment variable', opt)
+        LOG.info('Token derived from VAULT_TOKEN environment variable')
         return os.environ['VAULT_TOKEN'].strip()
     elif 'VAULT_USER_ID' in os.environ and \
          'VAULT_APP_ID' in os.environ and \
@@ -43,7 +44,7 @@ def initial_token(vault_client, opt):
         token = app_token(vault_client,
                           os.environ['VAULT_APP_ID'].strip(),
                           os.environ['VAULT_USER_ID'].strip())
-        log("Token derived from VAULT_APP_ID and VAULT_USER_ID", opt)
+        LOG.info("Token derived from VAULT_APP_ID and VAULT_USER_ID")
         return token
     elif 'VAULT_ROLE_ID' in os.environ and \
          'VAULT_SECRET_ID' in os.environ and \
@@ -51,7 +52,7 @@ def initial_token(vault_client, opt):
         token = approle_token(vault_client,
                               os.environ['VAULT_ROLE_ID'],
                               os.environ['VAULT_SECRET_ID'])
-        log("Token derived from VAULT_ROLE_ID and VAULT_SECRET_ID", opt)
+        LOG.info("Token derived from VAULT_ROLE_ID and VAULT_SECRET_ID")
         return token
     elif app_filename:
         token = yaml.safe_load(open(app_filename).read().strip())
@@ -59,10 +60,10 @@ def initial_token(vault_client, opt):
             token = app_token(vault_client,
                               token['app_id'],
                               token['user_id'])
-            log("Token derived from %s" % app_filename, opt)
+            LOG.info("Token derived from %s", app_filename)
             return token
     elif token_filename:
-        log("Token derived from %s" % token_filename, opt)
+        LOG.info("Token derived from %s", token_filename)
         return open(token_filename, 'r').read().strip()
     else:
         raise aomi.exceptions.AomiCredentials('unknown method')
@@ -87,7 +88,7 @@ def token_meta(operation, opt):
             meta[key] = value
 
     for key, value in meta.items():
-        log("Token metadata %s %s" % (key, value), opt)
+        LOG.debug("Token metadata %s %s", key, value)
 
     return meta
 
@@ -111,7 +112,7 @@ def operational_token(vault_client, operation, opt):
         else:
             raise
 
-    log("Using lease of %s" % opt.lease, opt)
+    LOG.debug("Using lease of %s", opt.lease)
     return token['auth']['client_token']
 
 
@@ -125,17 +126,17 @@ def client(operation, opt):
     ssl_verify = True
     if 'VAULT_SKIP_VERIFY' in os.environ:
         if os.environ['VAULT_SKIP_VERIFY'] == '1':
-            log('Skipping SSL Validation!', opt)
+            LOG.warning('Skipping SSL Validation!')
             ssl_verify = False
 
-    log("Connecting to %s" % vault_host, opt)
+    LOG.info("Connecting to %s", vault_host)
     vault_client = hvac.Client(vault_host, verify=ssl_verify)
-    vault_client.token = initial_token(vault_client, opt)
+    vault_client.token = initial_token(vault_client)
     if not vault_client.is_authenticated():
         raise aomi.exceptions.AomiCredentials('initial token')
 
     if opt.reuse_token:
-        log("Not creating operational token", opt)
+        LOG.debug("Not creating operational token")
     else:
         vault_client.token = operational_token(vault_client, operation, opt)
         if not vault_client.is_authenticated():
@@ -153,3 +154,26 @@ def is_mounted(backend, path, backends):
             return True
 
     return False
+
+
+def wrap_hvac(msg):
+    """Error catching Vault API wrapper
+    This decorator wraps API interactions with Vault. It will
+    catch and return appropriate error output on common
+    problems"""
+    # pylint: disable=missing-docstring
+    def wrap_call(func):
+        # pylint: disable=missing-docstring
+        def func_wrapper(self, vault_client):
+            try:
+                return func(self, vault_client)
+            except (hvac.exceptions.InvalidRequest,
+                    hvac.exceptions.Forbidden) as vault_exception:
+                if vault_exception.errors[0] == 'permission denied':
+                    error_output("Permission denied %s from %s" %
+                                 (msg, self.path), self.opt)
+                else:
+                    raise
+
+        return func_wrapper
+    return wrap_call

@@ -1,17 +1,16 @@
 """ Helpers for aomi that are used throughout the application """
 from __future__ import print_function
-import collections
-import tempfile
-import itertools as IT
 import sys
 import os
-from base64 import b64encode, b64decode
+import tempfile
 from random import SystemRandom
 from getpass import getpass
+import logging
 from pkg_resources import resource_string, resource_filename
 # Python 2/3 compat
 from future.utils import iteritems  # pylint: disable=E0401
 import aomi.exceptions
+LOG = logging.getLogger()
 
 
 def my_version():
@@ -23,17 +22,6 @@ def my_version():
                              "..", "version")).read()
 
 VERSION = my_version()
-
-
-def log(msg, opt):
-    """Verbose messaging!"""
-    if opt.verbose:
-        print(msg, file=sys.stderr)
-
-
-def warning(msg):
-    """Print a warning message to stderr"""
-    print("Warning {0}".format(msg), file=sys.stderr)
 
 
 def abspath(raw):
@@ -101,10 +89,10 @@ def merge_dicts(dict_a, dict_b):
     return obj
 
 
-def get_tty_password(opt, confirm):
+def get_tty_password(confirm):
     """When returning a password from a TTY we assume a user
     is entering it on a keyboard so we ask for confirmation."""
-    log("Reading password from TTY", opt)
+    LOG.debug("Reading password from TTY")
     new_password = getpass('Enter Password: ', stream=sys.stderr)
     if not new_password:
         raise aomi.exceptions.AomiCommand("Must specify a password")
@@ -119,18 +107,18 @@ def get_tty_password(opt, confirm):
     return new_password
 
 
-def get_stdin_password(opt):
+def get_stdin_password():
     """Returns a password from stdin, no confirmation neccesary"""
-    log("Reading password from stdin", opt)
+    LOG.debug("Reading password from stdin")
     return sys.stdin.readline().rstrip()
 
 
-def get_password(opt, confirm=True):
+def get_password(confirm=True):
     """Will return a password in an appropriate fashion"""
     if sys.stdin.isatty():
-        return get_tty_password(opt, confirm)
+        return get_tty_password(confirm)
 
-    return get_stdin_password(opt)
+    return get_stdin_password()
 
 
 def path_pieces(vault_path):
@@ -189,30 +177,6 @@ def random_word():
     return "%s-%s" % (academic, animal)
 
 
-def flatten(iterable):
-    """Ensure we are returning an actual list, as that's all we
-    are ever going to flatten within aomi"""
-    return [x for x in actually_flatten(iterable)]
-
-
-def actually_flatten(iterable):
-    """Flatten iterables"""
-    remainder = iter(iterable)
-    while True:
-        first = next(remainder)
-        # Python 2/3 compat
-        try:
-            basestring
-        except NameError:
-            # Python 2/3 compat
-            basestring = str  # pylint: disable=W0622
-        if isinstance(first, collections.Iterable) and \
-           not isinstance(first, basestring):
-            remainder = IT.chain(first, remainder)
-        else:
-            yield first
-
-
 def subdir_path(directory, relative):
     """Returns a file path relative to another path."""
     item_bits = directory.split(os.sep)
@@ -225,31 +189,6 @@ def subdir_path(directory, relative):
                 return None
 
     return None
-
-
-def portable_b64encode(thing):
-    """Wrap b64encode for Python 2 & 3"""
-    if sys.version_info >= (3, 0):
-        try:
-            some_bits = bytes(thing, 'utf-8')
-        except TypeError:
-            some_bits = thing
-
-        return b64encode(some_bits).decode('utf-8')
-
-    return b64encode(thing)
-
-
-def portable_b64decode(thing):
-    """Consistent b64decode in Python 2 & 3"""
-    if sys.version_info >= (3, 0):
-        decoded = b64decode(thing)
-        try:
-            return decoded.decode('utf-8')
-        except UnicodeDecodeError:
-            return decoded
-
-    return b64decode(thing)
 
 
 def open_maybe_binary(filename):

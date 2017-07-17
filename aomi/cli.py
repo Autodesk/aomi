@@ -2,6 +2,7 @@
 from __future__ import print_function
 import os
 import sys
+import logging
 from argparse import ArgumentParser
 import aomi.vault
 import aomi.render
@@ -11,9 +12,9 @@ import aomi.util
 import aomi.filez
 import aomi.seed_action
 from aomi.helpers import VERSION as version
-from aomi.helpers import log
 from aomi.util import token_file, appid_file
 from aomi.error import unhandled
+LOG = logging.getLogger(__name__)
 
 
 def help_me(parser, opt):
@@ -30,11 +31,11 @@ def help_me(parser, opt):
         appe_str = 'AppID Env,' if 'VAULT_USER_ID' in os.environ and \
                    'VAULT_APP_ID' in os.environ else ''
 
-        log(("Auth Hints Present : %s%s%s%s%s" %
-             (tf_str, app_str, tfe_str, appre_str, appe_str))[:-1], opt)
-        log("Vault Server %s" %
-            os.environ['VAULT_ADDR']
-            if 'VAULT_ADDR' in os.environ else '??', opt)
+        LOG.info(("Auth Hints Present : %s%s%s%s%s" %
+                  (tf_str, app_str, tfe_str, appre_str, appe_str))[:-1])
+        LOG.info("Vault Server %s" %
+                 os.environ['VAULT_ADDR']
+                 if 'VAULT_ADDR' in os.environ else '??')
 
     parser.print_help()
     sys.exit(0)
@@ -177,7 +178,7 @@ def generic_args(parser):
     parser.add_argument('--verbose',
                         dest='verbose',
                         help='Verbose output',
-                        action='store_true')
+                        action='count')
 
 
 def base_args(parser):
@@ -317,12 +318,26 @@ def template_runner(client, parser, args):
     sys.exit(0)
 
 
-def action_runner(parser, args):
-    """Run appropriate action, or throw help"""
-
+def ux_actions(parser, args):
+    """Handle some human triggers actions"""
     if args.operation == 'help':
         help_me(parser, args)
 
+    # cryptorito uses native logging (as aomi should tbh)
+
+    normal_fmt = '%(message)s'
+    if args.verbose == 2:
+        logging.basicConfig(level=logging.DEBUG)
+    elif args.verbose == 1:
+        logging.basicConfig(level=logging.INFO, format=normal_fmt)
+    else:
+        logging.basicConfig(level=logging.WARN, format=normal_fmt)
+
+
+def action_runner(parser, args):
+    """Run appropriate action, or throw help"""
+
+    ux_actions(parser, args)
     client = aomi.vault.client(args.operation, args)
     if args.operation == 'extract_file':
         aomi.render.raw_file(client, args.vault_path, args.destination, args)
@@ -343,7 +358,7 @@ def action_runner(parser, args):
         print(client.token)
         sys.exit(0)
     elif args.operation == 'set_password':
-        aomi.util.password(client, args.vault_path, args)
+        aomi.util.password(client, args.vault_path)
         sys.exit(0)
     elif args.operation == 'freeze':
         aomi.filez.freeze(args.icefile, args)

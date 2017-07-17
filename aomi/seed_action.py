@@ -27,9 +27,9 @@ def seed(vault_client, opt):
         opt.secrets = tempfile.mkdtemp('aomi-thaw')
         auto_thaw(opt)
 
-    ctx = Context.load(get_secretfile(opt), opt)
-    ctx.fetch(vault_client)
-    ctx.sync(vault_client)
+    Context.load(get_secretfile(opt), opt) \
+           .fetch(vault_client) \
+           .sync(vault_client)
 
     if opt.thaw_from:
         rmtree(opt.secrets)

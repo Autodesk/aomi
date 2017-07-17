@@ -5,8 +5,8 @@ from pkg_resources import resource_listdir, resource_filename
 import yaml
 from jinja2 import Environment, FileSystemLoader, meta
 import jinja2.nodes
-from aomi.helpers import merge_dicts, abspath, cli_hash, \
-    portable_b64encode, portable_b64decode
+from cryptorito import portable_b64encode, portable_b64decode
+from aomi.helpers import merge_dicts, abspath, cli_hash
 import aomi.exceptions
 # Python 2/3 compat
 from future.utils import iteritems  # pylint: disable=E0401
