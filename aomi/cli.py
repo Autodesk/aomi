@@ -369,7 +369,7 @@ def ux_actions(parser, args):
     """Handle some human triggers actions"""
     # cryptorito uses native logging (as aomi should tbh)
     normal_fmt = '%(message)s'
-    if args.verbose == 2:
+    if args.verbose >= 2:
         logging.basicConfig(level=logging.DEBUG)
     elif args.verbose == 1:
         logging.basicConfig(level=logging.INFO, format=normal_fmt)

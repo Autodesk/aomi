@@ -2,7 +2,6 @@
 # -*- mode: Shell-script;bash -*-
 # Simple smoke test covering basic functionality as described
 # in the quickstart documentation
-
 load helper
 
 setup() {
@@ -16,7 +15,8 @@ teardown() {
 }
 
 @test "can seed and extract a file" {
-    aomi_seed --tags bar --verbose
+    cat "$VAULT_LOG"
+    aomi_seed --tags bar
     [ "$status" -eq 0 ]    
     run aomi extract_file \
         foo/bar/baz/secret \

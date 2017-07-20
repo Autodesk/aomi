@@ -11,6 +11,7 @@ set -e
 SCRIPTDIR=$( cd ${0%/*} && pwd)
 ROOTDIR=${SCRIPTDIR%/*}
 export CIDIR="$ROOTDIR"
+export ROOTDIR
 BATSGIT="${ROOTDIR}/.bats-git"
 BATSBIN="${ROOTDIR}/.bats"
 VAULTDIR="${ROOTDIR}/.vault"
@@ -19,7 +20,8 @@ VAULTBIN="${VAULTDIR}/vault"
 # Define our test groups. Currently not every test is executed
 # in every single execution context.
 GPG_TESTS="cold_storage"
-TESTS="a_smoke environment exec_context seed template cubbyhole output ux diff"
+#TESTS="a_smoke environment exec_context seed template cubbyhole output ux diff"
+TESTS="a_smoke"
 VAULT_TESTS="aws"
 
 # These are the HCV paths where we can find the secrets used
@@ -97,7 +99,6 @@ if [ ! -d "$VAULTDIR" ] ; then
     elif [ "$OS" == "Linux" ] ; then
         URL="https://releases.hashicorp.com/vault/${VAULT_VERSION}/vault_${VAULT_VERSION}_linux_amd64.zip"
     fi
-
     wget -O  "/tmp/vault.zip"  "$URL"
     unzip -d "$VAULTDIR" "/tmp/vault.zip"
     rm -f "/tmp/vault.zip"
@@ -110,10 +111,13 @@ if [ -z "$VAULTPATH" ] ; then
     exit 1
 fi
 echo "Testing with ${VAULTPATH} v${VAULT_VERSION}"
-
 export PATH
 
-
+# Figure out our Vault token. We have four options.
+# * no token, and we skip AWS tests
+# * token via local file
+# * token via environment variable
+# * token via gudrun_travis
 CI_TOKEN="${ROOTDIR}/.aomi-test/vault-token"
 if [ ! -z "$TRAVIS" ] && [ ! -z "$CI" ] ; then
     echo "Looking under couch for Vault token"
@@ -135,8 +139,7 @@ else
     fi
 fi
 
-export ROOTDIR
-
+# Figure out which tests to run
 EXEC_TESTS=""
 for a_test in $TESTS ; do
     EXEC_TESTS="${EXEC_TESTS} ${ROOTDIR}/tests/integration/${a_test}.bats"
@@ -145,6 +148,7 @@ if [ -z "$TRAVIS" ] ; then
     EXEC_TESTS="${EXEC_TESTS} ${ROOTDIR}/tests/integration/${GPG_TESTS}.bats"
 fi
 
+# If we have Vault credentials we need to check to see if they are legit
 if [ ! -z "$VAULT_TOKEN" ] && \
        [ ! -z "$VAULT_ADDR" ] ; then
     echo "Vault detected..."
@@ -167,6 +171,8 @@ else
     rm -rf "${ROOTDIR}/.aomi-test"
 fi
 
+# If we are only testing the aws suite then we pretty much
+# need to have a Vault token
 if [ ! -e "${ROOTDIR}/.aomi-test/vault-token" ] ; then
     if [ ! -z "$TEST" ] && [ "$TEST" == "aws" ] ; then
         echo "Unable to execute AWS tests!"
@@ -178,6 +184,7 @@ else
     echo "Actually found a token!"
 fi
 
+# Build up our BATS suite
 cmd="${ROOTDIR}/.bats/bin/bats"
 if [ -z "$TEST" ] ; then
     cmd="${cmd} ${EXEC_TESTS}"
@@ -189,6 +196,7 @@ if ! $cmd ; then
     RC=1
 fi
 
+# Only when we are in Travis do we revoke our token when complete.
 if [ ! -z "$TRAVIS" ] && \
        [ ! -z "$CI" ] && \
        [ -e "${ROOTDIR}/.aomi-test/vault-token" ] ; then

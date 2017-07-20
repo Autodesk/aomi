@@ -18,10 +18,6 @@ function start_vault() {
         export VAULT_PID
         export VAULT_ADDR='http://127.0.0.1:8200'
         VAULT_TOKEN=$(grep -e 'Root Token' "$VAULT_LOG" | cut -f 3 -d ' ')
-        if [ -z "$VAULT_TOKEN" ] ; then
-            echo "Unable to extract Vault Token"
-            exit 1
-        fi
         export VAULT_TOKEN="$VAULT_TOKEN"
     fi
 }
@@ -143,7 +139,7 @@ function check_policy() {
 }
 
 function aomi_seed() {
-    run aomi seed --verbose "$@"
+    run aomi seed --verbose --verbose "$@"
     echo "$output"
     [ "$status" -eq 0 ]
 }
