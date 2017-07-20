@@ -9,6 +9,8 @@ There are three operations which are used as part of Operational Secret lifecycl
 * The [`seed`]({{site.baseurl}}/data#seed) action will provision a Vault server with defined data. This may optionally use a encrypted icefile.
 * The [`freeze`]({{site.baseurl}}/data#freeze) action will generate an encrypted file (icefile) suitable for cold storage of secrets
 * The [`thaw`]({{site.baseurl}}/data#thaw) action will extract an icefile for modification
+* The [`diff`]({{site.baseurl}}/data#diff) action shows what will change
+* You can [`export`]({{site.baseurl}}/data#export) secrets into a local directory
 
 # Common Arguments
 
@@ -32,9 +34,23 @@ You may tag individual policies, appids, and secrets. When resources have tags, 
 
 You can include or exclude paths from execution on a one-off basis with the `--include` and `--exclude` options. This can be used to fine tune an aomi `seed` operation without having to permanently modify a `Secretfile` with tags. Note that exclude takes priority over include.
 
+# diff
+
+The diff command will go through the [`Secretfile`]({{site.baseurl}}/secretfile) and report on what would be changed by a `seed` operation. Note that you need to be logged in, and already have appropriate permissions. The `diff` command _can_ be executed with no arguments, and it will look for everything in the current working directory. The `diff` command takes the `--secretfile`, `--policies`, and `--secrets` options.
+
+Differences will be reported in a human readable fashion according annotated depending on the action required.
+
+* A green <span color="green">+</span> indicates a new Vault resource will be created
+* A red <span color="red">-</span>indicates a Vault resource will be removed
+* A yellow <span color="yellow">~</span> indicates a Vault resource will be changed
+* A yellow <span color="yellow">+</span> indicates a write-only Vault resource will be overwritten
+* Vault resources for which there is no change are not mentioned
+
 # seed
 
-The seed command will go through the `Secretfile` and appropriately provision Vault. Note that you need to be logged in, and already have appropriate permissions. The seed command _can_ be executed with no arguments, and it will look for everything in the current working directory. The `seed` command takes the `--secretfile`, `--policies`, and `--secrets` options. The `--mount-only` option ensures that backends are attached and does not actually writing anything to Vault.
+The seed command will go through the [`Secretfile`]({{site.baseurl}}/secretfile) and appropriately provision Vault. Note that you need to be logged in, and already have appropriate permissions. The seed command _can_ be executed with no arguments, and it will look for everything in the current working directory. The `seed` command takes the `--secretfile`, `--policies`, and `--secrets` options. The `--mount-only` option ensures that backends are attached and does not actually writing anything to Vault.
+
+It is possible to have aomi clean up unrecognzied Vault mount points. Note that by doing this, _any_ mount point that is not defined in the fully rendered `Secretfile` will be unmounted. This causes non-recoverable data from the perspective of Vault. Care should be taken to back up your data using [`freeze`]({{site.baseurl}}/data#freeze) and [`thaw`]({{site.baseurl}}/data#thaw) prior to using this option. It may be enabled by specifying `--remove-unknown`.
 
 The `Secretfile` is interpreted as a Jinja2 template, and you can pass in `--extra-vars` and `--extra-vars-file` to `seed`. This opens up some possibilities for bulk-creating sets of credentials based on integrations with other systems, while still preserving various paths and structures.
 
@@ -42,7 +58,7 @@ The `seed` command will make some sanity checks as it goes. One of these is to c
 
 # freeze
 
-The `freeze` action will go through the `Secretfile` and extract specified secrets from the local file system into an encrypted zip file. This file is known as an icefile, because it sounds cool. You can specify tags, or include/exclude paths. In order to make use of `freeze` you _must_ specify a list of either Keybase or GPG fingerprints in the `Secretfile` under the `pgp_keys` section. All the options supported by `seed` for selection of secrets and file paths are supported with this operation.
+The `freeze` action will go through the [`Secretfile`]({{site.baseurl}}/secretfile) and extract specified secrets from the local file system into an encrypted zip file. This file is known as an icefile, because it sounds cool. You can specify tags, or include/exclude paths. In order to make use of `freeze` you _must_ specify a list of either Keybase or GPG fingerprints in the `Secretfile` under the `pgp_keys` section. All the options supported by `seed` for selection of secrets and file paths are supported with this operation.
 
 ----
 
@@ -57,7 +73,7 @@ pgp_keys:
 This example will generate an icefile in the `/tmp` directory.
 
 ```
-aomi freeze /tmp
+$ aomi freeze /tmp
 ```
 
 # thaw
@@ -67,7 +83,15 @@ The `thaw` action will take a generated icefile and thaw it into the configured 
 This example will thaw the named icefile into the default "secrets" directory.
 
 ```
-aomi thaw /tmp/aomi-example-000000-01-01-2017.ice 
+$ aomi thaw /tmp/aomi-example-000000-01-01-2017.ice 
+```
+
+# export
+
+The `export` action will go through a `Secretfile` and read out any readable secret from the Vault server. Note that some paths are _write only_ and thus the information is not retrievable. Examples of this are the root path for the [AWS backend](https://www.vaultproject.io/docs/secrets/aws/) or the password of a [userpass](https://www.vaultproject.io/docs/auth/userpass.html) user. This operation takes the `--secretfile`, `--policies`, and `--secrets` directory options along with `--extra-vars` and `--extra-vars-file` options.
+
+```
+$ aomi export /tmp/secrets
 ```
 
 # Errata

@@ -6,3 +6,4 @@ awscli
 pylint
 bandit
 vulture
+sphinx

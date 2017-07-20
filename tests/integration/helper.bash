@@ -83,8 +83,8 @@ function use_fixture() {
         cp -r "${BATS_TEST_DIRNAME}/fixtures/${FIXTURE}/.secrets/"* "$SECRET_DIR"
     fi
     cd "$FIXTURE_DIR" || exit 1
-    echo -n "$RANDOM" > "$SECRET_DIR/secret.txt"
-    echo -n "$RANDOM" > "$SECRET_DIR/secret2.txt"
+    echo -n "$RANDOM" > "${SECRET_DIR}/secret.txt"
+    echo -n "$RANDOM" > "${SECRET_DIR}/secret2.txt"
     echo "secret: ${RANDOM}" > "${SECRET_DIR}/secret.yml"
     echo "secret: ${RANDOM}" > "${SECRET_DIR}/secret2.yml"
     echo -n "secret2: ${RANDOM}" >> "${SECRET_DIR}/secret.yml"

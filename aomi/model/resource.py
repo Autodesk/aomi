@@ -2,12 +2,19 @@
 import os
 import shutil
 import logging
+import yaml
 import hvac.exceptions
 from aomi.vault import wrap_hvac as wrap_vault
-from aomi.helpers import is_tagged, hard_path
+from aomi.helpers import is_tagged, hard_path, diff_dict
 import aomi.exceptions as aomi_excep
 from aomi.validation import check_obj, specific_path_check
 LOG = logging.getLogger(__name__)
+
+NOOP = 0
+CHANGED = 1
+ADD = 2
+DEL = 3
+OVERWRITE = 4
 
 
 class Resource(object):
@@ -38,6 +45,28 @@ class Resource(object):
 
             shutil.copy(src_file, dest_file)
             LOG.info("Thawed %s %s", self, sfile)
+
+    def export_handle(self, directory):
+        """Get a filehandle for exporting"""
+        filename = getattr(self, 'filename')
+        dest_file = "%s/%s" % (directory, filename)
+        dest_dir = os.path.dirname(dest_file)
+        if not os.path.isdir(dest_dir):
+            os.mkdir(dest_dir, 0o700)
+
+        return open(dest_file, 'w')
+
+    def export(self, directory):
+        """Export exportable resources decoding as needed"""
+        if not self.existing or not hasattr(self, 'filename'):
+            return
+
+        secret_h = self.export_handle(directory)
+        obj = self.existing
+        if isinstance(obj, (str, unicode)):
+            secret_h.write(obj)
+        elif isinstance(obj, dict):
+            secret_h.write(yaml.safe_dump(obj))
 
     def freeze(self, tmp_dir):
         """Copies a secret into a particular location"""
@@ -106,6 +135,34 @@ class Resource(object):
         self.tags = obj.get('tags', [])
         self.opt = opt
 
+    def diff(self, obj=None):
+        """Determine if something has changed or not"""
+        if not obj:
+            obj = self.obj()
+
+        is_diff = NOOP
+        if self.present and self.existing:
+            existing_type = type(self.existing)
+            if existing_type == bool and self.existing:
+                is_diff = NOOP
+            elif existing_type == dict:
+                current = dict(self.existing)
+                if 'refresh_interval' in current:
+                    del current['refresh_interval']
+
+                if diff_dict(current, obj):
+                    is_diff = CHANGED
+            elif existing_type == unicode and self.existing == obj:
+                is_diff = NOOP
+            else:
+                is_diff = NOOP
+        elif self.present and not self.existing:
+            is_diff = ADD
+        elif not self.present and self.existing:
+            is_diff = DEL
+
+        return is_diff
+
     def fetch(self, vault_client):
         """Populate internal representation of remote
         Vault resource contents"""
@@ -125,9 +182,10 @@ class Resource(object):
                      self.secret_format, self)
             self.write(vault_client)
         elif self.present and self.existing:
-            LOG.info("Updating %s in %s",
-                     self.secret_format, self)
-            self.write(vault_client)
+            if self.diff() == CHANGED or self.diff() == OVERWRITE:
+                LOG.info("Updating %s in %s",
+                         self.secret_format, self)
+                self.write(vault_client)
         elif not self.present and not self.existing:
             LOG.info("No %s to remove from %s",
                      self.secret_format, self)
@@ -152,6 +210,20 @@ class Resource(object):
             return False
 
         return True
+
+    @staticmethod
+    def diff_write_only(resource):
+        """A different implementation of diff that is
+        used for those Vault resources that are write-only
+        such as AWS root configs"""
+        if resource.present and not resource.existing:
+            return ADD
+        elif not resource.present and resource.existing:
+            return DEL
+        elif resource.present and resource.existing:
+            return OVERWRITE
+
+        return NOOP
 
     @wrap_vault("reading")
     def read(self, client):
@@ -248,4 +320,4 @@ class AuditLog(Resource):
         if 'description' in obj:
             self.description = obj['description']
 
-        self.obj = obj
+        self._obj = obj

@@ -23,6 +23,9 @@ class DUOAccess(Resource):
     Access Credentials"""
     child = True
 
+    def export(self, _directory):
+        pass
+
     def secrets(self):
         return [self.secret]
 
@@ -36,15 +39,20 @@ class DUOAccess(Resource):
             'ikey': obj['key']
         }
 
+    def diff(self, obj=None):
+        return Resource.diff_write_only(self)
+
     def __init__(self, duo, secret, opt):
         super(DUOAccess, self).__init__({}, opt)
-        self.path = "auth/%s/duo/access" % duo.backend
+        self.backend = duo.backend
+        self.path = "auth/%s/duo/access" % self.backend
         self.filename = secret
         self.secret = secret
         self.host = duo.host
 
-    def fetch(self, _vault_client):
-        self.existing = False  # always assume because we can never be sure
+    def fetch(self, vault_client):
+        mfa_config = vault_client.read("auth/%s/mfa_config" % self.backend)
+        self.existing = mfa_config and mfa_config['data']['type'] == 'duo'
 
 
 class DUO(Auth):
@@ -56,6 +64,9 @@ class DUO(Auth):
 
     def resources(self):
         return [self, self.access]
+
+    def diff(self, obj=None):
+        return Resource.diff_write_only(self)
 
     def __init__(self, obj, opt):
         super(DUO, self).__init__('userpass', obj, opt)
@@ -86,6 +97,18 @@ class AppRole(Auth):
     required_fields = ['name', 'policies']
     config_key = 'approles'
 
+    @staticmethod
+    def map_val(src, dest, key, default, src_key=None):
+        """Will ensure a dict has values sourced from either
+        another dict or based on the provided default"""
+        if not src_key:
+            src_key = key
+
+        if src_key in src:
+            dest[key] = src[src_key]
+        else:
+            dest[key] = default
+
     def __init__(self, obj, opt):
         super(AppRole, self).__init__('approle', obj, opt)
         self.app_name = obj['name']
@@ -94,18 +117,23 @@ class AppRole(Auth):
         role_obj = {
             'policies': ','.join(obj['policies'])
         }
-        if 'cidr_list' in obj:
-            role_obj['bound_cidr_list'] = ','.join(obj['cidr_list'])
-        else:
-            role_obj['bound_cidr_list'] = ''
-
-        if 'secret_uses' in obj:
-            role_obj['secret_id_num_uses'] = obj['secret_uses']
-
-        if 'secret_ttl' in obj:
-            role_obj['secret_id_ttl'] = obj['secret_ttl']
-
+        AppRole.map_val(role_obj, obj, 'bound_cidr_list', '', 'cidr_list')
+        AppRole.map_val(role_obj, obj, 'secret_id_num_uses', 0, 'secret_uses')
+        AppRole.map_val(role_obj, obj, 'secret_id_ttl', 0, 'secret_ttl')
+        AppRole.map_val(role_obj, obj, 'period', 0)
+        AppRole.map_val(role_obj, obj, 'token_max_ttl', 0)
+        AppRole.map_val(role_obj, obj, 'token_ttl', 0)
+        AppRole.map_val(role_obj, obj, 'bind_secret_id', 'require_secret')
         self._obj = role_obj
+
+    def diff(self, obj=None):
+        obj = dict(self.obj())
+        obj['policies'] = obj['policies'].split(',')
+        if 'default' not in obj['policies']:
+            obj['policies'].append('default')
+
+        obj['policies'] = sorted(obj['policies'])
+        return super(AppRole, self).diff(obj)
 
     @wrap_vault("writing")
     def write(self, client):
@@ -128,6 +156,9 @@ class UserPass(Auth):
     required_fields = ['username', 'password_file', 'policies']
     config_key = 'users'
 
+    def export(self, _directory):
+        pass
+
     def __init__(self, obj, opt):
         super(UserPass, self).__init__('userpass', obj, opt)
         self.username = obj['username']
@@ -139,6 +170,9 @@ class UserPass(Auth):
 
     def secrets(self):
         return [self.secret]
+
+    def diff(self, obj=None):
+        return Resource.diff_write_only(self)
 
     def obj(self):
         filename = hard_path(self.filename, self.opt.secrets)
@@ -159,7 +193,7 @@ class Policy(Resource):
         super(Policy, self).__init__(obj, opt)
         self.path = obj['name']
         if self.present:
-            self.filename = hard_path(obj['file'], opt.policies)
+            self.filename = obj['file']
             cli_obj = merge_dicts(load_var_files(opt),
                                   cli_hash(opt.extra_vars))
             self._obj = merge_dicts(cli_obj, obj.get('vars', {}))
@@ -169,14 +203,26 @@ class Policy(Resource):
         if 'vars' in obj and not isinstance(obj['vars'], dict):
             raise aomi.exceptions.Validation('policy vars must be dicts')
 
+    def obj(self):
+        return render(hard_path(self.filename, self.opt.policies), self._obj) \
+            .lstrip() \
+            .strip() \
+            .replace("\n\n", "\n")
+
     @wrap_vault("reading")
     def read(self, client):
         LOG.debug("Reading %s", self)
-        return client.get_policy(self.path)
+        a_policy = client.get_policy(self.path)
+        if a_policy:
+            return a_policy.lstrip() \
+                           .strip() \
+                           .replace("\n\n", "\n")
+
+        return None
 
     @wrap_vault("writing")
     def write(self, client):
-        client.set_policy(self.path, render(self.filename, self._obj))
+        client.set_policy(self.path, self.obj())
 
     @wrap_vault("deleting")
     def delete(self, client):

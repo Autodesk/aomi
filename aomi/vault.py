@@ -5,6 +5,7 @@ import socket
 import logging
 import hvac
 import yaml
+from aomi.helpers import normalize_vault_path
 from aomi.error import output as error_output
 from aomi.util import token_file, appid_file
 import aomi.error
@@ -30,50 +31,11 @@ def app_token(vault_client, app_id, user_id):
         raise aomi.exceptions.AomiCredentials('invalid apptoken')
 
 
-def initial_token(vault_client):
-    """Generate our first token based on workstation configuration"""
-
-    app_filename = appid_file()
-    token_filename = token_file()
-    if 'VAULT_TOKEN' in os.environ and os.environ['VAULT_TOKEN']:
-        LOG.info('Token derived from VAULT_TOKEN environment variable')
-        return os.environ['VAULT_TOKEN'].strip()
-    elif 'VAULT_USER_ID' in os.environ and \
-         'VAULT_APP_ID' in os.environ and \
-         os.environ['VAULT_USER_ID'] and os.environ['VAULT_APP_ID']:
-        token = app_token(vault_client,
-                          os.environ['VAULT_APP_ID'].strip(),
-                          os.environ['VAULT_USER_ID'].strip())
-        LOG.info("Token derived from VAULT_APP_ID and VAULT_USER_ID")
-        return token
-    elif 'VAULT_ROLE_ID' in os.environ and \
-         'VAULT_SECRET_ID' in os.environ and \
-         os.environ['VAULT_ROLE_ID'] and os.environ['VAULT_SECRET_ID']:
-        token = approle_token(vault_client,
-                              os.environ['VAULT_ROLE_ID'],
-                              os.environ['VAULT_SECRET_ID'])
-        LOG.info("Token derived from VAULT_ROLE_ID and VAULT_SECRET_ID")
-        return token
-    elif app_filename:
-        token = yaml.safe_load(open(app_filename).read().strip())
-        if 'app_id' in token and 'user_id' in token:
-            token = app_token(vault_client,
-                              token['app_id'],
-                              token['user_id'])
-            LOG.info("Token derived from %s", app_filename)
-            return token
-    elif token_filename:
-        LOG.info("Token derived from %s", token_filename)
-        return open(token_filename, 'r').read().strip()
-    else:
-        raise aomi.exceptions.AomiCredentials('unknown method')
-
-
-def token_meta(operation, opt):
+def token_meta(opt):
     """Generates metadata for a token"""
     meta = {
         'via': 'aomi',
-        'operation': operation,
+        'operation': opt.operation,
         'hostname': socket.gethostname()
     }
     if 'USER' in os.environ:
@@ -93,63 +55,11 @@ def token_meta(operation, opt):
     return meta
 
 
-def operational_token(vault_client, operation, opt):
-    """Return a properly annotated token for our use. This
-    token will be revoked at the end of the session. The token
-    will have some decent amounts of metadata tho."""
-    display_name = vault_client.lookup_token()['data']['display_name']
-    args = {
-        'lease': opt.lease,
-        'display_name': display_name,
-        'meta': token_meta(operation, opt)
-    }
-    try:
-        token = vault_client.create_token(**args)
-    except (hvac.exceptions.InvalidRequest,
-            hvac.exceptions.Forbidden) as vault_exception:
-        if vault_exception.errors[0] == 'permission denied':
-            error_output("Permission denied creating operational token", opt)
-        else:
-            raise
-
-    LOG.debug("Using lease of %s", opt.lease)
-    return token['auth']['client_token']
-
-
-def client(operation, opt):
-    """Return a vault client"""
-    if 'VAULT_ADDR' not in os.environ:
-        raise aomi.exceptions.AomiError('VAULT_ADDR must be defined')
-
-    vault_host = os.environ['VAULT_ADDR']
-
-    ssl_verify = True
-    if 'VAULT_SKIP_VERIFY' in os.environ:
-        if os.environ['VAULT_SKIP_VERIFY'] == '1':
-            LOG.warning('Skipping SSL Validation!')
-            ssl_verify = False
-
-    LOG.info("Connecting to %s", vault_host)
-    vault_client = hvac.Client(vault_host, verify=ssl_verify)
-    vault_client.token = initial_token(vault_client)
-    if not vault_client.is_authenticated():
-        raise aomi.exceptions.AomiCredentials('initial token')
-
-    if opt.reuse_token:
-        LOG.debug("Not creating operational token")
-    else:
-        vault_client.token = operational_token(vault_client, operation, opt)
-        if not vault_client.is_authenticated():
-            raise aomi.exceptions.AomiCredentials('operational token')
-
-    return vault_client
-
-
 def is_mounted(backend, path, backends):
     """Determine whether a backend of a certain type is mounted"""
     for mount_name, values in backends.items():
-        b_norm = '/'.join([x for x in mount_name.split('/') if x])
-        m_norm = '/'.join([x for x in path.split('/') if x])
+        b_norm = normalize_vault_path(mount_name)
+        m_norm = normalize_vault_path(path)
         if (m_norm == b_norm) and values['type'] == backend:
             return True
 
@@ -177,3 +87,144 @@ def wrap_hvac(msg):
 
         return func_wrapper
     return wrap_call
+
+
+class Client(hvac.Client):
+    """Our Vault Client Wrapper
+    This class will pass the existing hvac bits through. When interacting
+    with cubbyhole paths, it will use the non operational token in order
+    to preserve access."""
+    # dat hvac tho
+    # pylint: disable=too-many-arguments
+    def __init__(self, _url=None, token=None, _cert=None, _verify=True,
+                 _timeout=30, _proxies=None, _allow_redirects=True,
+                 _session=None):
+        if 'VAULT_ADDR' not in os.environ:
+            raise aomi.exceptions.AomiError('VAULT_ADDR must be defined')
+
+        ssl_verify = True
+        if 'VAULT_SKIP_VERIFY' in os.environ:
+            if os.environ['VAULT_SKIP_VERIFY'] == '1':
+                LOG.warning('Skipping SSL Validation!')
+                ssl_verify = False
+
+        self.initial_token = None
+        self.operational_token = None
+        super(Client, self).__init__(url=os.environ['VAULT_ADDR'],
+                                     verify=ssl_verify)
+
+    def connect(self, opt):
+        """This sets up the tokens we expect to see in a way
+        that hvac also expects."""
+        LOG.info("Connecting to %s", self._url)
+        self.token = self.init_token()
+        if not self.is_authenticated():
+            raise aomi.exceptions.AomiCredentials('initial token')
+
+        if opt.reuse_token:
+            LOG.debug("Not creating operational token")
+            self.initial_token = self.token
+            self.operational_token = self.token
+        else:
+            self.initial_token = self.token
+            self.operational_token = self.op_token(opt)
+            if not self.is_authenticated():
+                raise aomi.exceptions.AomiCredentials('operational token')
+
+            self.token = self.operational_token
+
+        return self
+
+    def init_token(self):
+        """Generate our first token based on workstation configuration"""
+
+        app_filename = appid_file()
+        token_filename = token_file()
+        if 'VAULT_TOKEN' in os.environ and os.environ['VAULT_TOKEN']:
+            LOG.info('Token derived from VAULT_TOKEN environment variable')
+            return os.environ['VAULT_TOKEN'].strip()
+        elif 'VAULT_USER_ID' in os.environ and \
+             'VAULT_APP_ID' in os.environ and \
+             os.environ['VAULT_USER_ID'] and os.environ['VAULT_APP_ID']:
+            token = app_token(self,
+                              os.environ['VAULT_APP_ID'].strip(),
+                              os.environ['VAULT_USER_ID'].strip())
+            LOG.info("Token derived from VAULT_APP_ID and VAULT_USER_ID")
+            return token
+        elif 'VAULT_ROLE_ID' in os.environ and \
+             'VAULT_SECRET_ID' in os.environ and \
+             os.environ['VAULT_ROLE_ID'] and os.environ['VAULT_SECRET_ID']:
+            token = approle_token(self,
+                                  os.environ['VAULT_ROLE_ID'],
+                                  os.environ['VAULT_SECRET_ID'])
+            LOG.info("Token derived from VAULT_ROLE_ID and VAULT_SECRET_ID")
+            return token
+        elif app_filename:
+            token = yaml.safe_load(open(app_filename).read().strip())
+            if 'app_id' in token and 'user_id' in token:
+                token = app_token(self,
+                                  token['app_id'],
+                                  token['user_id'])
+                LOG.info("Token derived from %s", app_filename)
+                return token
+            elif token_filename:
+                LOG.info("Token derived from %s", token_filename)
+                return open(token_filename, 'r').read().strip()
+            else:
+                raise aomi.exceptions.AomiCredentials('unknown method')
+
+    def op_token(self, opt):
+        """Return a properly annotated token for our use. This
+        token will be revoked at the end of the session. The token
+        will have some decent amounts of metadata tho."""
+        display_name = self.lookup_token()['data']['display_name']
+        args = {
+            'lease': opt.lease,
+            'display_name': display_name,
+            'meta': token_meta(opt)
+        }
+        try:
+            token = self.create_token(**args)
+        except (hvac.exceptions.InvalidRequest,
+                hvac.exceptions.Forbidden) as vault_exception:
+            if vault_exception.errors[0] == 'permission denied':
+                error_output("Permission denied creating operational token",
+                             opt)
+            else:
+                raise
+
+        LOG.debug("Using lease of %s", opt.lease)
+        return token['auth']['client_token']
+
+    def read(self, path, wrap_ttl=None):
+        """Wrap the hvac read call, using the right token for
+        cubbyhole interactions."""
+        if path.startswith('cubbyhole'):
+            self.token = self.initial_token
+            val = super(Client, self).read(path, wrap_ttl)
+            self.token = self.operational_token
+            return val
+
+        return super(Client, self).read(path, wrap_ttl)
+
+    def write(self, path, wrap_ttl=None, **kwargs):
+        """Wrap the hvac write call, using the right token for
+        cubbyhole interactions."""
+        if path.startswith('cubbyhole'):
+            self.token = self.initial_token
+            val = super(Client, self).write(path, wrap_ttl=wrap_ttl, **kwargs)
+            self.token = self.operational_token
+            return val
+        else:
+            super(Client, self).write(path, wrap_ttl=wrap_ttl, **kwargs)
+
+    def delete(self, path):
+        """Wrap the hvac delete call, using the right token for
+        cubbyhole interactions."""
+        if path.startswith('cubbyhole'):
+            self.token = self.initial_token
+            val = super(Client, self).delete(path)
+            self.token = self.operational_token
+            return val
+        else:
+            super(Client, self).delete(path)

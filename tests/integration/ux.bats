@@ -58,7 +58,7 @@ teardown() {
 }
 
 @test "verbosity" {
-    run aomi help --verbose
+    run aomi help --verbose --verbose
     [ "$status" -eq 0 ]
     scan_lines "Auth Hints Present" "${lines[@]}"
 }

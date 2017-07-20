@@ -36,7 +36,9 @@ def render(filename, obj):
     template_path = abspath(filename)
     fs_loader = FileSystemLoader(os.path.dirname(template_path))
     env = Environment(loader=fs_loader,
-                      autoescape=True)
+                      autoescape=True,
+                      trim_blocks=True,
+                      lstrip_blocks=True)
     env.filters['b64encode'] = portable_b64encode
     env.filters['b64decode'] = portable_b64decode
     template_src = env.loader.get_source(env, os.path.basename(template_path))
@@ -118,8 +120,13 @@ def builtin_info(builtin):
 
 
 def get_secretfile(opt):
-    """Renders, YAMLs, and returns the Secretfile construct"""
+    """Returns the de-YAML'd rendered Secretfile"""
+    return yaml.safe_load(render_secretfile(opt))
+
+
+def render_secretfile(opt):
+    """Renders and returns the Secretfile construct"""
     secretfile_path = abspath(opt.secretfile)
     obj = merge_dicts(load_var_files(opt),
                       cli_hash(opt.extra_vars))
-    return yaml.safe_load(render(secretfile_path, obj))
+    return render(secretfile_path, obj)

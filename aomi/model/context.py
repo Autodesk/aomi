@@ -5,6 +5,7 @@ import sys
 import inspect
 import logging
 from future.utils import iteritems  # pylint: disable=E0401
+from aomi.helpers import normalize_vault_path
 import aomi.exceptions as aomi_excep
 from aomi.model.resource import Resource, Mount, Secret, \
     Auth, AuditLog
@@ -49,12 +50,7 @@ def ensure_backend(resource, backend, backends, opt):
     """Ensure the backend for a resource is properly in context"""
     existing_mount = find_backend(resource.mount, backends)
     if not existing_mount:
-        new_mount = None
-        if backend == LogBackend:
-            new_mount = backend(resource, opt)
-        else:
-            new_mount = backend(resource, opt)
-
+        new_mount = backend(resource, opt)
         backends.append(new_mount)
         return new_mount
 
@@ -176,7 +172,8 @@ class Context(object):
     def add(self, resource):
         """Add a resource to the context"""
         if isinstance(resource, Resource):
-            if isinstance(resource, (Secret, Mount)):
+            if isinstance(resource, (Secret, Mount)) and \
+               resource.mount != 'cubbyhole':
                 ensure_backend(resource, SecretBackend, self._mounts, self.opt)
             elif isinstance(resource, (Auth)):
                 ensure_backend(resource, AuthBackend, self._auths, self.opt)
@@ -194,7 +191,7 @@ class Context(object):
         if isinstance(resource, Resource):
             self._resources.remove(resource)
 
-    def sync(self, vault_client):
+    def sync(self, vault_client, opt):
         """Synchronizes the context to the Vault server. This
         has the effect of updating every resource which is
         in the context."""
@@ -208,12 +205,17 @@ class Context(object):
         # ensure that everything is in order prior to actually
         # provisioning secrets. Note we handle removals before
         # anything else, allowing us to address mount conflicts.
+
+        # Create a resource set that is only explicit mounts
+        # and sort so removals are first
         mounts = [x for x in self.resources()
                   if isinstance(x, (Secret, Mount))]
-
         s_resources = sorted(mounts, key=absent_sort)
-
+        # Iterate over explicit mounts only
         for resource in s_resources:
+            if resource.mount == 'cubbyhole':
+                continue
+
             active_mount = find_backend(resource.mount, active_mounts)
             if not active_mount:
                 actual_mount = find_backend(resource.mount, self._mounts)
@@ -231,6 +233,28 @@ class Context(object):
             if not find_backend(mount.path, active_mounts):
                 mount.unmount(vault_client)
 
+        if opt.remove_unknown:
+            self.prune(vault_client)
+
+    def prune(self, vault_client):
+        """Will remove any mount point which is not actually defined
+        in this context. """
+        existing = getattr(vault_client,
+                           SecretBackend.list_fun)()['data'].items()
+        for mount_name, _values in existing:
+            # ignore system paths and cubbyhole
+            mount_path = normalize_vault_path(mount_name)
+            if mount_path.startswith('sys') or mount_path == 'cubbyhole':
+                continue
+
+            exists = [resource.path
+                      for resource in self.mounts()
+                      if normalize_vault_path(resource.path) == mount_path]
+
+            if not exists:
+                LOG.info("removed unknown mount %s", mount_path)
+                getattr(vault_client, SecretBackend.unmount_fun)(mount_path)
+
     def fetch(self, vault_client):
         """Updates the context based on the contents of the Vault
         server. Note that some resources can not be read after
@@ -245,11 +269,15 @@ class Context(object):
 
         for resource in self.resources():
             if issubclass(type(resource), Secret):
-                if find_backend(resource.mount, self._mounts).existing:
+                if resource.mount != 'cubbyhole' and \
+                   find_backend(resource.mount, self._mounts).existing:
                     resource.fetch(vault_client)
             elif issubclass(type(resource), Auth):
                 if find_backend(resource.mount, self._auths).existing:
                     resource.fetch(vault_client)
+            elif issubclass(type(resource), Mount):
+                resource.existing = find_backend(resource.mount,
+                                                 self._mounts).existing
             else:
                 resource.fetch(vault_client)
 
