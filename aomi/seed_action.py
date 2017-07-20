@@ -42,7 +42,7 @@ def seed(vault_client, opt):
 def render(directory, opt):
     """Render any provided template. This includes the Secretfile,
     Vault policies, and inline AWS roles"""
-    if not os.path.isdir(directory):
+    if not os.path.exists(directory) and not os.path.isdir(directory):
         os.mkdir(directory)
 
     a_secretfile = render_secretfile(opt)

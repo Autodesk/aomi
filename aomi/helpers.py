@@ -221,10 +221,15 @@ def ensure_tmpdir():
 def dict_unicodeize(some_dict):
     """Ensure that every string in a dict is properly represented
     by unicode strings"""
-    if isinstance(some_dict, basestring):
+
+    # some python 2/3 compat
+    if isinstance(some_dict, ("".__class__, u"".__class__)):
+        if sys.version_info >= (3, 0):
+            return some_dict
+
         return some_dict.decode('utf-8')
     elif isinstance(some_dict, collections.Mapping):
-        return dict(map(dict_unicodeize, some_dict.iteritems()))
+        return dict(map(dict_unicodeize, iteritems(some_dict)))
     elif isinstance(some_dict, collections.Iterable):
         return type(some_dict)(map(dict_unicodeize, some_dict))
 

@@ -105,7 +105,6 @@ class Client(hvac.Client):
         ssl_verify = True
         if 'VAULT_SKIP_VERIFY' in os.environ:
             if os.environ['VAULT_SKIP_VERIFY'] == '1':
-                LOG.warning('Skipping SSL Validation!')
                 ssl_verify = False
 
         self.initial_token = None
@@ -117,6 +116,9 @@ class Client(hvac.Client):
         """This sets up the tokens we expect to see in a way
         that hvac also expects."""
         LOG.info("Connecting to %s", self._url)
+        if not self._kwargs['verify']:
+            LOG.warning('Skipping SSL Validation!')
+
         self.token = self.init_token()
         if not self.is_authenticated():
             raise aomi.exceptions.AomiCredentials('initial token')

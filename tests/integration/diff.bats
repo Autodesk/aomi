@@ -24,6 +24,7 @@ teardown() {
     scan_lines "\- Generic File secret/foo" "${lines[@]}"
     scan_lines "\- Vault Generic Backend also_secret" "${lines[@]}"
     run aomi diff --verbose --verbose --monochrome --tags mod
+    echo "$output"
     [ "$status" -eq 0 ]
     scan_lines "\~ Generic File secret/foo" "${lines[@]}"
 }

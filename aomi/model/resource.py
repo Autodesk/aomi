@@ -63,7 +63,7 @@ class Resource(object):
 
         secret_h = self.export_handle(directory)
         obj = self.existing
-        if isinstance(obj, (str, unicode)):
+        if isinstance(obj, str):
             secret_h.write(obj)
         elif isinstance(obj, dict):
             secret_h.write(yaml.safe_dump(obj))
@@ -152,7 +152,7 @@ class Resource(object):
 
                 if diff_dict(current, obj):
                     is_diff = CHANGED
-            elif existing_type == unicode and self.existing == obj:
+            elif existing_type == str and self.existing == obj:
                 is_diff = NOOP
             else:
                 is_diff = NOOP
