@@ -178,7 +178,8 @@ def generic_args(parser):
     parser.add_argument('--verbose',
                         dest='verbose',
                         help='Verbose output',
-                        action='count')
+                        action='count',
+                        default=0)
 
 
 def base_args(parser):
@@ -369,9 +370,9 @@ def ux_actions(parser, args):
     """Handle some human triggers actions"""
     # cryptorito uses native logging (as aomi should tbh)
     normal_fmt = '%(message)s'
-    if args.verbose >= 2:
+    if hasattr(args, 'verbose') and args.verbose and args.verbose >= 2:
         logging.basicConfig(level=logging.DEBUG)
-    elif args.verbose == 1:
+    elif hasattr(args, 'verbose') and args.verbose == 1:
         logging.basicConfig(level=logging.INFO, format=normal_fmt)
     else:
         logging.basicConfig(level=logging.WARN, format=normal_fmt)

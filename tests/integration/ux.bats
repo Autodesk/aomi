@@ -40,6 +40,7 @@ teardown() {
       [ "$status" -eq 0 ]      
       scan_lines "usage: aomi" "${lines[@]}"
       run aomi
+      echo "what is ${status}"
       [ "$status" -eq 2 ]
       scan_lines "usage: aomi" "${lines[@]}"      
 }

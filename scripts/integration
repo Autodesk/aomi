@@ -20,8 +20,7 @@ VAULTBIN="${VAULTDIR}/vault"
 # Define our test groups. Currently not every test is executed
 # in every single execution context.
 GPG_TESTS="cold_storage"
-#TESTS="a_smoke environment exec_context seed template cubbyhole output ux diff"
-TESTS="a_smoke"
+TESTS="a_smoke environment exec_context seed template cubbyhole output ux diff"
 VAULT_TESTS="aws"
 
 # These are the HCV paths where we can find the secrets used
