@@ -169,11 +169,11 @@ class Client(hvac.Client):
                                   token['user_id'])
                 LOG.info("Token derived from %s", app_filename)
                 return token
-            elif token_filename:
-                LOG.info("Token derived from %s", token_filename)
-                return open(token_filename, 'r').read().strip()
-            else:
-                raise aomi.exceptions.AomiCredentials('unknown method')
+        elif token_filename:
+            LOG.info("Token derived from %s", token_filename)
+            return open(token_filename, 'r').read().strip()
+        else:
+            raise aomi.exceptions.AomiCredentials('unknown method')
 
     def op_token(self, opt):
         """Return a properly annotated token for our use. This

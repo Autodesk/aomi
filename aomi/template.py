@@ -1,13 +1,16 @@
 """ Render our templates """
 from __future__ import print_function
 import os
+import sys
+import traceback
 from pkg_resources import resource_listdir, resource_filename
 import yaml
 from jinja2 import Environment, FileSystemLoader, meta
 import jinja2.nodes
+import jinja2.exceptions
 from cryptorito import portable_b64encode, portable_b64decode
 from aomi.helpers import merge_dicts, abspath, cli_hash
-import aomi.exceptions
+import aomi.exceptions as aomi_excep
 # Python 2/3 compat
 from future.utils import iteritems  # pylint: disable=E0401
 
@@ -54,10 +57,18 @@ def render(filename, obj):
 
         if missing_vars:
             e_msg = "Missing required variables %s" % ','.join(missing_vars)
-            raise aomi.exceptions.AomiData(e_msg)
+            raise aomi_excep.AomiData(e_msg)
 
-    template_obj = env.get_template(os.path.basename(template_path))
-    output = template_obj.render(**obj)
+    try:
+        output = env \
+                 .get_template(os.path.basename(template_path)) \
+                 .render(**obj)
+    except jinja2.exceptions.TemplateSyntaxError as exception:
+        template_trace = traceback.format_tb(sys.exc_info()[2])
+        raise aomi_excep.Validation(("Bad template %s %s" %
+                                     (template_trace[len(template_trace) - 1],
+                                      str(exception))))
+
     return output
 
 

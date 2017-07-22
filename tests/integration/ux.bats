@@ -14,9 +14,14 @@ teardown() {
     rm -rf "$FIXTURE_DIR"
 }
 
-@test "vault token file" {
+@test "custom vault token file" {
     echo "$VAULT_TOKEN" > "${BATS_TMPDIR}/token"
-    VAULT_TOKEN_FILE="${BATS_TMPDIR}/token" aomi_seed
+    VAULT_TOKEN="" VAULT_TOKEN_FILE="${BATS_TMPDIR}/token" aomi_seed
+    [ "$status" -eq 0 ]
+}
+
+@test "custom vault token file" {
+    VAULT_TOKEN="" aomi_seed
     [ "$status" -eq 0 ]
 }
 
