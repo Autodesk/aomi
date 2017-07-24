@@ -15,7 +15,6 @@ teardown() {
     rm -rf "$FIXTURE_DIR"
 }
 
-
 @test "jinja include" {
     echo "{% include 'real' -%}" > "${BATS_TMPDIR}/tpl"
     echo "{{secret}}" > "${BATS_TMPDIR}/real"
@@ -156,4 +155,3 @@ teardown() {
     [ "$status" -eq 0 ]
     [ "$(cat ${BATS_TMPDIR}/render)" = "yolo:${FILE_SECRET1}" ]
 }
-

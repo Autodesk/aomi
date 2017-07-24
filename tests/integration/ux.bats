@@ -14,9 +14,14 @@ teardown() {
     rm -rf "$FIXTURE_DIR"
 }
 
-@test "vault token file" {
+@test "custom vault token file" {
     echo "$VAULT_TOKEN" > "${BATS_TMPDIR}/token"
-    VAULT_TOKEN_FILE="${BATS_TMPDIR}/token" aomi_seed
+    VAULT_TOKEN="" VAULT_TOKEN_FILE="${BATS_TMPDIR}/token" aomi_seed
+    [ "$status" -eq 0 ]
+}
+
+@test "custom vault token file" {
+    VAULT_TOKEN="" aomi_seed
     [ "$status" -eq 0 ]
 }
 
@@ -40,6 +45,7 @@ teardown() {
       [ "$status" -eq 0 ]      
       scan_lines "usage: aomi" "${lines[@]}"
       run aomi
+      echo "what is ${status}"
       [ "$status" -eq 2 ]
       scan_lines "usage: aomi" "${lines[@]}"      
 }
@@ -58,7 +64,7 @@ teardown() {
 }
 
 @test "verbosity" {
-    run aomi help --verbose
+    run aomi help --verbose --verbose
     [ "$status" -eq 0 ]
     scan_lines "Auth Hints Present" "${lines[@]}"
 }

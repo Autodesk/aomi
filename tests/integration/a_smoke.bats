@@ -2,7 +2,6 @@
 # -*- mode: Shell-script;bash -*-
 # Simple smoke test covering basic functionality as described
 # in the quickstart documentation
-
 load helper
 
 setup() {
@@ -16,7 +15,7 @@ teardown() {
 }
 
 @test "can seed and extract a file" {
-    aomi_seed --tags bar --verbose
+    aomi_seed --tags bar
     [ "$status" -eq 0 ]    
     run aomi extract_file \
         foo/bar/baz/secret \
@@ -31,9 +30,10 @@ teardown() {
 @test "can seed and render environment" {
     aomi_seed
     run aomi environment foo/bar/bam foo/bar/bang-bang
+    echo $output
     scan_lines "FOO_BAR_BAM_SECRET=\"${YAML_SECRET1}\"" "${lines[@]}"
     scan_lines "FOO_BAR_BANG-BANG_SECRET=\"${YAML_SECRET2}\"" "${lines[@]}"
-    run aomi environment --add-prefix aaa_ --no-merge-path foo/bar/bam
+    run aomi environment foo/bar/bam --add-prefix aaa_ --no-merge-path
     scan_lines "AAA_SECRET=\"${YAML_SECRET1}\"" "${lines[@]}"
     run aomi environment foo/bar/bam --export
     scan_lines "FOO_BAR_BAM_SECRET=\"${YAML_SECRET1}\"" "${lines[@]}"

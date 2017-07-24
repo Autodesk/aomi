@@ -136,7 +136,7 @@ ul li {
 }
 
 ul li:before {
-  content: ">>";
+  content: "♦︎";
   font-family: Monaco, "Bitstream Vera Sans Mono", "Lucida Console", Terminal, monospace;
   font-size: 13px;
   color: #b5e853;
@@ -150,6 +150,7 @@ blockquote {
   padding-left: 10px;
   border-left: 1px dotted #666;
 }
+
 
 pre {
   background: rgba(0, 0, 0, 0.9);

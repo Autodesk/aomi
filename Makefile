@@ -17,7 +17,9 @@ test: version testenv
 	./scripts/integration
 
 clean:
-	rm -rf aomi.egg-info dist .aomi-test tests/*.pyc aomi/*.pyc
+	rm -rf aomi.egg-info dist .aomi-test tests/*.pyc aomi/*.pyc \
+		aomi/model/*.pyc docs/_site tests/__pycache__ aomi/__pycache__ \
+		aomi/model/__pycache__ docs/.saas-cache
 
 distclean: clean
 	rm -rf build .ci-env aomi/version .vault .bats .bats-git

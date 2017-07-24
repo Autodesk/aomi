@@ -17,7 +17,16 @@ function start_vault() {
         VAULT_PID=$(pgrep vault)
         export VAULT_PID
         export VAULT_ADDR='http://127.0.0.1:8200'
-        VAULT_TOKEN=$(grep -e 'Root Token' "$VAULT_LOG" | cut -f 3 -d ' ')
+        VAULT_TOKEN=""
+        START="$(date +%s)"
+        while [ -z "$VAULT_TOKEN" ] ; do
+            NOW="$(date +%s)"
+            if [ $((NOW - START)) -gt 10 ] ; then
+                echo "unable to start vault"
+                return 1
+            fi
+            VAULT_TOKEN=$(grep -e 'Root Token' "$VAULT_LOG" | cut -f 3 -d ' ')
+        done
         export VAULT_TOKEN="$VAULT_TOKEN"
     fi
 }
@@ -83,8 +92,8 @@ function use_fixture() {
         cp -r "${BATS_TEST_DIRNAME}/fixtures/${FIXTURE}/.secrets/"* "$SECRET_DIR"
     fi
     cd "$FIXTURE_DIR" || exit 1
-    echo -n "$RANDOM" > "$SECRET_DIR/secret.txt"
-    echo -n "$RANDOM" > "$SECRET_DIR/secret2.txt"
+    echo -n "$RANDOM" > "${SECRET_DIR}/secret.txt"
+    echo -n "$RANDOM" > "${SECRET_DIR}/secret2.txt"
     echo "secret: ${RANDOM}" > "${SECRET_DIR}/secret.yml"
     echo "secret: ${RANDOM}" > "${SECRET_DIR}/secret2.yml"
     echo -n "secret2: ${RANDOM}" >> "${SECRET_DIR}/secret.yml"

@@ -21,7 +21,7 @@ setup(name='aomi',
       license='MIT',
       url='https://github.com/autodesk/aomi',
       install_requires=['PyYAML', 'hvac', 'jinja2', 'future',
-                        'cryptorito'],
+                        'cryptorito', 'termcolor'],
       include_package_data=True,
       packages=['aomi', 'aomi.model'],
       entry_points={

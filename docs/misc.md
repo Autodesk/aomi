@@ -2,8 +2,6 @@
 layout: default
 ---
 
-# Overview
-
 There are some operations which don't really fit in either the context of the [data]({{site.baseurl}}/data) model or [extraction]({{site.baseurl}}/extract) of data.
 
 # auth
@@ -27,3 +25,17 @@ You can also modify passwords stored in arbitary Vault paths (in this example us
 ```
 aomi set_password foo/pass <<< "1234"
 ```
+
+# render
+
+This action is used to render the [`Secretfile`]({{site.baseurl}}/secretfile). It respects the `--policies`, `--secrets`, `--secretfile`, `--extra-vars`, and `--extra-vars-file` options in the same way as the [`seed`]({{site.baseurl}}/data#seed) operation. This operation takes a minimum of one argument, the directory to write the rendered `Secretfile` (and accoutrement) to.
+
+```
+$ aomi render /tmp/rendered
+```
+
+The output will be written to the specified directory, with the following structure.
+
+* The `Secretfile` will be at the directory root
+* Policies will be found in a directory named `policies`
+* AWS inline roles will be found in a directory named `aws`

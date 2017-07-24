@@ -1,13 +1,16 @@
 """ Render our templates """
 from __future__ import print_function
 import os
+import sys
+import traceback
 from pkg_resources import resource_listdir, resource_filename
 import yaml
 from jinja2 import Environment, FileSystemLoader, meta
 import jinja2.nodes
+import jinja2.exceptions
 from cryptorito import portable_b64encode, portable_b64decode
 from aomi.helpers import merge_dicts, abspath, cli_hash
-import aomi.exceptions
+import aomi.exceptions as aomi_excep
 # Python 2/3 compat
 from future.utils import iteritems  # pylint: disable=E0401
 
@@ -36,11 +39,15 @@ def render(filename, obj):
     template_path = abspath(filename)
     fs_loader = FileSystemLoader(os.path.dirname(template_path))
     env = Environment(loader=fs_loader,
-                      autoescape=True)
+                      autoescape=True,
+                      trim_blocks=True,
+                      lstrip_blocks=True)
     env.filters['b64encode'] = portable_b64encode
     env.filters['b64decode'] = portable_b64decode
-    template_src = env.loader.get_source(env, os.path.basename(template_path))
-    parsed_content = env.parse(template_src)
+    parsed_content = env.parse(env
+                               .loader
+                               .get_source(env,
+                                           os.path.basename(template_path)))
 
     template_vars = meta.find_undeclared_variables(parsed_content)
     if template_vars:
@@ -52,11 +59,23 @@ def render(filename, obj):
 
         if missing_vars:
             e_msg = "Missing required variables %s" % ','.join(missing_vars)
-            raise aomi.exceptions.AomiData(e_msg)
+            raise aomi_excep.AomiData(e_msg)
 
-    template_obj = env.get_template(os.path.basename(template_path))
-    output = template_obj.render(**obj)
-    return output
+    try:
+        return env \
+                 .get_template(os.path.basename(template_path)) \
+                 .render(**obj)
+    except jinja2.exceptions.TemplateSyntaxError as exception:
+        template_trace = traceback.format_tb(sys.exc_info()[2])
+        raise aomi_excep.Validation("Bad template %s %s" %
+                                    (template_trace[len(template_trace) - 1],
+                                     str(exception)))
+    except jinja2.exceptions.UndefinedError as exception:
+        template_traces = [x.strip()
+                           for x in traceback.format_tb(sys.exc_info()[2])
+                           if 'template code' in x]
+        raise aomi_excep.Validation("Missing template variable %s" %
+                                    ' '.join(template_traces))
 
 
 def load_var_files(opt):
@@ -118,8 +137,13 @@ def builtin_info(builtin):
 
 
 def get_secretfile(opt):
-    """Renders, YAMLs, and returns the Secretfile construct"""
+    """Returns the de-YAML'd rendered Secretfile"""
+    return yaml.safe_load(render_secretfile(opt))
+
+
+def render_secretfile(opt):
+    """Renders and returns the Secretfile construct"""
     secretfile_path = abspath(opt.secretfile)
     obj = merge_dicts(load_var_files(opt),
                       cli_hash(opt.extra_vars))
-    return yaml.safe_load(render(secretfile_path, obj))
+    return render(secretfile_path, obj)

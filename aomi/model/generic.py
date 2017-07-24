@@ -4,6 +4,7 @@ Generic Vault Resources
 * Static files
 * Generated/Random Secrets
 """
+import os
 from copy import deepcopy
 from uuid import uuid4
 import logging
@@ -63,6 +64,17 @@ class Files(Generic):
             s_obj[sfile['name']] = sfile['source']
 
         self._obj = s_obj
+
+    def export(self, directory):
+        for name, filename in iteritems(self._obj):
+            dest_file = "%s/%s" % (directory, filename)
+            dest_dir = os.path.dirname(dest_file)
+            if not os.path.isdir(dest_dir):
+                os.mkdir(dest_dir, 0o700)
+
+            secret_h = open(dest_file, 'w')
+            secret_h.write(self.existing[name])
+            secret_h.close()
 
     def obj(self):
         s_obj = {}
@@ -135,6 +147,18 @@ class Generated(Generic):
                 secret_obj[key_name] = generated_key(key)
 
         return secret_obj
+
+    def diff(self, obj=None):
+        if self.present and not self.existing:
+            return aomi.model.resource.ADD
+        elif not self.present and self.existing:
+            return aomi.model.resource.DEL
+        elif self.present and self.existing:
+            overwrites = [x for x in self.keys if x.get('overwrite')]
+            if overwrites:
+                return aomi.model.resource.OVERWRITE
+
+        return aomi.model.resource.NOOP
 
     def sync(self, vault_client):
         gen_obj = self.generate_obj()

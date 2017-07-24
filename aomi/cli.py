@@ -22,7 +22,7 @@ def help_me(parser, opt):
     print("aomi v%s" % version)
     print('Get started with aomi'
           ' https://autodesk.github.io/aomi/quickstart')
-    if opt.verbose:
+    if opt.verbose == 2:
         tf_str = 'Token File,' if token_file() else ''
         app_str = 'AppID File,' if appid_file() else ''
         tfe_str = 'Token Env,' if 'VAULT_TOKEN' in os.environ else ''
@@ -178,12 +178,17 @@ def generic_args(parser):
     parser.add_argument('--verbose',
                         dest='verbose',
                         help='Verbose output',
-                        action='count')
+                        action='count',
+                        default=0)
 
 
 def base_args(parser):
     """Add the generic command line options"""
     generic_args(parser)
+    parser.add_argument('--monochrome',
+                        dest='monochrome',
+                        help='Whether or not to use colors',
+                        action='store_true')
     parser.add_argument('--metadata',
                         dest='metadata',
                         help='A series of key=value pairs for token metadata.',
@@ -199,6 +204,41 @@ def base_args(parser):
                         action='store_true')
 
 
+def export_args(subparsers):
+    """Add command line options for the export operation"""
+    export_parser = subparsers.add_parser('export')
+    export_parser.add_argument('directory',
+                               help='Path where secrets will be exported into')
+    secretfile_args(export_parser)
+    vars_args(export_parser)
+    base_args(export_parser)
+
+
+def render_args(subparsers):
+    """Add command line options for the render operation"""
+    render_parser = subparsers.add_parser('render')
+    render_parser.add_argument('directory',
+                               help='Path where Secrefile and accoutrement'
+                               ' will be rendered into')
+    secretfile_args(render_parser)
+    vars_args(render_parser)
+    base_args(render_parser)
+    render_parser.add_argument('--thaw-from',
+                               dest='thaw_from',
+                               help='Thaw an ICE file containing secrets')
+
+
+def diff_args(subparsers):
+    """Add command line options for the diff operation"""
+    diff_parser = subparsers.add_parser('diff')
+    secretfile_args(diff_parser)
+    vars_args(diff_parser)
+    base_args(diff_parser)
+    diff_parser.add_argument('--thaw-from',
+                             dest='thaw_from',
+                             help='Thaw an ICE file containing secrets')
+
+
 def seed_args(subparsers):
     """Add command line options for the seed operation"""
     seed_parser = subparsers.add_parser('seed')
@@ -212,6 +252,11 @@ def seed_args(subparsers):
     seed_parser.add_argument('--thaw-from',
                              dest='thaw_from',
                              help='Thaw an ICE file containing secrets')
+    seed_parser.add_argument('--remove-unknown',
+                             dest='remove_unknown',
+                             action='store_true',
+                             help='Remove mountpoints that are not '
+                             'defined in the Secretfile')
     base_args(seed_parser)
 
 
@@ -287,12 +332,15 @@ def parser_factory(fake_args=None):
     environment_args(subparsers)
     aws_env_args(subparsers)
     seed_args(subparsers)
+    render_args(subparsers)
+    diff_args(subparsers)
     freeze_args(subparsers)
     thaw_args(subparsers)
     template_args(subparsers)
     password_args(subparsers)
     token_args(subparsers)
     help_args(subparsers)
+    export_args(subparsers)
 
     if fake_args is None:
         return parser, parser.parse_args()
@@ -320,45 +368,56 @@ def template_runner(client, parser, args):
 
 def ux_actions(parser, args):
     """Handle some human triggers actions"""
-    if args.operation == 'help':
-        help_me(parser, args)
-
     # cryptorito uses native logging (as aomi should tbh)
-
     normal_fmt = '%(message)s'
-    if args.verbose == 2:
+    if hasattr(args, 'verbose') and args.verbose and args.verbose >= 2:
         logging.basicConfig(level=logging.DEBUG)
-    elif args.verbose == 1:
+    elif hasattr(args, 'verbose') and args.verbose == 1:
         logging.basicConfig(level=logging.INFO, format=normal_fmt)
     else:
         logging.basicConfig(level=logging.WARN, format=normal_fmt)
+
+    if args.operation == 'help':
+        help_me(parser, args)
 
 
 def action_runner(parser, args):
     """Run appropriate action, or throw help"""
 
     ux_actions(parser, args)
-    client = aomi.vault.client(args.operation, args)
+    client = aomi.vault.Client(args)
     if args.operation == 'extract_file':
-        aomi.render.raw_file(client, args.vault_path, args.destination, args)
+        aomi.render.raw_file(client.connect(args),
+                             args.vault_path, args.destination, args)
         sys.exit(0)
     elif args.operation == 'environment':
-        aomi.render.env(client, args.vault_paths, args)
+        aomi.render.env(client.connect(args),
+                        args.vault_paths, args)
         sys.exit(0)
     elif args.operation == 'aws_environment':
-        aomi.render.aws(client, args.vault_path, args)
+        aomi.render.aws(client.connect(args),
+                        args.vault_path, args)
         sys.exit(0)
     elif args.operation == 'seed':
         aomi.validation.gitignore(args)
-        aomi.seed_action.seed(client, args)
+        aomi.seed_action.seed(client.connect(args), args)
+        sys.exit(0)
+    elif args.operation == 'render':
+        aomi.seed_action.render(args.directory, args)
+        sys.exit(0)
+    elif args.operation == 'export':
+        aomi.seed_action.export(client.connect(args), args)
+        sys.exit(0)
+    elif args.operation == 'diff':
+        aomi.seed_action.diff(client.connect(args), args)
         sys.exit(0)
     elif args.operation == 'template':
-        template_runner(client, parser, args)
+        template_runner(client.connect(args), parser, args)
     elif args.operation == 'token':
         print(client.token)
         sys.exit(0)
     elif args.operation == 'set_password':
-        aomi.util.password(client, args.vault_path)
+        aomi.util.password(client.connect(args), args.vault_path)
         sys.exit(0)
     elif args.operation == 'freeze':
         aomi.filez.freeze(args.icefile, args)

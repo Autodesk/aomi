@@ -3,6 +3,7 @@ from __future__ import print_function
 import sys
 import os
 import tempfile
+import collections
 from random import SystemRandom
 from getpass import getpass
 import logging
@@ -215,3 +216,45 @@ def ensure_tmpdir():
     """Ensures a temporary directory exists"""
     path = tempfile.mkdtemp('aomi')
     return path
+
+
+def dict_unicodeize(some_dict):
+    """Ensure that every string in a dict is properly represented
+    by unicode strings"""
+
+    # some python 2/3 compat
+    if isinstance(some_dict, ("".__class__, u"".__class__)):
+        if sys.version_info >= (3, 0):
+            return some_dict
+
+        return some_dict.decode('utf-8')
+    elif isinstance(some_dict, collections.Mapping):
+        return dict(map(dict_unicodeize, iteritems(some_dict)))
+    elif isinstance(some_dict, collections.Iterable):
+        return type(some_dict)(map(dict_unicodeize, some_dict))
+
+    return some_dict
+
+
+def diff_dict(dict1, dict2):
+    """Performs a base type comparison between two dicts"""
+    unidict1 = dict_unicodeize(dict1)
+    unidict2 = dict_unicodeize(dict2)
+    if len(unidict1) != len(unidict2):
+        return True
+
+    for comp_k, comp_v in iteritems(unidict1):
+        if comp_k not in unidict2:
+            return True
+        else:
+            if comp_v != unidict2[comp_k]:
+                return True
+
+    return False
+
+
+def normalize_vault_path(path):
+    """Ensure paths are consistent, always. This covers
+    a variety of user specified formats and what HCV
+    itself will return in API calls"""
+    return '/'.join([x for x in path.split('/') if x])

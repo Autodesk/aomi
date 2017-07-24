@@ -2,6 +2,7 @@
 import logging
 import yaml
 import aomi.exceptions
+import aomi.model.resource
 from aomi.vault import is_mounted
 from aomi.model.resource import Secret, Resource
 from aomi.helpers import hard_path, merge_dicts, cli_hash
@@ -37,11 +38,21 @@ class AWSRole(Resource):
     def __init__(self, mount, obj, opt):
         super(AWSRole, self).__init__(obj, opt)
         self.path = "%s/roles/%s" % (mount, obj['name'])
+        if 'policy' in obj:
+            self.filename = obj['policy']
+
         if self.present:
             self._obj = obj
             if 'policy' in self._obj:
-                self._obj['policy'] = hard_path(self._obj['policy'],
-                                                opt.policies)
+                self._obj['policy'] = hard_path(self.filename, opt.policies)
+
+    def export(self, directory):
+        if not hasattr(self, 'filename'):
+            return
+
+        secret_h = self.export_handle(directory)
+        secret_h.write(self.obj()['policy'])
+        secret_h.close()
 
     def obj(self):
         s_obj = {}
@@ -50,7 +61,9 @@ class AWSRole(Resource):
             cli_obj = merge_dicts(load_var_files(self.opt),
                                   cli_hash(self.opt.extra_vars))
             template_obj = merge_dicts(role_template_obj, cli_obj)
-            s_obj = {'policy': render(self._obj['policy'], template_obj)}
+            aws_role = render(self._obj['policy'], template_obj)
+            aws_role = aws_role.replace(" ", "").replace("\n", "")
+            s_obj = {'policy': aws_role}
         elif 'arn' in self._obj:
             s_obj = {'arn': self._obj['arn']}
 
@@ -82,11 +95,14 @@ class AWS(Secret):
 
         return pieces
 
+    def diff(self, obj=None):
+        return Resource.diff_write_only(self)
+
     def fetch(self, vault_client):
         if is_mounted(self.backend,
                       self.mount,
                       vault_client.list_secret_backends()):
-            self.existing = False
+            self.existing = True
 
     def sync(self, vault_client):
         if self.present:

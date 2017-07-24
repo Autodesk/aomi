@@ -29,6 +29,16 @@ validate_defaults() {
     done
 }
 
+@test "remove unknown mounts if requested" {
+    aomi_seed
+    run vault mount -path=also_secret generic
+    [ "$status" == 0 ]
+    aomi_seed
+    check_mount "true" also_secret
+    aomi_seed --remove-unknown
+    check_mount "false" also_secret    
+}
+
 @test "can seed mixed binary/unicode files" {
     OG_BIN="${BATS_TMPDIR}/fixtures/.secrets/secret.bin"
     dd if=/dev/urandom of="$OG_BIN" count=1
