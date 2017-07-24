@@ -1,6 +1,6 @@
 """ Secret rendering """
 from __future__ import print_function
-# Python 2/3 compat
+import os
 import sys
 import logging
 from future.utils import iteritems  # pylint: disable=E0401
@@ -111,7 +111,23 @@ def template(client, src, dest, paths, opt):
     template_obj = blend_vars(obj, opt)
     output = render(grok_template_file(src),
                     template_obj)
-    open(abspath(dest), 'w').write(output)
+    write_raw_file(output, abspath(dest))
+
+
+def write_raw_file(secret, dest):
+    """Writes an actual secret out to a file"""
+    secret_file = None
+    secret_filename = abspath(dest)
+    if sys.version_info >= (3, 0):
+        if not isinstance(secret, str):
+            secret_file = open(secret_filename, 'wb')
+
+    if not secret_file:
+        secret_file = open(secret_filename, 'w')
+
+    secret_file.write(secret)
+    secret_file.close()
+    os.chmod(secret_filename, 0o600)
 
 
 def raw_file(client, src, dest, opt):
@@ -133,15 +149,7 @@ def raw_file(client, src, dest, opt):
             if is_aws(resp['data']):
                 renew_secret(client, resp, opt)
 
-            secret_file = None
-            if sys.version_info >= (3, 0):
-                if not isinstance(secret, str):
-                    secret_file = open(abspath(dest), 'wb')
-
-            if not secret_file:
-                secret_file = open(abspath(dest), 'w')
-
-            secret_file.write(secret)
+            write_raw_file(secret, dest)
         else:
             client.revoke_self_token()
             e_msg = "Key %s not found in %s" % (key, path)

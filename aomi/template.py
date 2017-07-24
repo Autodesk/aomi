@@ -44,8 +44,10 @@ def render(filename, obj):
                       lstrip_blocks=True)
     env.filters['b64encode'] = portable_b64encode
     env.filters['b64decode'] = portable_b64decode
-    template_src = env.loader.get_source(env, os.path.basename(template_path))
-    parsed_content = env.parse(template_src)
+    parsed_content = env.parse(env
+                               .loader
+                               .get_source(env,
+                                           os.path.basename(template_path)))
 
     template_vars = meta.find_undeclared_variables(parsed_content)
     if template_vars:
@@ -60,16 +62,20 @@ def render(filename, obj):
             raise aomi_excep.AomiData(e_msg)
 
     try:
-        output = env \
+        return env \
                  .get_template(os.path.basename(template_path)) \
                  .render(**obj)
     except jinja2.exceptions.TemplateSyntaxError as exception:
         template_trace = traceback.format_tb(sys.exc_info()[2])
-        raise aomi_excep.Validation(("Bad template %s %s" %
-                                     (template_trace[len(template_trace) - 1],
-                                      str(exception))))
-
-    return output
+        raise aomi_excep.Validation("Bad template %s %s" %
+                                    (template_trace[len(template_trace) - 1],
+                                     str(exception)))
+    except jinja2.exceptions.UndefinedError as exception:
+        template_traces = [x.strip()
+                           for x in traceback.format_tb(sys.exc_info()[2])
+                           if 'template code' in x]
+        raise aomi_excep.Validation("Missing template variable %s" %
+                                    ' '.join(template_traces))
 
 
 def load_var_files(opt):
