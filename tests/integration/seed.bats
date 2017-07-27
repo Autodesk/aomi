@@ -143,6 +143,13 @@ validate_defaults() {
     check_secret true "foo/var/bar/secret" "$YAML_SECRET1"
     check_secret true "foo/var/bar/secret2" "$YAML_SECRET1_2"
 }
+@test "can include/exclude specific paths" {
+    aomi_seed --include foo/var/bar
+    check_secret true "foo/var/bar/secret" "$YAML_SECRET1"
+    vault delete foo/var/bar
+    aomi_seed --exclude foo/var/bar
+    check_secret false "foo/var/bar/secret" "$YAML_SECRET1"
+}
 @test "can use a bunch of tags and can seed a bunch of policies" {
     aomi_seed
     aomi_seed --tags baz --tags bam

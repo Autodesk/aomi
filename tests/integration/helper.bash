@@ -129,8 +129,8 @@ function check_secret() {
     local val="$3"
     run vault read "-field=$key" "$path"
     echo "$path/$key $status $output $rc $val"
-    [ "$status" = "$rc" ]
-    if [ "$rc" == "0" ] ; then
+    [ "$status" -eq "$rc" ]
+    if [ "$rc" -eq "0" ] ; then
         [ "$output" = "$val" ]
     fi
 }

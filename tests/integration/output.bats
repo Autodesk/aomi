@@ -20,3 +20,10 @@ teardown() {
     [ -e "$SECRETS" ]    
     grep 'file/baz' "$SECRETS"
 }
+
+@test "some basic exporting" {
+    aomi_seed
+    DEST_DIR="${BATS_TMPDIR}/outpu"
+    aomi_run export "$DEST_DIR" --verbose --verbose
+    [ -e "${DEST_DIR}/secret.txt" ]
+}

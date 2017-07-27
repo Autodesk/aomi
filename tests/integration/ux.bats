@@ -57,3 +57,11 @@ teardown() {
     aomi_run help --verbose
     scan_lines "INFO:aomi.cli:Auth Hints Present" "${lines[@]}"
 }
+
+@test "can specify token metadata" {
+    aomi_seed --metadata test=good
+}
+
+@test "can specify operational token" {
+    aomi_seed --reuse-token
+}
