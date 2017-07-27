@@ -7,6 +7,6 @@ fi
 
 "${PREFIX}pep8" aomi
 "${PREFIX}pylint" --rcfile=/dev/null aomi
-"${PREFIX}nose2"
+coverage run -a --include 'aomi/*' "${PREFIX}nose2"
 "${PREFIX}bandit" -r aomi
 "${PREFIX}vulture" aomi

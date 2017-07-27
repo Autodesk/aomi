@@ -1,6 +1,7 @@
 """ The aomi "seed" loop """
 from __future__ import print_function
 import os
+import difflib
 from shutil import rmtree
 import tempfile
 from termcolor import colored
@@ -85,6 +86,24 @@ def maybe_colored(msg, color, opt):
     return colored(msg, color)
 
 
+def maybe_details(resource, opt):
+    """At the first level of verbosity this will print out detailed
+    change information on for the specified Vault resource"""
+    if opt.verbose == 0:
+        return
+
+    if isinstance(resource.existing, (str, unicode)):
+        a_diff = difflib.unified_diff(resource.existing.splitlines(),
+                                      resource.obj().splitlines())
+        for line in a_diff:
+            if line[0] == '+':
+                print(maybe_colored(line, 'green', opt))
+            elif line[0] == '-':
+                print(maybe_colored(line, 'red', opt))
+            else:
+                print(line)
+
+
 def diff(vault_client, opt):
     """Derive a comparison between what is represented in the Secretfile
     and what is actually live on a Vault instance"""
@@ -104,6 +123,8 @@ def diff(vault_client, opt):
             print("%s %s" % (maybe_colored("~", "yellow", opt), str(resource)))
         elif changed == OVERWRITE:
             print("%s %s" % (maybe_colored("+", "yellow", opt), str(resource)))
+
+        maybe_details(resource, opt)
 
     if opt.thaw_from:
         rmtree(opt.secrets)

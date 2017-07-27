@@ -147,10 +147,21 @@ function check_policy() {
     fi
 }
 
-function aomi_seed() {
-    run aomi seed --verbose "$@"
+function aomi_run_rc() {
+    RC="$1"
+    OP="$2"    
+    shift 2
+    run coverage run -a --source "${CIDIR}/aomi/" "${CIDIR}/aomi.py" "$OP" --verbose "$@"
     echo "$output"
-    [ "$status" -eq 0 ]
+    [ "$status" -eq "$RC" ]
+}
+
+function aomi_run() {
+    aomi_run_rc 0 "$@"
+}
+
+function aomi_seed() {
+    aomi_run seed "$@"
 }
 
 function check_mount() {

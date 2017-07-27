@@ -44,12 +44,9 @@ validate_defaults() {
     dd if=/dev/urandom of="$OG_BIN" count=1
     chmod og-rwx "$OG_BIN"    
     aomi_seed --tags binary
-    [ "$status" -eq 0 ]
     check_secret true "foo/bar/txt" "$FILE_SECRET1"
-    aomi extract_file foo/bar/bin "${BATS_TMPDIR}/exfile" --verbose
-    [ "$status" -eq 0 ]
+    aomi_run extract_file foo/bar/bin "${BATS_TMPDIR}/exfile" --verbose
     diff "$OG_BIN" "${BATS_TMPDIR}/exfile"
-    [ "$status" -eq 0 ]
 }
 
 @test "can remove things" {

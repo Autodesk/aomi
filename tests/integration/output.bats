@@ -15,8 +15,7 @@ teardown() {
 
 @test "some basic external rendering" {
     DEST_DIR="${BATS_TMPDIR}/outpu"
-    run aomi render "$DEST_DIR" --verbose --verbose
-    [ "$status" == 0 ]    
+    aomi_run render "$DEST_DIR" --verbose --verbose
     SECRETS="${DEST_DIR}/Secretfile"
     [ -e "$SECRETS" ]    
     grep 'file/baz' "$SECRETS"

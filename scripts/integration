@@ -12,6 +12,7 @@ SCRIPTDIR=$( cd ${0%/*} && pwd)
 ROOTDIR=${SCRIPTDIR%/*}
 export CIDIR="$ROOTDIR"
 export ROOTDIR
+export COVERAGE_FILE="${CIDIR}/.coverage"
 BATSGIT="${ROOTDIR}/.bats-git"
 BATSBIN="${ROOTDIR}/.bats"
 VAULTDIR="${ROOTDIR}/.vault"

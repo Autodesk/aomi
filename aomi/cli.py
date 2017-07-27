@@ -372,7 +372,7 @@ def ux_actions(parser, args):
     normal_fmt = '%(message)s'
     if hasattr(args, 'verbose') and args.verbose and args.verbose >= 2:
         logging.basicConfig(level=logging.DEBUG)
-    elif hasattr(args, 'verbose') and args.verbose == 1:
+    elif hasattr(args, 'verbose') and args.verbose >= 1:
         logging.basicConfig(level=logging.INFO, format=normal_fmt)
     else:
         logging.basicConfig(level=logging.WARN, format=normal_fmt)

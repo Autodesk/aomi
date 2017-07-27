@@ -92,6 +92,66 @@ class AppUser(Resource):
             self._obj['cidr'] = obj['cidr']
 
 
+class AppRoleSecret(Resource):
+    """Approle Secret"""
+    child = True
+
+    def __str__(self):
+        return "AppRole Secret %s %s" % (self.role_name, self.secret_name)
+
+    def __init__(self, obj, opt):
+        self.role_name = obj['role_name']
+        self.secret_name = obj['name']
+        self.filename = obj['filename']
+        self.opt = opt
+        super(AppRoleSecret, self).__init__(obj, opt)
+
+    def diff(self, obj=None):
+        return Resource.diff_write_only(self)
+
+    def obj(self):
+        filename = hard_path(self.filename, self.opt.secrets)
+        aomi.validation.secret_file(filename)
+        handle = open(filename, 'r')
+        s_obj = {
+            'role_name': self.role_name,
+            'secret_name': self.secret_name,
+            'secret_id': handle.read().strip()
+        }
+        handle.close()
+        return s_obj
+
+    def secrets(self):
+        return [self.filename]
+
+    @wrap_vault("writing")
+    def write(self, client):
+        s_obj = self.obj()
+        secret_id = s_obj['secret_id']
+        del s_obj['secret_id']
+        client.create_role_custom_secret_id(self.role_name,
+                                            secret_id,
+                                            s_obj)
+
+    @wrap_vault("reading")
+    def read(self, client):
+        try:
+            return client.get_role_secret_id(self.role_name,
+                                             self.obj()['secret_id'])
+        except hvac.exceptions.InvalidPath:
+            return None
+        except ValueError as vault_excep:
+            if vault_excep.message.startswith('No JSON object'):
+                return None
+
+            raise
+
+    @wrap_vault("deleting")
+    def delete(self, client):
+        client.delete_role_secret_id(self.role_name,
+                                     self.obj()['secret_id'])
+
+
 class AppRole(Auth):
     """AppRole"""
     required_fields = ['name', 'policies']
@@ -109,11 +169,15 @@ class AppRole(Auth):
         else:
             dest[key] = default
 
+    def resources(self):
+        return [self] + self.secret_ids
+
     def __init__(self, obj, opt):
         super(AppRole, self).__init__('approle', obj, opt)
         self.app_name = obj['name']
         self.path = "auth/approle/role/%s" % obj['name']
         self.mount = self.backend
+        self.secret_ids = []
         role_obj = {
             'policies': ','.join(obj['policies'])
         }
@@ -125,6 +189,16 @@ class AppRole(Auth):
         AppRole.map_val(role_obj, obj, 'token_ttl', 0)
         AppRole.map_val(role_obj, obj, 'bind_secret_id', 'require_secret')
         self._obj = role_obj
+        if 'preset' in obj:
+            self.presets(obj['preset'], opt)
+
+    def presets(self, presets, opt):
+        """Will create representational objects for any preset (push)
+        based AppRole Secrets."""
+        for preset in presets:
+            secret_obj = dict(preset)
+            secret_obj['role_name'] = self.app_name
+            self.secret_ids.append(AppRoleSecret(secret_obj, opt))
 
     def diff(self, obj=None):
         obj = dict(self.obj())
