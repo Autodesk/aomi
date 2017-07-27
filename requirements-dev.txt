@@ -8,4 +8,4 @@ bandit
 vulture
 sphinx
 coverage
-
+cov-core

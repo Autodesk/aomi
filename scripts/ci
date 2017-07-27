@@ -1,12 +1,15 @@
 #!/usr/bin/env bash
 
 set -e
+SCRIPTDIR=$( cd ${0%/*} && pwd)
+ROOTDIR=${SCRIPTDIR%/*}
+
 if [ -z "$TRAVIS" ] ; then
-    PREFIX=".ci-env/bin/"
+    PREFIX="${ROOTDIR}/.ci-env/bin/"
 fi
 
 "${PREFIX}pep8" aomi
 "${PREFIX}pylint" --rcfile=/dev/null aomi
-coverage run -a --include 'aomi/*' "${PREFIX}nose2"
+COVERAGE_FILE="${ROOTDIR}/.coverage" "${PREFIX}nose2" -C aomi --coverage "${ROOTDIR}/aomi"
 "${PREFIX}bandit" -r aomi
 "${PREFIX}vulture" aomi
