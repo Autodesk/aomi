@@ -14,6 +14,7 @@ testenv:
 
 test: version testenv
 	coverage erase
+	test -z $(TRAVIS) || sleep 299
 	./scripts/ci
 	./scripts/integration
 	coverage report -m
