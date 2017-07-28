@@ -139,13 +139,29 @@ else
     fi
 fi
 
+# from http://mywiki.wooledge.org/BashFAQ/026
+shuffle_tests() {
+   local i tmp size max rand
+
+   size=${#EXEC_TESTS[*]}
+   for ((i=size-1; i>0; i--)); do
+      # $RANDOM % (i+1) is biased because of the limited range of $RANDOM
+      # Compensate by using a range which is a multiple of the rand modulus.
+
+      max=$(( 32768 / (i+1) * (i+1) ))
+      while (( (rand=$RANDOM) >= max )); do :; done
+      rand=$(( rand % (i+1) ))
+      tmp=${EXEC_TESTS[i]} EXEC_TESTS[i]=${EXEC_TESTS[rand]} EXEC_TESTS[rand]=$tmp
+   done
+}
+
 # Figure out which tests to run
-EXEC_TESTS=""
+EXEC_TESTS=()
 for a_test in $TESTS ; do
-    EXEC_TESTS="${EXEC_TESTS} ${ROOTDIR}/tests/integration/${a_test}.bats"
+    EXEC_TESTS=(${EXEC_TESTS[@]} "${ROOTDIR}/tests/integration/${a_test}.bats")
 done
 if [ -z "$TRAVIS" ] ; then
-    EXEC_TESTS="${EXEC_TESTS} ${ROOTDIR}/tests/integration/${GPG_TESTS}.bats"
+    EXEC_TESTS=(${EXEC_TESTS[@]} "${ROOTDIR}/tests/integration/${GPG_TESTS}.bats")
 fi
 
 # If we have Vault credentials we need to check to see if they are legit
@@ -159,7 +175,7 @@ if [ ! -z "$VAULT_TOKEN" ] && \
         fi
         echo "$VAULT_TOKEN" > "$CI_TOKEN"
         for a_test in $VAULT_TESTS ; do
-            EXEC_TESTS="${EXEC_TESTS} ${ROOTDIR}/tests/integration/${a_test}.bats"
+            EXEC_TESTS=(${EXEC_TESTS[@]} "${ROOTDIR}/tests/integration/${a_test}.bats")
         done
         echo "$VAULT_ADDR" > "${ROOTDIR}/.aomi-test/vault-addr"
     else
@@ -170,6 +186,9 @@ else
     echo "No vault detected"
     rm -rf "${ROOTDIR}/.aomi-test"
 fi
+
+# sprinkle some entropy
+shuffle_tests
 
 # If we are only testing the aws suite then we pretty much
 # need to have a Vault token
@@ -187,7 +206,7 @@ fi
 # Build up our BATS suite
 cmd="${ROOTDIR}/.bats/bin/bats"
 if [ -z "$TEST" ] ; then
-    cmd="${cmd} ${EXEC_TESTS}"
+    cmd="${cmd} ${EXEC_TESTS[@]}"
 else
     cmd="${cmd} ${ROOTDIR}/tests/integration/${TEST}.bats"
 fi

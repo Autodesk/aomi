@@ -154,3 +154,13 @@ def is_unicode_string(string):
             string.decode('utf-8')
     except UnicodeError:
         raise aomi.exceptions.Validation('Not a unicode string')
+
+
+def is_unicode(string):
+    """Validates that the object itself is some kinda string"""
+    str_type = str(type(string))
+
+    if str_type == 'str' or str_type == 'unicode':
+        return True
+
+    return False

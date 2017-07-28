@@ -141,7 +141,7 @@ class AppRoleSecret(Resource):
         except hvac.exceptions.InvalidPath:
             return None
         except ValueError as vault_excep:
-            if vault_excep.message.startswith('No JSON object'):
+            if str(vault_excep).startswith('No JSON object'):
                 return None
 
             raise

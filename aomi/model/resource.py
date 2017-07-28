@@ -7,7 +7,7 @@ import hvac.exceptions
 from aomi.vault import wrap_hvac as wrap_vault
 from aomi.helpers import is_tagged, hard_path, diff_dict
 import aomi.exceptions as aomi_excep
-from aomi.validation import check_obj, specific_path_check
+from aomi.validation import check_obj, specific_path_check, is_unicode
 LOG = logging.getLogger(__name__)
 
 NOOP = 0
@@ -148,15 +148,14 @@ class Resource(object):
 
         is_diff = NOOP
         if self.present and self.existing:
-            existing_type = type(self.existing)
-            if existing_type == dict:
+            if isinstance(self.existing, dict):
                 current = dict(self.existing)
                 if 'refresh_interval' in current:
                     del current['refresh_interval']
 
                 if diff_dict(current, obj):
                     is_diff = CHANGED
-            elif existing_type == str or existing_type == unicode:
+            elif is_unicode(self.existing):
                 if self.existing != obj:
                     is_diff = CHANGED
 
