@@ -18,40 +18,27 @@ teardown() {
 }
 
 @test "can freeze and thaw" {
-    run aomi freeze "${BATS_TMPDIR}/cold" --extra-vars pgp_key="$GPGID" --verbose
-    echo -e $output
-    [ "$status" -eq 0 ]
+    aomi_run freeze "${BATS_TMPDIR}/cold" --extra-vars pgp_key="$GPGID" --verbose
     ICEFILE=$(ls "${BATS_TMPDIR}/cold")
-    run aomi thaw "${BATS_TMPDIR}/cold/${ICEFILE}" --extra-vars "pgp_key=${GPGID}" --verbose
-    echo -e $output
-    [ "$status" -eq 0 ]
+    aomi_run thaw "${BATS_TMPDIR}/cold/${ICEFILE}" --extra-vars "pgp_key=${GPGID}" --verbose
 }
 
 @test "can freeze and thaw and then seed" {
-    run aomi freeze "${BATS_TMPDIR}/cold" --extra-vars pgp_key="$GPGID" --verbose
-    [ "$status" -eq 0 ]
+    aomi_run freeze "${BATS_TMPDIR}/cold" --extra-vars pgp_key="$GPGID" --verbose
     rm -rf "${FIXTURE_DIR}/.secrets"
     mkdir -p "${FIXTURE_DIR}/.secrets"
     ICEFILE=$(ls "${BATS_TMPDIR}/cold")
-    run aomi thaw "${BATS_TMPDIR}/cold/${ICEFILE}" --extra-vars pgp_key="$GPGID" --verbose
-    [ "$status" -eq 0 ]
+    aomi_run thaw "${BATS_TMPDIR}/cold/${ICEFILE}" --extra-vars pgp_key="$GPGID" --verbose
     aomi_seed --extra-vars pgp_key="$GPGID"
-    [ "$status" -eq 0 ]
 }
 
 @test "can freeze and thaw with subdirectories" {
     mkdir -p "${FIXTURE_DIR}/.secrets/sub"
     echo -n "$RANDOM" > "${FIXTURE_DIR}/.secrets/sub/secret.txt"
-    run aomi freeze "${BATS_TMPDIR}/cold" --extra-vars pgp_key="$GPGID" --verbose --tags sub --verbose
-    echo $output    
-    [ "$status" -eq 0 ]
+    aomi_run freeze "${BATS_TMPDIR}/cold" --extra-vars pgp_key="$GPGID" --verbose --tags sub --verbose
     rm -rf "${FIXTURE_DIR}/.secrets"
     mkdir -p "${FIXTURE_DIR}/.secrets"
     ICEFILE=$(ls "${BATS_TMPDIR}/cold")
-    run aomi thaw "${BATS_TMPDIR}/cold/${ICEFILE}" --extra-vars pgp_key="$GPGID" --verbose  --tags sub
-    echo $output    
-    [ "$status" -eq 0 ]
+    aomi_run thaw "${BATS_TMPDIR}/cold/${ICEFILE}" --extra-vars pgp_key="$GPGID" --verbose  --tags sub
     aomi_seed --extra-vars pgp_key="$GPGID"  --tags sub --verbose
-    echo $output
-    [ "$status" -eq 0 ]    
 }

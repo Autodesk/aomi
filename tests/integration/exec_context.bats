@@ -4,8 +4,7 @@
 load helper
 
 @test "can run aomi normally" {
-      run aomi help
-      [ "$status" -eq 0 ]
+      aomi_run help
 }
 @test "can run aomi as a dev py" {
     cd "$CIDIR" || exit 1

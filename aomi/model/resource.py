@@ -7,7 +7,7 @@ import hvac.exceptions
 from aomi.vault import wrap_hvac as wrap_vault
 from aomi.helpers import is_tagged, hard_path, diff_dict
 import aomi.exceptions as aomi_excep
-from aomi.validation import check_obj, specific_path_check
+from aomi.validation import check_obj, specific_path_check, is_unicode
 LOG = logging.getLogger(__name__)
 
 NOOP = 0
@@ -137,29 +137,30 @@ class Resource(object):
 
     def diff(self, obj=None):
         """Determine if something has changed or not"""
+        if not self.present:
+            if self.existing:
+                return DEL
+
+            return NOOP
+
         if not obj:
             obj = self.obj()
 
         is_diff = NOOP
         if self.present and self.existing:
-            existing_type = type(self.existing)
-            if existing_type == bool and self.existing:
-                is_diff = NOOP
-            elif existing_type == dict:
+            if isinstance(self.existing, dict):
                 current = dict(self.existing)
                 if 'refresh_interval' in current:
                     del current['refresh_interval']
 
                 if diff_dict(current, obj):
                     is_diff = CHANGED
-            elif existing_type == str and self.existing == obj:
-                is_diff = NOOP
-            else:
-                is_diff = NOOP
+            elif is_unicode(self.existing):
+                if self.existing != obj:
+                    is_diff = CHANGED
+
         elif self.present and not self.existing:
-            is_diff = ADD
-        elif not self.present and self.existing:
-            is_diff = DEL
+            return ADD
 
         return is_diff
 
