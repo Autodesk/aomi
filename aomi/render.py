@@ -95,6 +95,8 @@ def template(client, src, dest, paths, opt):
     obj = {}
     for path in paths:
         response = client.read(path)
+        if not response:
+            raise aomi.exceptions.VaultData("Unable to retrieve %s" % path)
         if is_aws(response['data']):
             renew_secret(client, response, opt)
 
