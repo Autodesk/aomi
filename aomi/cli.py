@@ -12,7 +12,7 @@ import aomi.util
 import aomi.filez
 import aomi.seed_action
 from aomi.helpers import VERSION as version
-from aomi.util import token_file, appid_file
+from aomi.util import token_file, appid_file, approle_file
 from aomi.error import unhandled
 LOG = logging.getLogger(__name__)
 
@@ -25,14 +25,16 @@ def help_me(parser, opt):
     if opt.verbose == 2:
         tf_str = 'Token File,' if token_file() else ''
         app_str = 'AppID File,' if appid_file() else ''
+        approle_str = 'Approle File,' if approle_file() else ''
         tfe_str = 'Token Env,' if 'VAULT_TOKEN' in os.environ else ''
         appre_str = 'App Role Env,' if 'VAULT_ROLE_ID' in os.environ and \
                     'VAULT_SECRET_ID' in os.environ else ''
         appe_str = 'AppID Env,' if 'VAULT_USER_ID' in os.environ and \
                    'VAULT_APP_ID' in os.environ else ''
 
-        LOG.info(("Auth Hints Present : %s%s%s%s%s" %
-                  (tf_str, app_str, tfe_str, appre_str, appe_str))[:-1])
+        LOG.info(("Auth Hints Present : %s%s%s%s%s%s" %
+                  (tf_str, app_str, approle_str, tfe_str,
+                   appre_str, appe_str))[:-1])
         LOG.info("Vault Server %s" %
                  os.environ['VAULT_ADDR']
                  if 'VAULT_ADDR' in os.environ else '??')
@@ -414,7 +416,7 @@ def action_runner(parser, args):
     elif args.operation == 'template':
         template_runner(client.connect(args), parser, args)
     elif args.operation == 'token':
-        print(client.token)
+        print(client.connect(args).token)
         sys.exit(0)
     elif args.operation == 'set_password':
         aomi.util.password(client.connect(args), args.vault_path)

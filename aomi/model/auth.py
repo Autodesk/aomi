@@ -13,7 +13,7 @@ import aomi.exceptions
 from aomi.vault import wrap_hvac as wrap_vault
 from aomi.helpers import hard_path, merge_dicts, cli_hash
 from aomi.template import load_var_files, render
-from aomi.model.resource import Auth, Resource
+from aomi.model.resource import Auth, Resource, NOOP, ADD
 from aomi.validation import secret_file, sanitize_mount
 LOG = logging.getLogger(__name__)
 
@@ -107,7 +107,10 @@ class AppRoleSecret(Resource):
         super(AppRoleSecret, self).__init__(obj, opt)
 
     def diff(self, obj=None):
-        return Resource.diff_write_only(self)
+        if 'secret_id_accessor' in self.existing:
+            return NOOP
+
+        return ADD
 
     def obj(self):
         filename = hard_path(self.filename, self.opt.secrets)
