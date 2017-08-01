@@ -7,7 +7,7 @@ import hvac
 import yaml
 from aomi.helpers import normalize_vault_path
 from aomi.error import output as error_output
-from aomi.util import token_file, appid_file
+from aomi.util import token_file, appid_file, approle_file
 import aomi.error
 import aomi.exceptions
 LOG = logging.getLogger(__name__)
@@ -142,7 +142,16 @@ class Client(hvac.Client):
 
         app_filename = appid_file()
         token_filename = token_file()
-        if 'VAULT_TOKEN' in os.environ and os.environ['VAULT_TOKEN']:
+        approle_filename = approle_file()
+        if 'VAULT_ROLE_ID' in os.environ and \
+           'VAULT_SECRET_ID' in os.environ and \
+           os.environ['VAULT_ROLE_ID'] and os.environ['VAULT_SECRET_ID']:
+            token = approle_token(self,
+                                  os.environ['VAULT_ROLE_ID'],
+                                  os.environ['VAULT_SECRET_ID'])
+            LOG.info("Token derived from VAULT_ROLE_ID and VAULT_SECRET_ID")
+            return token
+        elif 'VAULT_TOKEN' in os.environ and os.environ['VAULT_TOKEN']:
             LOG.info('Token derived from VAULT_TOKEN environment variable')
             return os.environ['VAULT_TOKEN'].strip()
         elif 'VAULT_USER_ID' in os.environ and \
@@ -153,14 +162,17 @@ class Client(hvac.Client):
                               os.environ['VAULT_USER_ID'].strip())
             LOG.info("Token derived from VAULT_APP_ID and VAULT_USER_ID")
             return token
-        elif 'VAULT_ROLE_ID' in os.environ and \
-             'VAULT_SECRET_ID' in os.environ and \
-             os.environ['VAULT_ROLE_ID'] and os.environ['VAULT_SECRET_ID']:
-            token = approle_token(self,
-                                  os.environ['VAULT_ROLE_ID'],
-                                  os.environ['VAULT_SECRET_ID'])
-            LOG.info("Token derived from VAULT_ROLE_ID and VAULT_SECRET_ID")
-            return token
+        elif approle_filename:
+            creds = yaml.safe_load(open(approle_filename).read().strip())
+            if 'role_id' in creds and 'secret_id' in creds:
+                token = approle_token(self,
+                                      creds['role_id'],
+                                      creds['secret_id'])
+                LOG.info("Token derived from approle file")
+                return token
+        elif token_filename:
+            LOG.info("Token derived from %s", token_filename)
+            return open(token_filename, 'r').read().strip()
         elif app_filename:
             token = yaml.safe_load(open(app_filename).read().strip())
             if 'app_id' in token and 'user_id' in token:
@@ -169,9 +181,6 @@ class Client(hvac.Client):
                                   token['user_id'])
                 LOG.info("Token derived from %s", app_filename)
                 return token
-        elif token_filename:
-            LOG.info("Token derived from %s", token_filename)
-            return open(token_filename, 'r').read().strip()
         else:
             raise aomi.exceptions.AomiCredentials('unknown method')
 

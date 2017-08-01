@@ -99,3 +99,8 @@ def token_file():
 def appid_file():
     """The path to an Aomi AppID file"""
     return vault_file('AOMI_APP_FILE', '.aomi-app-token')
+
+
+def approle_file():
+    """The path to an Aomi AppID file"""
+    return vault_file('AOMI_APPROLE_FILE', '.aomi-approle')
