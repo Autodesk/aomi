@@ -13,8 +13,11 @@ testenv:
 		(echo "Travis" && pip install -r requirements.txt -r requirements-dev.txt)
 
 test: version testenv
+	coverage erase
 	./scripts/ci
 	./scripts/integration
+	coverage report -m
+	coverage erase
 
 clean:
 	rm -rf aomi.egg-info dist .aomi-test tests/*.pyc aomi/*.pyc \

@@ -44,12 +44,9 @@ validate_defaults() {
     dd if=/dev/urandom of="$OG_BIN" count=1
     chmod og-rwx "$OG_BIN"    
     aomi_seed --tags binary
-    [ "$status" -eq 0 ]
     check_secret true "foo/bar/txt" "$FILE_SECRET1"
-    aomi extract_file foo/bar/bin "${BATS_TMPDIR}/exfile" --verbose
-    [ "$status" -eq 0 ]
+    aomi_run extract_file foo/bar/bin "${BATS_TMPDIR}/exfile" --verbose
     diff "$OG_BIN" "${BATS_TMPDIR}/exfile"
-    [ "$status" -eq 0 ]
 }
 
 @test "can remove things" {
@@ -145,6 +142,13 @@ validate_defaults() {
     aomi_seed
     check_secret true "foo/var/bar/secret" "$YAML_SECRET1"
     check_secret true "foo/var/bar/secret2" "$YAML_SECRET1_2"
+}
+@test "can include/exclude specific paths" {
+    aomi_seed --include foo/var/bar
+    check_secret true "foo/var/bar/secret" "$YAML_SECRET1"
+    vault delete foo/var/bar
+    aomi_seed --exclude foo/var/bar
+    check_secret false "foo/var/bar/secret" "$YAML_SECRET1"
 }
 @test "can use a bunch of tags and can seed a bunch of policies" {
     aomi_seed

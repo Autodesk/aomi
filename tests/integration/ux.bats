@@ -17,54 +17,51 @@ teardown() {
 @test "custom vault token file" {
     echo "$VAULT_TOKEN" > "${BATS_TMPDIR}/token"
     VAULT_TOKEN="" VAULT_TOKEN_FILE="${BATS_TMPDIR}/token" aomi_seed
-    [ "$status" -eq 0 ]
-}
-
-@test "custom vault token file" {
-    VAULT_TOKEN="" aomi_seed
-    [ "$status" -eq 0 ]
 }
 
 @test "builtin template help" {
-    run aomi template --builtin-list
-    [ "$status" -eq 0 ]
+    aomi_run template --builtin-list
     scan_lines "shenv" "${lines[@]}"
-    run aomi template --builtin-info shenv
-    [ "$status" -eq 0 ]
+    aomi_run template --builtin-info shenv
     scan_lines "snippet" "${lines[@]}"
 }
 
 @test "help if asked" {
-      run aomi --help
-      [ "$status" -eq 0 ]      
+      aomi_run --help
       scan_lines "usage: aomi" "${lines[@]}"
       scan_lines "positional arguments" "${lines[@]}"
-}
-@test "some help if not asked" {
-      run aomi --help
-      [ "$status" -eq 0 ]      
+      aomi_run help
       scan_lines "usage: aomi" "${lines[@]}"
-      run aomi
-      echo "what is ${status}"
-      [ "$status" -eq 2 ]
+      scan_lines "positional arguments" "${lines[@]}"      
+}
+
+@test "some help if not asked" {
+      aomi_run --help
+      scan_lines "usage: aomi" "${lines[@]}"
+      aomi_run_rc 2 aomi
       scan_lines "usage: aomi" "${lines[@]}"      
 }
 
 @test "a single op, help if asked" {
-    run aomi extract_file --help
-    [ "$status" -eq 0 ]
-    scan_lines "usage: aomi extract_file" "${lines[@]}"
+    aomi_run extract_file --help
+    scan_lines "usage: aomi.py extract_file" "${lines[@]}"
     scan_lines "positional arguments" "${lines[@]}"
 }
 
 @test "a single op, some if not asked" {
-    run aomi extract_file
-    [ "$status" -eq 2 ] # because it's bad syntax
-    scan_lines "usage: aomi extract_file" "${lines[@]}"
+    aomi_run_rc 2 extract_file
+    scan_lines "usage: aomi.py extract_file" "${lines[@]}"
 }
 
 @test "verbosity" {
-    run aomi help --verbose --verbose
-    [ "$status" -eq 0 ]
-    scan_lines "Auth Hints Present" "${lines[@]}"
+    aomi_run help --verbose
+    scan_lines "INFO:aomi.cli:Auth Hints Present" "${lines[@]}"
+}
+
+@test "can specify token metadata" {
+    aomi_seed --metadata test=good
+}
+
+@test "can specify operational token" {
+    aomi_seed --reuse-token
 }

@@ -74,11 +74,10 @@ class AWSTTL(Resource):
     """AWS Lease"""
     child = True
 
-    def __init__(self, mount, obj, msg, opt):
+    def __init__(self, mount, obj, opt):
         super(AWSTTL, self).__init__(obj, opt)
         self.path = "%s/config/lease" % mount
         self._obj = obj
-        self.msg = msg
 
 
 class AWS(Secret):
@@ -145,6 +144,6 @@ class AWS(Secret):
             if self.roles is None:
                 raise aomi.exceptions.AomiData('missing aws roles')
 
-            ttl_obj, lease_msg = grok_ttl(obj)
+            ttl_obj, _lease_msg = grok_ttl(obj)
             if ttl_obj:
-                self.ttl = AWSTTL(self.mount, ttl_obj, lease_msg, opt)
+                self.ttl = AWSTTL(self.mount, ttl_obj, opt)
