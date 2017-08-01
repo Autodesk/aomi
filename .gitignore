@@ -11,3 +11,4 @@ aomi/version
 .aomi-test
 docs/.sass-cache/
 docs/_site
+.coverage
