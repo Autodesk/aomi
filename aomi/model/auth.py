@@ -161,7 +161,7 @@ class AppRole(Auth):
     config_key = 'approles'
 
     @staticmethod
-    def map_val(src, dest, key, default, src_key=None):
+    def map_val(dest, src, key, default, src_key=None):
         """Will ensure a dict has values sourced from either
         another dict or based on the provided default"""
         if not src_key:
