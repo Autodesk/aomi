@@ -22,7 +22,7 @@ approles:
   policies:
   - 'default'
   - 'not_default'
-  secret_users: 1
+  secret_uses: 1
   secret_ttl: 1
 ```
 
