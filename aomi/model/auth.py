@@ -190,7 +190,7 @@ class AppRole(Auth):
         AppRole.map_val(role_obj, obj, 'period', 0)
         AppRole.map_val(role_obj, obj, 'token_max_ttl', 0)
         AppRole.map_val(role_obj, obj, 'token_ttl', 0)
-        AppRole.map_val(role_obj, obj, 'bind_secret_id', 'require_secret')
+        AppRole.map_val(role_obj, obj, 'bind_secret_id', 'true')
         self._obj = role_obj
         if 'preset' in obj:
             self.presets(obj['preset'], opt)
