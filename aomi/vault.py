@@ -99,8 +99,9 @@ class Client(hvac.Client):
     def __init__(self, _url=None, token=None, _cert=None, _verify=True,
                  _timeout=30, _proxies=None, _allow_redirects=True,
                  _session=None):
-        if 'VAULT_ADDR' not in os.environ:
-            raise aomi.exceptions.AomiError('VAULT_ADDR must be defined')
+        vault_addr = os.environ.get('VAULT_ADDR')
+        if not vault_addr:
+            raise aomi.exceptions.AomiError('VAULT_ADDR is undefined or empty')
 
         ssl_verify = True
         if 'VAULT_SKIP_VERIFY' in os.environ:
@@ -109,7 +110,7 @@ class Client(hvac.Client):
 
         self.initial_token = None
         self.operational_token = None
-        super(Client, self).__init__(url=os.environ['VAULT_ADDR'],
+        super(Client, self).__init__(url=vault_addr,
                                      verify=ssl_verify)
 
     def connect(self, opt):
