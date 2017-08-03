@@ -26,7 +26,7 @@ users:
   policies:
   - 'developer'
 mounts:
-- 'secret'
+- path: 'secret'
 secrets:
 - files:
   - source: 'id_rsa'
@@ -113,8 +113,8 @@ You can specify generic secret store mountpoints to be created but not neccesari
 
 ```
 mounts:
-- 'secret'
-- 'another_teams_secrets'
+- path: 'secret'
+- path: 'another_teams_secrets'
 ```
 
 # Secrets
