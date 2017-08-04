@@ -161,7 +161,7 @@ class AppRole(Auth):
     config_key = 'approles'
 
     @staticmethod
-    def map_val(src, dest, key, default, src_key=None):
+    def map_val(dest, src, key, default, src_key=None):
         """Will ensure a dict has values sourced from either
         another dict or based on the provided default"""
         if not src_key:
@@ -191,6 +191,7 @@ class AppRole(Auth):
         AppRole.map_val(role_obj, obj, 'token_max_ttl', 0)
         AppRole.map_val(role_obj, obj, 'token_ttl', 0)
         AppRole.map_val(role_obj, obj, 'bind_secret_id', 'true')
+        AppRole.map_val(role_obj, obj, 'token_num_uses', 0)
         self._obj = role_obj
         if 'preset' in obj:
             self.presets(obj['preset'], opt)
