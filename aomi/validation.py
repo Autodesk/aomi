@@ -160,7 +160,7 @@ def is_unicode(string):
     """Validates that the object itself is some kinda string"""
     str_type = str(type(string))
 
-    if str_type == 'str' or str_type == 'unicode':
+    if str_type.find('str') > 0 or str_type.find('unicode') > 0:
         return True
 
     return False
