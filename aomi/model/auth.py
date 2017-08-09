@@ -181,8 +181,14 @@ class AppRole(Auth):
         self.path = "auth/approle/role/%s" % obj['name']
         self.mount = self.backend
         self.secret_ids = []
+        policies = obj['policies']
+        # HCV seems to always add this in anyway. Having this implicit
+        # at our end makes the diff'ing easier.
+        if 'default' not in policies:
+            policies.insert(0, 'default')
+
         role_obj = {
-            'policies': ','.join(obj['policies'])
+            'policies': ','.join(policies)
         }
         AppRole.map_val(role_obj, obj, 'bound_cidr_list', '', 'cidr_list')
         AppRole.map_val(role_obj, obj, 'secret_id_num_uses', 0, 'secret_uses')
@@ -190,7 +196,7 @@ class AppRole(Auth):
         AppRole.map_val(role_obj, obj, 'period', 0)
         AppRole.map_val(role_obj, obj, 'token_max_ttl', 0)
         AppRole.map_val(role_obj, obj, 'token_ttl', 0)
-        AppRole.map_val(role_obj, obj, 'bind_secret_id', 'true')
+        AppRole.map_val(role_obj, obj, 'bind_secret_id', True)
         AppRole.map_val(role_obj, obj, 'token_num_uses', 0)
         self._obj = role_obj
         if 'preset' in obj:
@@ -207,9 +213,6 @@ class AppRole(Auth):
     def diff(self, obj=None):
         obj = dict(self.obj())
         obj['policies'] = obj['policies'].split(',')
-        if 'default' not in obj['policies']:
-            obj['policies'].append('default')
-
         obj['policies'] = sorted(obj['policies'])
         return super(AppRole, self).diff(obj)
 

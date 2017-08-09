@@ -14,13 +14,13 @@ teardown() {
 }
 
 @test "crud some diffs" {
-    aomi_run diff --verbose --verbose --monochrome
+    aomi_run diff --verbose --monochrome
     scan_lines "\+ Generic File secret/foo" "${lines[@]}"
     scan_lines "\+ Vault Generic Backend also_secret" "${lines[@]}"
     aomi_seed
-    aomi_run diff --verbose --verbose --monochrome --tags remove
+    aomi_run diff --verbose --monochrome --tags remove
     scan_lines "\- Generic File secret/foo" "${lines[@]}"
     scan_lines "\- Vault Generic Backend also_secret" "${lines[@]}"
-    aomi_run diff --verbose --verbose --monochrome --tags mod
+    aomi_run diff --verbose --monochrome --tags mod
     scan_lines "\~ Generic File secret/foo" "${lines[@]}"
 }

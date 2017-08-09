@@ -82,3 +82,7 @@ class StringTests(unittest.TestCase):
         with self.assertRaises(aomi.exceptions.Validation):
             aomi.validation.is_unicode_string(self.some_binary)
 
+
+class UnicodeTests(unittest.TestCase):
+    def test_is_unicode(self):
+        assert aomi.validation.is_unicode(str("test a thing"))

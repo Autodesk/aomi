@@ -9,6 +9,7 @@ from aomi.helpers import normalize_vault_path
 import aomi.exceptions as aomi_excep
 from aomi.model.resource import Resource, Mount, Secret, \
     Auth, AuditLog
+from aomi.model.auth import Policy
 from aomi.model.backend import LogBackend, AuthBackend, \
     SecretBackend
 LOG = logging.getLogger(__name__)
@@ -191,24 +192,22 @@ class Context(object):
         if isinstance(resource, Resource):
             self._resources.remove(resource)
 
-    def sync(self, vault_client, opt):
-        """Synchronizes the context to the Vault server. This
-        has the effect of updating every resource which is
-        in the context."""
-        active_mounts = []
-        for auth in self.auths():
-            auth.sync(vault_client)
-        for audit_log in self.logs():
-            audit_log.sync(vault_client)
+    def sync_policies(self, vault_client):
+        """Synchronizes policies only"""
+        p_resources = [x for x in self.resources()
+                       if isinstance(x, Policy)]
+        for resource in p_resources:
+            resource.sync(vault_client)
 
-        # Handle mounts only on the first pass. This allows us to
-        # ensure that everything is in order prior to actually
-        # provisioning secrets. Note we handle removals before
-        # anything else, allowing us to address mount conflicts.
+        return [x for x in self.resources()
+                if not isinstance(x, Policy)]
 
+    def sync_mounts(self, active_mounts, policies, vault_client):
+        """Synchronizes mount points. Removes things before
+        adding new."""
         # Create a resource set that is only explicit mounts
         # and sort so removals are first
-        mounts = [x for x in self.resources()
+        mounts = [x for x in policies
                   if isinstance(x, (Secret, Mount))]
         s_resources = sorted(mounts, key=absent_sort)
         # Iterate over explicit mounts only
@@ -222,10 +221,32 @@ class Context(object):
                 active_mounts.append(actual_mount)
                 actual_mount.sync(vault_client)
 
+        return active_mounts, [x for x in policies
+                               if not isinstance(x, (Mount))]
+
+    def sync(self, vault_client, opt):
+        """Synchronizes the context to the Vault server. This
+        has the effect of updating every resource which is
+        in the context and has changes pending."""
+        active_mounts = []
+        for auth in self.auths():
+            auth.sync(vault_client)
+        for audit_log in self.logs():
+            audit_log.sync(vault_client)
+
+        # Handle policies only on the first pass. This allows us
+        # to ensure that ACL's are in place prior to actually
+        # making any changes.
+        not_policies = self.sync_policies(vault_client)
+        # Handle mounts only on the next pass. This allows us to
+        # ensure that everything is in order prior to actually
+        # provisioning secrets. Note we handle removals before
+        # anything else, allowing us to address mount conflicts.
+        active_mounts, not_mounts = self.sync_mounts(active_mounts,
+                                                     not_policies,
+                                                     vault_client)
         # Now handle everything else. If "best practices" are being
         # adhered to then every generic mountpoint should exist by now
-        not_mounts = [x for x in self.resources()
-                      if not isinstance(x, (Mount))]
         for resource in not_mounts:
             resource.sync(vault_client)
 

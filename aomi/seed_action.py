@@ -6,10 +6,12 @@ from shutil import rmtree
 import tempfile
 from termcolor import colored
 import yaml
+from future.utils import iteritems  # pylint: disable=E0401
+from aomi.helpers import dict_unicodeize
 from aomi.filez import thaw
 from aomi.model import Context
 from aomi.template import get_secretfile, render_secretfile
-from aomi.model.resource import CHANGED, ADD, DEL, OVERWRITE
+from aomi.model.resource import CHANGED, ADD, DEL, OVERWRITE, NOOP
 from aomi.model.auth import Policy
 from aomi.model.aws import AWSRole
 from aomi.validation import is_unicode
@@ -87,15 +89,59 @@ def maybe_colored(msg, color, opt):
     return colored(msg, color)
 
 
+def normalize_val(val):
+    """Normalize JSON/YAML derived values as they pertain
+    to Vault resources and comparison operations """
+    if is_unicode(val) and val.isdigit():
+        return int(val)
+    elif isinstance(val, list):
+        return ','.join(val)
+
+    return val
+
+
+def details_dict(resource, opt):
+    """Output the changes, if any, for a dict"""
+    existing = dict_unicodeize(resource.existing)
+    obj = dict_unicodeize(resource.obj())
+    for ex_k, ex_v in iteritems(existing):
+        new_value = normalize_val(obj[ex_k])
+        og_value = normalize_val(ex_v)
+        if ex_k in obj and og_value != new_value:
+            print(maybe_colored("%s: %s" % (ex_k, og_value),
+                                'red', opt))
+            print(maybe_colored("%s: %s" % (ex_k, new_value),
+                                'green', opt))
+
+        if ex_k not in obj:
+            print(maybe_colored("%s: %s" % (ex_k, og_value),
+                                'red', opt))
+
+    for ob_k, ob_v in iteritems(obj):
+        val = normalize_val(ob_v)
+        if ob_k not in existing:
+            print(maybe_colored("%s: %s" % (ob_k, val),
+                                'green', opt))
+
+    return
+
+
 def maybe_details(resource, opt):
     """At the first level of verbosity this will print out detailed
     change information on for the specified Vault resource"""
     if opt.verbose == 0:
         return
 
-    if is_unicode(resource.existing):
+    if not resource.present:
+        return
+
+    obj = resource.obj()
+    if not obj:
+        return
+
+    if is_unicode(resource.existing) and is_unicode(obj):
         a_diff = difflib.unified_diff(resource.existing.splitlines(),
-                                      resource.obj().splitlines(),
+                                      obj.splitlines(),
                                       lineterm="")
         for line in a_diff:
             if line.startswith('+++') or line.startswith('---'):
@@ -106,6 +152,8 @@ def maybe_details(resource, opt):
                 print(maybe_colored(line, 'red', opt))
             else:
                 print(line)
+    elif isinstance(resource.existing, dict):
+        details_dict(resource, opt)
 
 
 def diff(vault_client, opt):
@@ -128,7 +176,8 @@ def diff(vault_client, opt):
         elif changed == OVERWRITE:
             print("%s %s" % (maybe_colored("+", "yellow", opt), str(resource)))
 
-        maybe_details(resource, opt)
+        if changed != OVERWRITE and changed != NOOP:
+            maybe_details(resource, opt)
 
     if opt.thaw_from:
         rmtree(opt.secrets)
