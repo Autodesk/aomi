@@ -132,7 +132,7 @@ class Context(object):
         return filtered_context(ctx)
 
     def thaw(self, tmp_dir):
-        """Will thaw a secret into an appropriate location"""
+        """Will thaw every secret into an appropriate temporary location"""
         for resource in self.resources():
             if resource.present:
                 resource.thaw(tmp_dir)
