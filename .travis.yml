@@ -32,6 +32,9 @@ deploy:
 install:
 - if [ "$TRAVIS_PULL_REQUEST" = "false" ]; then docker login --email $DOCKER_HUB_EMAIL
   --username=$DOCKER_HUB_USERNAME --password=$DOCKER_HUB_PASSWORD; fi
+- pip install coveralls
+after_success:
+  - coveralls
 notifications:
   slack:
     secure: NE/ltbdOUdna9JxDErIE4m2TtYT1g1CiIJl3xlNSoGOp9bEcrZC7M9aaw/C39/2fdOTHePu7gIXl4ljYv3R08aAFnlMsh7ru2//nD1pFTahUUL09sOYjlYYhpdX+I9DQMGVzyGqlJXhB4FqbiKA4L1PZ5nPr5eucLG17VuelaHIh5OYxuObz3g1eDlU1SRFvcOcLYrTa2J56jM46ymbO/KlIp3aeTKOjkWQPOHAF8qa3aprQfhA3FAhmI401qz0ItdX60Hg2Qg+T4rB2a0Z1uMmhJDAqYnwpxsvhRQPfqOiTgO/DlqHLDkEXT6hDbQUwcYzZuZbEecZkWSqo7Xf6fFktEFdBC78/nqt9fLqHJswQkZSIgqNwm5YvwWbG4FBCYTtfw5Gwy5T9fb2DPnPMsARv2hT+iZoVYtnZsnNv4o2KoxxWP2dUXyiRWupEOdowqwHr7mp459R9NGS3z/NOXy3oauObpmiyJXPK9RglnK5is2wgx9Kwwy8PbB2wSVrae/1oPslHARffm6h81lLScV+wBLEp1wa1e2QcRIhYJRUJXg95qbDEQ2N+/rePxY7b62SWGfxVttyOLJccrXGfaKf7FA8W1+Y2X0+8YmreNPw7lCTTqrl8omeZj434RVP5IyVkIoxo7mJRfgbPCOWp++eoHTLB45+x3p9TvQFQoAc=

@@ -17,7 +17,7 @@ test: version testenv
 	./scripts/ci
 	./scripts/integration
 	coverage report -m
-	coverage erase
+	test -z $(TRAVIS) && coverage erase || true
 
 clean:
 	rm -rf aomi.egg-info dist .aomi-test tests/*.pyc aomi/*.pyc \
