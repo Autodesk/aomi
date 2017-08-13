@@ -129,6 +129,7 @@ def details_dict(resource, opt):
 def maybe_details(resource, opt):
     """At the first level of verbosity this will print out detailed
     change information on for the specified Vault resource"""
+
     if opt.verbose == 0:
         return
 

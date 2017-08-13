@@ -106,6 +106,8 @@ class Client(hvac.Client):
         ssl_verify = True
         if 'VAULT_SKIP_VERIFY' in os.environ:
             if os.environ['VAULT_SKIP_VERIFY'] == '1':
+                import urllib3
+                urllib3.disable_warnings()
                 ssl_verify = False
 
         self.initial_token = None

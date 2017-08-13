@@ -82,7 +82,7 @@ def load_var_files(opt):
     """Load variable files, merge, return contents"""
     obj = {}
     for var_file in opt.extra_vars_file:
-        yamlz = yaml.safe_load(open(abspath(var_file)).read())
+        yamlz = yaml.safe_load(render(var_file, obj))
         obj = merge_dicts(obj.copy(), yamlz)
 
     return obj

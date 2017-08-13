@@ -107,7 +107,7 @@ class AppRoleSecret(Resource):
         super(AppRoleSecret, self).__init__(obj, opt)
 
     def diff(self, obj=None):
-        if 'secret_id_accessor' in self.existing:
+        if self.existing and 'secret_id_accessor' in self.existing:
             return NOOP
 
         return ADD
@@ -230,6 +230,20 @@ class AppRole(Auth):
     @wrap_vault("deleting")
     def delete(self, client):
         client.delete_role(self.app_name)
+
+
+class LDAPGroup(Resource):
+    """LDAP Group Policy Mapping"""
+    required_fields = ['policies', 'group']
+    config_key = 'ldap_groups'
+
+    def __init__(self, obj, opt):
+        super(LDAPGroup, self).__init__(obj, opt)
+        self.path = sanitize_mount("auth/%s/groups/%s" %
+                                   (obj.get('mount', 'ldap'), obj['group']))
+        self._obj = {
+            "policies": obj['policies']
+        }
 
 
 class UserPass(Auth):
