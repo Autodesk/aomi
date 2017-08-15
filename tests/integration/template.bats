@@ -26,6 +26,21 @@ teardown() {
     [ "$(cat "${BATS_TMPDIR}/render")" == "$FILE_SECRET1" ]
 }
 
+@test "bad yaml is bad" {
+    echo "{{for foo in bar %}" >> "${FIXTURE_DIR}/Secretfile"
+    aomi_run_rc 1 seed
+}
+
+@test "missing vars throw errors" {
+    echo "{{missing}}: []" >> "${FIXTURE_DIR}/Secretfile"
+    aomi_run_rc 1 seed
+}
+
+@test "extra vars file are templates too" {
+    echo "foo: {{test}}" >> "${FIXTURE_DIR}/var.yml"
+    aomi_seed --extra-vars "test=ayyy" --extra-vars-file "${FIXTURE_DIR}/var.yml"
+}
+
 @test "can use b64encode/b64decode filters" {
     echo -n '{{b64|b64decode}}{{secret|b64encode}}' > "${BATS_TMPDIR}/tpl"
     B64_SECRET="$(echo -n ${FILE_SECRET1} | base64)"

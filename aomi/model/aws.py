@@ -5,8 +5,8 @@ import aomi.exceptions
 import aomi.model.resource
 from aomi.vault import is_mounted
 from aomi.model.resource import Secret, Resource
-from aomi.helpers import hard_path, merge_dicts, cli_hash
-from aomi.template import load_var_files, render
+from aomi.helpers import hard_path, merge_dicts
+from aomi.template import load_vars, render
 from aomi.validation import sanitize_mount, secret_file, check_obj
 LOG = logging.getLogger(__name__)
 
@@ -58,9 +58,8 @@ class AWSRole(Resource):
         s_obj = {}
         if 'policy' in self._obj:
             role_template_obj = self._obj.get('vars', {})
-            cli_obj = merge_dicts(load_var_files(self.opt),
-                                  cli_hash(self.opt.extra_vars))
-            template_obj = merge_dicts(role_template_obj, cli_obj)
+            base_obj = load_vars(self.opt)
+            template_obj = merge_dicts(role_template_obj, base_obj)
             aws_role = render(self._obj['policy'], template_obj)
             aws_role = aws_role.replace(" ", "").replace("\n", "")
             s_obj = {'policy': aws_role}
