@@ -78,11 +78,21 @@ def render(filename, obj):
                                     ' '.join(template_traces))
 
 
-def load_var_files(opt):
+def load_vars(opt):
+    """Loads variable from cli and var files, passing in cli options
+    as a seed (although they can be overwritten!)"""
+    cli_opts = cli_hash(opt.extra_vars)
+    return merge_dicts(load_var_files(opt, cli_opts), cli_opts)
+
+
+def load_var_files(opt, p_obj=None):
     """Load variable files, merge, return contents"""
     obj = {}
+    if p_obj:
+        obj = p_obj
+
     for var_file in opt.extra_vars_file:
-        yamlz = yaml.safe_load(open(abspath(var_file)).read())
+        yamlz = yaml.safe_load(render(var_file, obj))
         obj = merge_dicts(obj.copy(), yamlz)
 
     return obj
@@ -144,6 +154,5 @@ def get_secretfile(opt):
 def render_secretfile(opt):
     """Renders and returns the Secretfile construct"""
     secretfile_path = abspath(opt.secretfile)
-    obj = merge_dicts(load_var_files(opt),
-                      cli_hash(opt.extra_vars))
+    obj = load_vars(opt)
     return render(secretfile_path, obj)

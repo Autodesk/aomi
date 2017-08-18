@@ -258,3 +258,15 @@ def normalize_vault_path(path):
     a variety of user specified formats and what HCV
     itself will return in API calls"""
     return '/'.join([x for x in path.split('/') if x])
+
+
+def map_val(dest, src, key, default=None, src_key=None):
+    """Will ensure a dict has values sourced from either
+        another dict or based on the provided default"""
+    if not src_key:
+        src_key = key
+
+    if src_key in src:
+        dest[key] = src[src_key]
+    else:
+        dest[key] = default

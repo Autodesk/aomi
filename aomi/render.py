@@ -7,9 +7,9 @@ from future.utils import iteritems  # pylint: disable=E0401
 from pkg_resources import resource_filename
 import hvac
 from cryptorito import portable_b64decode, is_base64
-from aomi.helpers import cli_hash, merge_dicts, \
+from aomi.helpers import merge_dicts, cli_hash, \
     path_pieces, abspath
-from aomi.template import render, load_var_files
+from aomi.template import render, load_vars
 from aomi.error import output as error_output
 import aomi.exceptions
 LOG = logging.getLogger(__name__)
@@ -80,9 +80,8 @@ def grok_template_file(src):
 
 def blend_vars(secrets, opt):
     """Blends secret and static variables together"""
-    extra_obj = merge_dicts(load_var_files(opt),
-                            cli_hash(opt.extra_vars))
-    merged = merge_dicts(extra_obj, secrets)
+    base_obj = load_vars(opt)
+    merged = merge_dicts(base_obj, secrets)
     template_obj = dict((k, v) for k, v in iteritems(merged) if v)
     # give templates something to iterate over
     template_obj['aomi_items'] = template_obj.copy()

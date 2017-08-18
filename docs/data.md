@@ -52,7 +52,7 @@ The seed command will go through the [`Secretfile`]({{site.baseurl}}/secretfile)
 
 It is possible to have aomi clean up unrecognzied Vault mount points. Note that by doing this, _any_ mount point that is not defined in the fully rendered `Secretfile` will be unmounted. This causes non-recoverable data from the perspective of Vault. Care should be taken to back up your data using [`freeze`]({{site.baseurl}}/data#freeze) and [`thaw`]({{site.baseurl}}/data#thaw) prior to using this option. It may be enabled by specifying `--remove-unknown`.
 
-The `Secretfile` is interpreted as a Jinja2 template, and you can pass in `--extra-vars` and `--extra-vars-file` to `seed`. This opens up some possibilities for bulk-creating sets of credentials based on integrations with other systems, while still preserving various paths and structures.
+The `Secretfile` is interpreted as a Jinja2 template, and you can pass in `--extra-vars` and `--extra-vars-file` to `seed`. This opens up some possibilities for bulk-creating sets of credentials based on integrations with other systems, while still preserving various paths and structures. The files passed to `--extra-vars-file` will be interpreted in order, with each being merged subsequently. They are also treated as templates prior to being interpreted as YAML.
 
 The `seed` command will make some sanity checks as it goes. One of these is to check for the presence of the secrets directory within your `.gitignore`. As this directory can contain plaintext secrets, it should never be committed. A recommended alternative is to specify an icefile with the `--thaw-from` option. When doing this, plain text secrets are only accessible in the clear during the seed operation and are removed immediately after.
 

@@ -69,3 +69,63 @@ duo:
 key: "foo"
 secret: "bar"
 ```
+
+# LDAP
+
+The aomi tool supports [LDAP authentication](https://www.vaultproject.io/docs/auth/ldap.html), along with mapping users to policies/groups, and groups to policies. It should work with all the ways that Vault supports LDAP.
+
+The basic configuration will setup an auth endpoint. You can specify all the config variables listed in the Vault documentation itself. Note that the `bindpass` and `certificate` options _must_ be specified in a "secret" file indicated by the `secrets` option.
+
+----
+
+`Secretfile`
+
+```
+ldap_auth:
+  - url: "ldap://example.com"
+    binddn: "cn=vault,dc=example,dc=com"
+    userattr: "uid"
+    userdn: "dc=example,dc=com"
+    groupdn: "dc=example,dc=com"
+    secrets: "ldap.yml"
+```
+
+`.secrets/ldap.yml`
+
+```
+bindpass: "password"
+```
+
+## LDAP Users
+
+Vault provides the ability to map users to policies and LDAP groups. Note that depending on your particular Vault/LDAP configuration, you may not be able to set overrides for users.
+
+----
+
+`Secretfile`
+
+```
+ldap_users:
+  - user: "test"
+    groups:
+      - "some-group"
+      - "another-group"
+    policies:
+      - "another-policy"
+```
+
+## LDAP Groups
+
+Vault provides the ability to map LDAP groups to policies.
+
+----
+
+`Secretfile`
+
+```
+ldap_groups:
+   - name: "some-group"
+     policies:
+       - "some-policy"
+```
+
