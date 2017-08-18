@@ -238,9 +238,13 @@ class LDAP(Auth):
         }
         self.mount = 'ldap'
         self.path = sanitize_mount("auth/ldap/config")
+        if 'secrets' in obj:
+            self.secret = obj['secrets']
+        else:
+            self.secret = None
+
         map_val(auth_obj, obj, 'starttls', False)
         map_val(auth_obj, obj, 'insecure_tls', False)
-        map_val(auth_obj, obj, 'certificate')
         map_val(auth_obj, obj, 'discoverdn')
         map_val(auth_obj, obj, 'userdn')
         map_val(auth_obj, obj, 'userattr')
@@ -250,8 +254,15 @@ class LDAP(Auth):
         map_val(auth_obj, obj, 'groupdn')
         map_val(auth_obj, obj, 'groupattr')
         map_val(auth_obj, obj, 'binddn')
-        map_val(auth_obj, obj, 'bindpass')
         self._obj = auth_obj
+
+    def obj(self):
+        ldap_obj = self._obj
+        if self.secret:
+            filename = hard_path(self.secret, self.opt.secrets)
+            secret_file(filename)
+
+        return ldap_obj
 
 
 class LDAPGroup(Resource):

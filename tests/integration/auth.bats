@@ -42,8 +42,21 @@ ldap_auth() {
 }
 
 @test "basic ldap" {
+    echo 'bindpass: "password"' >> "${FIXTURE_DIR}/.secrets/ldap"
+    chmod og-rwx "${FIXTURE_DIR}/.secrets/ldap"
     aomi_seed --tags ldap --extra-vars user=riemann --extra-vars group=mathematicians
     ldap_auth riemann
+}
+
+@test "ldap crud" {
+    echo 'bindpass: "password"' >> "${FIXTURE_DIR}/.secrets/ldap"
+    chmod og-rwx "${FIXTURE_DIR}/.secrets/ldap"
+    aomi_seed --tags ldap --extra-vars user=riemann --extra-vars group=mathematicians
+    check_secret "auth/ldap/users/riemann/policies" true "default,foo"
+    check_secret "auth/ldap/groups/mathematicians/policies" true "default,foogroup"    
+    aomi_seed --tags ldap --extra-vars user=riemann --extra-vars group=mathematicians --extra-vars state=absent
+    check_secret "auth/ldap/users/riemann/policies" false "default,foo"
+    check_secret "auth/ldap/groups/mathematicians/policies" false "default,foogroup"
 }
 
 @test "can crud a userpass" {
