@@ -238,11 +238,7 @@ class LDAP(Auth):
         }
         self.mount = 'ldap'
         self.path = sanitize_mount("auth/ldap/config")
-        if 'secrets' in obj:
-            self.secret = obj['secrets']
-        else:
-            self.secret = None
-
+        self.secret = obj.get('secrets')
         map_val(auth_obj, obj, 'starttls', False)
         map_val(auth_obj, obj, 'insecure_tls', False)
         map_val(auth_obj, obj, 'discoverdn')
