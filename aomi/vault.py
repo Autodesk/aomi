@@ -3,6 +3,9 @@ from __future__ import print_function
 import os
 import socket
 import logging
+import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 import hvac
 import yaml
 from aomi.helpers import normalize_vault_path
@@ -112,8 +115,15 @@ class Client(hvac.Client):
 
         self.initial_token = None
         self.operational_token = None
+        session = requests.Session()
+        retries = Retry(total=5,
+                        backoff_factor=0.5)
+        adapter = HTTPAdapter(max_retries=retries)
+        session.mount('https://', adapter)
+        session.mount('http://', adapter)
         super(Client, self).__init__(url=vault_addr,
-                                     verify=ssl_verify)
+                                     verify=ssl_verify,
+                                     session=session)
 
     def connect(self, opt):
         """This sets up the tokens we expect to see in a way
