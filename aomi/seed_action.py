@@ -96,6 +96,8 @@ def normalize_val(val):
         return int(val)
     elif isinstance(val, list):
         return ','.join(val)
+    elif val is None:
+        return ''
 
     return val
 
@@ -105,7 +107,7 @@ def details_dict(resource, opt):
     existing = dict_unicodeize(resource.existing)
     obj = dict_unicodeize(resource.obj())
     for ex_k, ex_v in iteritems(existing):
-        new_value = normalize_val(obj[ex_k])
+        new_value = normalize_val(obj.get(ex_k))
         og_value = normalize_val(ex_v)
         if ex_k in obj and og_value != new_value:
             print(maybe_colored("%s: %s" % (ex_k, og_value),
