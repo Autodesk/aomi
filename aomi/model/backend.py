@@ -15,11 +15,6 @@ class VaultBackend(object):
     mount_fun = None
     unmount_fun = None
 
-    @staticmethod
-    def list(vault_client, backend_class):
-        """List backends"""
-        return getattr(vault_client, backend_class.list_fun)()
-
     def __str__(self):
         if self.backend == self.path:
             return self.backend
@@ -101,7 +96,7 @@ class LogBackend(VaultBackend):
         if resource.description:
             self.description = resource.description
 
-        self.obj = resource.obj
+        self.obj = resource.obj()
 
     def actually_mount(self, client):
         if self.description:
@@ -113,3 +108,6 @@ class LogBackend(VaultBackend):
             client.enable_audit_backend(self.backend,
                                         name=self.backend,
                                         options=self.obj)
+
+    def unmount(self, client):
+        client.disable_audit_backend(self.obj['type'])

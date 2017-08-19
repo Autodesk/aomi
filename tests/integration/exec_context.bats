@@ -13,6 +13,6 @@ load helper
 }
 @test "can run aomi as a dev dir" {
     cd "$CIDIR" || exit 1
-    run python aomi help
+    run python ./aomi help
     [ "$status" -eq 0 ]
 }

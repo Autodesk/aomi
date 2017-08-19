@@ -41,6 +41,11 @@ ldap_auth() {
     export VAULT_TOKEN="$og_token"
 }
 
+@test "audit file log" {
+    aomi_seed --tags logs --extra-vars "log_path=${FIXTURE_DIR}/a.log"
+    aomi_seed --tags logs --extra-vars "log_path=${FIXTURE_DIR}/a.log" --extra-vars "state=absent"
+}
+
 @test "basic ldap" {
     echo 'bindpass: "password"' >> "${FIXTURE_DIR}/.secrets/ldap"
     chmod og-rwx "${FIXTURE_DIR}/.secrets/ldap"

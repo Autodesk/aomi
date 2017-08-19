@@ -32,6 +32,14 @@ teardown() {
     aomi_seed --extra-vars pgp_key="$GPGID"
 }
 
+@test "can freeze and seed with thaw-from" {
+    aomi_run freeze "${BATS_TMPDIR}/cold" --extra-vars pgp_key="$GPGID" --verbose
+    rm -rf "${FIXTURE_DIR}/.secrets"
+    mkdir -p "${FIXTURE_DIR}/.secrets"
+    ICEFILE=$(ls "${BATS_TMPDIR}/cold")
+    aomi_seed --extra-vars pgp_key="$GPGID" --thaw-from "${BATS_TMPDIR}/cold/${ICEFILE}"
+}
+
 @test "can freeze and thaw with subdirectories" {
     mkdir -p "${FIXTURE_DIR}/.secrets/sub"
     echo -n "$RANDOM" > "${FIXTURE_DIR}/.secrets/sub/secret.txt"

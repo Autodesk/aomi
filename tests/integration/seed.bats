@@ -29,6 +29,12 @@ validate_defaults() {
     done
 }
 
+@test "handle mount conflicts" {
+    vault mount -path="fiz" generic
+    aomi_run_rc 1 seed
+    scan_lines ".+has a mountpoint conflict.+" "${lines[@]}"
+}
+
 @test "remove unknown mounts if requested" {
     aomi_seed
     run vault mount -path=also_secret generic
