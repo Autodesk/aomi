@@ -2,6 +2,7 @@
 from __future__ import print_function
 import os
 import sys
+import logging
 import traceback
 from pkg_resources import resource_listdir, resource_filename
 import yaml
@@ -13,6 +14,7 @@ from aomi.helpers import merge_dicts, abspath, cli_hash
 import aomi.exceptions as aomi_excep
 # Python 2/3 compat
 from future.utils import iteritems  # pylint: disable=E0401
+LOG = logging.getLogger(__name__)
 
 
 def grok_default_vars(parsed_content):
@@ -34,9 +36,8 @@ def grok_default_vars(parsed_content):
     return default_vars
 
 
-def render(filename, obj):
-    """Render a template, maybe mixing in extra variables"""
-    template_path = abspath(filename)
+def jinja_env(template_path):
+    """Sets up our Jinja environment, loading the few filters we have"""
     fs_loader = FileSystemLoader(os.path.dirname(template_path))
     env = Environment(loader=fs_loader,
                       autoescape=True,
@@ -44,27 +45,35 @@ def render(filename, obj):
                       lstrip_blocks=True)
     env.filters['b64encode'] = portable_b64encode
     env.filters['b64decode'] = portable_b64decode
-    parsed_content = env.parse(env
-                               .loader
-                               .get_source(env,
-                                           os.path.basename(template_path)))
+    return env
 
-    template_vars = meta.find_undeclared_variables(parsed_content)
-    if template_vars:
-        missing_vars = []
-        default_vars = grok_default_vars(parsed_content)
-        for var in template_vars:
-            if var not in default_vars and var not in obj:
-                missing_vars.append(var)
 
-        if missing_vars:
-            e_msg = "Missing required variables %s" % ','.join(missing_vars)
-            raise aomi_excep.AomiData(e_msg)
-
+def render(filename, obj):
+    """Render a template, maybe mixing in extra variables"""
+    template_path = abspath(filename)
+    env = jinja_env(template_path)
+    template_base = os.path.basename(template_path)
     try:
+        parsed_content = env.parse(env
+                                   .loader
+                                   .get_source(env, template_base))
+        template_vars = meta.find_undeclared_variables(parsed_content)
+        if template_vars:
+            missing_vars = []
+            default_vars = grok_default_vars(parsed_content)
+            for var in template_vars:
+                if var not in default_vars and var not in obj:
+                    missing_vars.append(var)
+
+            if missing_vars:
+                e_msg = "Missing required variables %s" % \
+                        ','.join(missing_vars)
+                raise aomi_excep.AomiData(e_msg)
+        LOG.debug("rendering %s with %s vars",
+                  template_path, len(template_vars))
         return env \
-                 .get_template(os.path.basename(template_path)) \
-                 .render(**obj)
+            .get_template(template_base) \
+            .render(**obj)
     except jinja2.exceptions.TemplateSyntaxError as exception:
         template_trace = traceback.format_tb(sys.exc_info()[2])
         raise aomi_excep.Validation("Bad template %s %s" %
@@ -80,9 +89,14 @@ def render(filename, obj):
 
 def load_vars(opt):
     """Loads variable from cli and var files, passing in cli options
-    as a seed (although they can be overwritten!)"""
-    cli_opts = cli_hash(opt.extra_vars)
-    return merge_dicts(load_var_files(opt, cli_opts), cli_opts)
+    as a seed (although they can be overwritten!).
+    Note, turn this into an object so it's a nicer "cache"."""
+    if not hasattr(opt, '_vars_cache'):
+        cli_opts = cli_hash(opt.extra_vars)
+        setattr(opt, '_vars_cache',
+                merge_dicts(load_var_files(opt, cli_opts), cli_opts))
+
+    return getattr(opt, '_vars_cache')
 
 
 def load_var_files(opt, p_obj=None):
@@ -92,6 +106,7 @@ def load_var_files(opt, p_obj=None):
         obj = p_obj
 
     for var_file in opt.extra_vars_file:
+        LOG.debug("loading vars from %s", var_file)
         yamlz = yaml.safe_load(render(var_file, obj))
         obj = merge_dicts(obj.copy(), yamlz)
 
@@ -153,6 +168,7 @@ def get_secretfile(opt):
 
 def render_secretfile(opt):
     """Renders and returns the Secretfile construct"""
+    LOG.debug("Using Secretfile %s", opt.secretfile)
     secretfile_path = abspath(opt.secretfile)
     obj = load_vars(opt)
     return render(secretfile_path, obj)

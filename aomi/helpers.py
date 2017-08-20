@@ -11,7 +11,7 @@ from pkg_resources import resource_string, resource_filename
 # Python 2/3 compat
 from future.utils import iteritems  # pylint: disable=E0401
 import aomi.exceptions
-LOG = logging.getLogger()
+LOG = logging.getLogger(__name__)
 
 
 def my_version():
@@ -41,10 +41,13 @@ def abspath(raw):
 def hard_path(path, prefix_dir):
     """Returns an absolute path to either the relative or absolute file."""
     relative = abspath("%s/%s" % (prefix_dir, path))
+    a_path = abspath(path)
     if os.path.exists(relative):
+        LOG.debug("using relative path %s (%s)", relative, path)
         return relative
 
-    return abspath(path)
+    LOG.debug("using absolute path %s", a_path)
+    return a_path
 
 
 def is_tagged(required_tags, has_tags):

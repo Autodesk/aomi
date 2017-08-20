@@ -2,6 +2,7 @@
 from __future__ import print_function
 import os
 import difflib
+import logging
 from shutil import rmtree
 import tempfile
 from termcolor import colored
@@ -17,6 +18,7 @@ from aomi.model.aws import AWSRole
 from aomi.validation import is_unicode
 import aomi.error
 import aomi.exceptions
+LOG = logging.getLogger(__name__)
 
 
 def auto_thaw(opt):
@@ -50,7 +52,9 @@ def render(directory, opt):
         os.mkdir(directory)
 
     a_secretfile = render_secretfile(opt)
-    open("%s/Secretfile" % directory, 'w').write(a_secretfile)
+    s_path = "%s/Secretfile" % directory
+    LOG.debug("writing Secretfile to %s", s_path)
+    open(s_path, 'w').write(a_secretfile)
     ctx = Context.load(yaml.safe_load(a_secretfile), opt)
     for resource in ctx.resources():
         if not resource.present:
@@ -59,16 +63,20 @@ def render(directory, opt):
         if issubclass(type(resource), Policy):
             if not os.path.isdir("%s/policy" % directory):
                 os.mkdir("%s/policy" % directory)
+
             filename = "%s/policy/%s" % (directory, resource.path)
             open(filename, 'w').write(resource.obj())
+            LOG.debug("writing %s to %s", resource, filename)
         elif issubclass(type(resource), AWSRole):
             if not os.path.isdir("%s/aws" % directory):
                 os.mkdir("%s/aws" % directory)
+
             if 'policy' in resource.obj():
                 filename = "%s/aws/%s" % (directory,
                                           os.path.basename(resource.path))
                 r_obj = resource.obj()
                 if 'policy' in r_obj:
+                    LOG.debug("writing %s to %s", resource, filename)
                     open(filename, 'w').write(r_obj['policy'])
 
 

@@ -73,7 +73,8 @@ def wrap_hvac(msg):
     """Error catching Vault API wrapper
     This decorator wraps API interactions with Vault. It will
     catch and return appropriate error output on common
-    problems"""
+    problems. Do we even need this now that we extend the
+    hvac class?"""
     # pylint: disable=missing-docstring
     def wrap_call(func):
         # pylint: disable=missing-docstring
