@@ -182,7 +182,7 @@ class AppRole(Auth):
             policies.insert(0, 'default')
 
         role_obj = {
-            'policies': ','.join(policies)
+            'policies': ','.join(sort(policies))
         }
         map_val(role_obj, obj, 'bound_cidr_list', '', 'cidr_list')
         map_val(role_obj, obj, 'secret_id_num_uses', 0, 'secret_uses')
@@ -276,7 +276,7 @@ class LDAPGroup(Resource):
 
     def obj(self):
         return {
-            'policies': ','.join(self._obj.get('policies', []))
+            'policies': ','.join(sort(self._obj.get('policies', [])))
         }
 
 
@@ -295,8 +295,8 @@ class LDAPUser(Resource):
 
     def obj(self):
         return {
-            'groups': ','.join(self._obj.get('groups', [])),
-            'policies': ','.join(self._obj.get('policies', []))
+            'groups': ','.join(sort(self._obj.get('groups', []))),
+            'policies': ','.join(sort(self._obj.get('policies', [])))
         }
 
 
@@ -329,7 +329,7 @@ class UserPass(Auth):
         password = open(filename).readline().strip()
         return {
             'password': password,
-            'policies': ','.join(self.policies)
+            'policies': ','.join(sort(self.policies))
         }
 
 
