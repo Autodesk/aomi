@@ -276,7 +276,7 @@ class LDAPGroup(Resource):
 
     def obj(self):
         return {
-            'policies': ','.join(sort(self._obj.get('policies', [])))
+            'policies': ','.join(sorted(self._obj.get('policies', [])))
         }
 
 
@@ -295,8 +295,8 @@ class LDAPUser(Resource):
 
     def obj(self):
         return {
-            'groups': ','.join(sort(self._obj.get('groups', []))),
-            'policies': ','.join(sort(self._obj.get('policies', [])))
+            'groups': ','.join(sorted(self._obj.get('groups', []))),
+            'policies': ','.join(sorted(self._obj.get('policies', [])))
         }
 
 
@@ -329,7 +329,7 @@ class UserPass(Auth):
         password = open(filename).readline().strip()
         return {
             'password': password,
-            'policies': ','.join(sort(self.policies))
+            'policies': ','.join(sorted(self.policies))
         }
 
 
