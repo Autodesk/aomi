@@ -182,7 +182,7 @@ class AppRole(Auth):
             policies.insert(0, 'default')
 
         role_obj = {
-            'policies': ','.join(sort(policies))
+            'policies': ','.join(sorted(policies))
         }
         map_val(role_obj, obj, 'bound_cidr_list', '', 'cidr_list')
         map_val(role_obj, obj, 'secret_id_num_uses', 0, 'secret_uses')
