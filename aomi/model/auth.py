@@ -274,6 +274,11 @@ class LDAPGroup(Resource):
             "policies": obj['policies']
         }
 
+    def fetch(self, vault_client):
+        super(LDAPGroup, self).fetch(vault_client)
+        if self.existing:
+            self.existing = sorted(self.existing)
+
     def obj(self):
         return {
             'policies': ','.join(sorted(self._obj.get('policies', [])))
