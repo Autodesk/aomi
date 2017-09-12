@@ -17,21 +17,33 @@ from future.utils import iteritems  # pylint: disable=E0401
 LOG = logging.getLogger(__name__)
 
 
-def grok_default_vars(parsed_content):
-    """Returns a list of vars for which there is a default being set"""
+def grok_vars(elements):
+    """Returns a list of vars for which the value is being appropriately set
+    This currently includes the default filter, for-based iterators,
+    and the explicit use of set"""
     default_vars = []
-    for element in parsed_content.body:
+    iterbody = None
+    if hasattr(elements, 'body'):
+        iterbody = elements.body
+    elif hasattr(elements, 'nodes'):
+        iterbody = elements.nodes
+
+    for element in iterbody:
         if isinstance(element, jinja2.nodes.Output):
-            for node in element.nodes:
-                if isinstance(node, jinja2.nodes.Filter):
-                    if node.name == 'default' \
-                       and node.node.name not in default_vars:
-                        default_vars.append(node.node.name)
+            default_vars = default_vars + grok_vars(element)
+        elif isinstance(element, jinja2.nodes.Filter):
+            if element.name == 'default' \
+               and element.node.name not in default_vars:
+                default_vars.append(element.node.name)
         elif isinstance(element, jinja2.nodes.For):
             if isinstance(element.iter, jinja2.nodes.Filter):
                 if element.iter.name == 'default' \
                    and element.iter.node.name not in default_vars:
                     default_vars.append(element.iter.node.name)
+        elif isinstance(element, jinja2.nodes.If):
+            default_vars = default_vars + grok_vars(element)
+        elif isinstance(element, jinja2.nodes.Assign):
+            default_vars.append(element.target.name)
 
     return default_vars
 
@@ -60,7 +72,7 @@ def render(filename, obj):
         template_vars = meta.find_undeclared_variables(parsed_content)
         if template_vars:
             missing_vars = []
-            default_vars = grok_default_vars(parsed_content)
+            default_vars = grok_vars(parsed_content)
             for var in template_vars:
                 if var not in default_vars and var not in obj:
                     missing_vars.append(var)

@@ -186,7 +186,13 @@ class Client(hvac.Client):
                 return token
         elif token_filename:
             LOG.info("Token derived from %s", token_filename)
-            return open(token_filename, 'r').read().strip()
+            try:
+                return open(token_filename, 'r').read().strip()
+            except IOError as os_exception:
+                if os_exception.errno == 21:
+                    raise aomi.exceptions.AomiFile('Bad Vault token file')
+
+                raise
         elif app_filename:
             token = yaml.safe_load(open(app_filename).read().strip())
             if 'app_id' in token and 'user_id' in token:

@@ -70,10 +70,14 @@ def freeze_archive(tmp_dir, dest_prefix):
 def freeze_encrypt(dest_dir, zip_filename, config, opt):
     """Encrypts the zip file"""
     pgp_keys = grok_keys(config)
-    ice_handle = os.path.basename(os.path.dirname(opt.secretfile))
+    icefile_prefix = "aomi-%s" % \
+                     os.path.basename(os.path.dirname(opt.secretfile))
+    if opt.icefile_prefix:
+        icefile_prefix = opt.icefile_prefix
+
     timestamp = time.strftime("%H%M%S-%m-%d-%Y",
                               datetime.datetime.now().timetuple())
-    ice_file = "%s/aomi-%s-%s.ice" % (dest_dir, ice_handle, timestamp)
+    ice_file = "%s/%s-%s.ice" % (dest_dir, icefile_prefix, timestamp)
     if not encrypt(zip_filename, ice_file, pgp_keys):
         raise aomi.exceptions.GPG("Unable to encrypt zipfile")
 

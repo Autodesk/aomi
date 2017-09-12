@@ -60,6 +60,8 @@ The `seed` command will make some sanity checks as it goes. One of these is to c
 
 The `freeze` action will go through the [`Secretfile`]({{site.baseurl}}/secretfile) and extract specified secrets from the local file system into an encrypted zip file. This file is known as an icefile, because it sounds cool. You can specify tags, or include/exclude paths. In order to make use of `freeze` you _must_ specify a list of either Keybase or GPG fingerprints in the `Secretfile` under the `pgp_keys` section. All the options supported by `seed` for selection of secrets and file paths are supported with this operation.
 
+If you wish to have a static prefix for the icefiles, you may specify it with the `--icefile-prefix` option. The default behavior is for the filename prefix to be computed based on the working directory.
+
 ----
 
 `Secretfile`
