@@ -23,6 +23,12 @@ teardown() {
     aomi_run thaw "${BATS_TMPDIR}/cold/${ICEFILE}" --extra-vars "pgp_key=${GPGID}" --verbose
 }
 
+@test "can freeze a specific icefile" {
+    aomi_run freeze "${BATS_TMPDIR}/cold" --icefile-prefix boogaloo --extra-vars pgp_key="$GPGID"
+    ICEFILE=$(basename $(ls "${BATS_TMPDIR}/cold/boogaloo"*))
+    aomi_run thaw "${BATS_TMPDIR}/cold/${ICEFILE}" --extra-vars pgp_key="$GPGID" --verbose
+}
+
 @test "can freeze and thaw and then seed" {
     aomi_run freeze "${BATS_TMPDIR}/cold" --extra-vars pgp_key="$GPGID" --verbose
     rm -rf "${FIXTURE_DIR}/.secrets"
