@@ -281,6 +281,9 @@ def thaw_args(subparsers):
 def freeze_args(subparsers):
     """Add command line options for the freeze operation"""
     freeze_parser = subparsers.add_parser('freeze')
+    freeze_parser.add_argument('--icefile-prefix',
+                               dest='icefile_prefix',
+                               help='Prefix of icefilename')
     secretfile_args(freeze_parser)
     archive_args(freeze_parser)
     vars_args(freeze_parser)
