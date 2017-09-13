@@ -17,6 +17,19 @@ from future.utils import iteritems  # pylint: disable=E0401
 LOG = logging.getLogger(__name__)
 
 
+def grok_filter_name(element):
+    """Extracts the name, which may be embedded, for a Jinja2
+    filter node"""
+    if element.name == 'default':
+        e_name = None
+        if isinstance(element.node, jinja2.nodes.Getattr):
+            e_name = element.node.node.name
+        else:
+            e_name = element.node.name
+
+        return e_name
+
+
 def grok_vars(elements):
     """Returns a list of vars for which the value is being appropriately set
     This currently includes the default filter, for-based iterators,
@@ -32,14 +45,16 @@ def grok_vars(elements):
         if isinstance(element, jinja2.nodes.Output):
             default_vars = default_vars + grok_vars(element)
         elif isinstance(element, jinja2.nodes.Filter):
-            if element.name == 'default' \
-               and element.node.name not in default_vars:
-                default_vars.append(element.node.name)
+            e_name = grok_filter_name(element)
+            if e_name not in default_vars:
+                default_vars.append(e_name)
         elif isinstance(element, jinja2.nodes.For):
             if isinstance(element.iter, jinja2.nodes.Filter):
                 if element.iter.name == 'default' \
                    and element.iter.node.name not in default_vars:
                     default_vars.append(element.iter.node.name)
+
+                default_vars = default_vars + grok_vars(element)
         elif isinstance(element, jinja2.nodes.If):
             default_vars = default_vars + grok_vars(element)
         elif isinstance(element, jinja2.nodes.Assign):
