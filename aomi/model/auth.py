@@ -268,8 +268,9 @@ class LDAPGroup(Resource):
 
     def __init__(self, obj, opt):
         super(LDAPGroup, self).__init__(obj, opt)
+        self.group = obj['group']
         self.path = sanitize_mount("auth/%s/groups/%s" %
-                                   (obj.get('mount', 'ldap'), obj['group']))
+                                   (obj.get('mount', 'ldap'), self.group))
         self._obj = {
             "policies": obj['policies']
         }
@@ -277,12 +278,18 @@ class LDAPGroup(Resource):
     def fetch(self, vault_client):
         super(LDAPGroup, self).fetch(vault_client)
         if self.existing:
-            self.existing = sorted(self.existing)
+            s_policies = sorted(self.existing['policies'].split(','))
+            self.existing['policies'] = s_policies
 
     def obj(self):
         return {
-            'policies': ','.join(sorted(self._obj.get('policies', [])))
+            'policies': sorted(self._obj.get('policies', []))
         }
+
+    def write(self, client):
+        w_obj = self._obj
+        w_obj['policies'] = ','.join(w_obj['policies'])
+        client.write(self.path, **w_obj)
 
 
 class LDAPUser(Resource):
