@@ -97,7 +97,6 @@ class AppUser(Resource):
         if 'cidr' in obj:
             self._obj['cidr'] = obj['cidr']
 
-
 class AppRoleSecret(Resource):
     """Approle Secret"""
     child = True
@@ -225,6 +224,61 @@ class AppRole(Auth):
     def delete(self, client):
         client.delete_role(self.app_name)
 
+class TokenRole(Auth):
+    """TokenRole"""
+    required_fields = ['name']
+    config_key = 'tokenroles'
+
+    def resources(self):
+        return [self] + self.secret_ids
+
+    def __init__(self, obj, opt):
+        super(TokenRole, self).__init__('tokenrole', obj, opt)
+        self.role_name = obj['name']
+        self.path = "auth/token/roles/%s" % obj['name']
+        self.mount = 'token'
+        self.backend = 'token'
+        self.secret_ids = []
+        
+        role_obj = {}
+
+        for p in ['allowed_policies','disallowed_policies']:
+            if p in obj:
+                policies = obj[p]
+                role_obj[p] = ','.join(sorted(policies))
+
+        map_val(role_obj, obj, 'orphan', True)
+        map_val(role_obj, obj, 'period', 0)
+        map_val(role_obj, obj, 'renewable', True)
+        map_val(role_obj, obj, 'explicit_max_ttl', 0)
+        map_val(role_obj, obj, 'path_suffix', '')
+
+        self._obj = role_obj
+
+    def diff(self, obj=None):
+        obj = dict(self.obj())
+
+        for p in ['allowed_policies','disallowed_policies']:
+            if p in obj:
+                obj[p] = obj[p].split(',')
+                obj[p] = sorted(obj[p])
+        return super(TokenRole, self).diff(obj)
+
+    @wrap_vault("writing")
+    def write(self, client):
+        client.write(self.path, **self.obj())
+        # client.create_role(self.role_name, **self.obj())
+
+    @wrap_vault("reading")
+    def read(self, client):
+        try:
+            return client.read(self.path)
+        except hvac.exceptions.InvalidPath:
+            return None
+
+    @wrap_vault("deleting")
+    def delete(self, client):
+        client.delete(self.path)
 
 class LDAP(Auth):
     """LDAP Authentication"""
