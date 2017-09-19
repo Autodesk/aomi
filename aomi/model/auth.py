@@ -97,6 +97,7 @@ class AppUser(Resource):
         if 'cidr' in obj:
             self._obj['cidr'] = obj['cidr']
 
+
 class AppRoleSecret(Resource):
     """Approle Secret"""
     child = True
@@ -224,6 +225,7 @@ class AppRole(Auth):
     def delete(self, client):
         client.delete_role(self.app_name)
 
+
 class TokenRole(Auth):
     """TokenRole"""
     required_fields = ['name']
@@ -239,13 +241,13 @@ class TokenRole(Auth):
         self.mount = 'token'
         self.backend = 'token'
         self.secret_ids = []
-        
+
         role_obj = {}
 
-        for p in ['allowed_policies','disallowed_policies']:
-            if p in obj:
-                policies = obj[p]
-                role_obj[p] = ','.join(sorted(policies))
+        for policy_type in ['allowed_policies', 'disallowed_policies']:
+            if policy_type in obj:
+                policies = obj[policy_type]
+                role_obj[policy_type] = ','.join(sorted(policies))
 
         map_val(role_obj, obj, 'orphan', True)
         map_val(role_obj, obj, 'period', 0)
@@ -258,10 +260,10 @@ class TokenRole(Auth):
     def diff(self, obj=None):
         obj = dict(self.obj())
 
-        for p in ['allowed_policies','disallowed_policies']:
-            if p in obj:
-                obj[p] = obj[p].split(',')
-                obj[p] = sorted(obj[p])
+        for policy_type in ['allowed_policies', 'disallowed_policies']:
+            if policy_type in obj:
+                obj[policy_type] = obj[policy_type].split(',')
+                obj[policy_type] = sorted(obj[policy_type])
         return super(TokenRole, self).diff(obj)
 
     @wrap_vault("writing")
@@ -279,6 +281,7 @@ class TokenRole(Auth):
     @wrap_vault("deleting")
     def delete(self, client):
         client.delete(self.path)
+
 
 class LDAP(Auth):
     """LDAP Authentication"""
