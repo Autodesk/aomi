@@ -26,6 +26,25 @@ approles:
   secret_ttl: 1
 ```
 
+# Token Role
+
+[Token Role](https://www.vaultproject.io/api/auth/token/index.html) allows you to create a surrogate token from a defined set of policies. A Token Role can define explcitly allowed or disallowed policies which the surrogate token can be generated from. Primarily use cases for Token Role would be Hashicorp's [Nomad](https://www.nomadproject.io/docs/vault-integration/index.html).
+
+----
+
+`Secretfile`
+
+```
+tokenroles:
+- name: 'nomad-cluster'
+  disallowed_policies:
+  - nomad-server
+  explicit_max_ttl: 0
+  orphan: false
+  period: 259200
+  renewable: true
+```
+
 # Users
 
 Vault supports basic user/password [combinations](https://www.vaultproject.io/docs/auth/userpass.html). You can provision this with aomi as well. The `Secretfile` contains the user and policy associations. The password is stored as a plain text file in the secrets directory.
