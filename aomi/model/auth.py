@@ -269,7 +269,6 @@ class TokenRole(Auth):
     @wrap_vault("writing")
     def write(self, client):
         client.write(self.path, **self.obj())
-        # client.create_role(self.role_name, **self.obj())
 
     @wrap_vault("reading")
     def read(self, client):
