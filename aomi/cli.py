@@ -225,9 +225,7 @@ def render_args(subparsers):
     secretfile_args(render_parser)
     vars_args(render_parser)
     base_args(render_parser)
-    render_parser.add_argument('--thaw-from',
-                               dest='thaw_from',
-                               help='Thaw an ICE file containing secrets')
+    thaw_from_args(render_parser)
 
 
 def diff_args(subparsers):
@@ -236,9 +234,7 @@ def diff_args(subparsers):
     secretfile_args(diff_parser)
     vars_args(diff_parser)
     base_args(diff_parser)
-    diff_parser.add_argument('--thaw-from',
-                             dest='thaw_from',
-                             help='Thaw an ICE file containing secrets')
+    thaw_from_args(diff_parser)
 
 
 def seed_args(subparsers):
@@ -251,15 +247,24 @@ def seed_args(subparsers):
                              help='Only mount paths if needed',
                              default=False,
                              action='store_true')
-    seed_parser.add_argument('--thaw-from',
-                             dest='thaw_from',
-                             help='Thaw an ICE file containing secrets')
+    thaw_from_args(seed_parser)
     seed_parser.add_argument('--remove-unknown',
                              dest='remove_unknown',
                              action='store_true',
                              help='Remove mountpoints that are not '
                              'defined in the Secretfile')
     base_args(seed_parser)
+
+
+def thaw_from_args(parser):
+    """Adds command line options for things related to inline thawing
+    of icefiles"""
+    parser.add_argument('--thaw-from',
+                        dest='thaw_from',
+                        help='Thaw an ICE file containing secrets')
+    parser.add_argument('--gpg-password-path',
+                        dest='gpg_pass_path',
+                        help='Vault path of GPG passphrase location')
 
 
 def archive_args(parser):
@@ -272,6 +277,9 @@ def archive_args(parser):
 def thaw_args(subparsers):
     """Add command line options for the thaw operation"""
     thaw_parser = subparsers.add_parser('thaw')
+    thaw_parser.add_argument('--gpg-password-path',
+                             dest='gpg_pass_path',
+                             help='Vault path of GPG passphrase location')
     secretfile_args(thaw_parser)
     archive_args(thaw_parser)
     vars_args(thaw_parser)
@@ -386,6 +394,17 @@ def ux_actions(parser, args):
         help_me(parser, args)
 
 
+def do_thaw(client, args):
+    """Execute the thaw operation, pulling in an actual Vault
+    client if neccesary"""
+    vault_client = None
+    if args.gpg_pass_path:
+        vault_client = client.connect(args)
+
+    aomi.filez.thaw(vault_client, args.icefile, args)
+    sys.exit(0)
+
+
 def action_runner(parser, args):
     """Run appropriate action, or throw help"""
 
@@ -428,8 +447,7 @@ def action_runner(parser, args):
         aomi.filez.freeze(args.icefile, args)
         sys.exit(0)
     elif args.operation == 'thaw':
-        aomi.filez.thaw(args.icefile, args)
-        sys.exit(0)
+        do_thaw(client, args)
 
     parser.print_usage()
     sys.exit(2)

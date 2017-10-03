@@ -4,6 +4,7 @@ import os
 import sys
 import logging
 import traceback
+import json
 from pkg_resources import resource_listdir, resource_filename
 import yaml
 from jinja2 import Environment, FileSystemLoader, meta
@@ -30,6 +31,27 @@ def grok_filter_name(element):
         return e_name
 
 
+def grok_for_node(element, default_vars):
+    """Properly parses a For loop element"""
+    if isinstance(element.iter, jinja2.nodes.Filter):
+        if element.iter.name == 'default' \
+           and element.iter.node.name not in default_vars:
+            default_vars.append(element.iter.node.name)
+
+        default_vars = default_vars + grok_vars(element)
+
+    return default_vars
+
+
+def grok_if_node(element, default_vars):
+    """Properly parses a If element"""
+    if isinstance(element.test, jinja2.nodes.Filter) and \
+       element.test.name == 'default':
+        default_vars.append(element.test.node.name)
+
+    return default_vars + grok_vars(element)
+
+
 def grok_vars(elements):
     """Returns a list of vars for which the value is being appropriately set
     This currently includes the default filter, for-based iterators,
@@ -49,16 +71,14 @@ def grok_vars(elements):
             if e_name not in default_vars:
                 default_vars.append(e_name)
         elif isinstance(element, jinja2.nodes.For):
-            if isinstance(element.iter, jinja2.nodes.Filter):
-                if element.iter.name == 'default' \
-                   and element.iter.node.name not in default_vars:
-                    default_vars.append(element.iter.node.name)
-
-                default_vars = default_vars + grok_vars(element)
+            default_vars = grok_for_node(element, default_vars)
         elif isinstance(element, jinja2.nodes.If):
-            default_vars = default_vars + grok_vars(element)
+            default_vars = grok_if_node(element, default_vars)
         elif isinstance(element, jinja2.nodes.Assign):
             default_vars.append(element.target.name)
+        elif isinstance(element, jinja2.nodes.FromImport):
+            for from_var in element.names:
+                default_vars.append(from_var)
 
     return default_vars
 
@@ -134,10 +154,25 @@ def load_var_files(opt, p_obj=None):
 
     for var_file in opt.extra_vars_file:
         LOG.debug("loading vars from %s", var_file)
-        yamlz = yaml.safe_load(render(var_file, obj))
-        obj = merge_dicts(obj.copy(), yamlz)
+        obj = merge_dicts(obj.copy(), load_var_file(var_file, obj))
 
     return obj
+
+
+def load_var_file(filename, obj):
+    """Loads a varible file, processing it as a template"""
+    rendered = render(filename, obj)
+    ext = os.path.splitext(filename)[1][1:]
+    v_obj = dict()
+    if ext == 'json':
+        v_obj = json.loads(rendered)
+    elif ext == 'yaml' or ext == 'yml':
+        v_obj = yaml.safe_load(rendered)
+    else:
+        err_msg = "unrecognized extra vars extension %s" % ext
+        raise aomi_excep.AomiData(err_msg)
+
+    return v_obj
 
 
 def load_template_help(builtin):

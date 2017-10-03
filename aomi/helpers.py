@@ -2,8 +2,10 @@
 from __future__ import print_function
 import sys
 import os
+import atexit
 import tempfile
 import collections
+from shutil import rmtree
 from random import SystemRandom
 from getpass import getpass
 import logging
@@ -215,9 +217,17 @@ def ensure_dir(path):
         os.mkdir(path)
 
 
+def clean_tmpdir(path):
+    """Invoked atexit, this removes our tmpdir"""
+    if os.path.exists(path) and \
+       os.path.isdir(path):
+        rmtree(path)
+
+
 def ensure_tmpdir():
     """Ensures a temporary directory exists"""
     path = tempfile.mkdtemp('aomi')
+    atexit.register(clean_tmpdir, path)
     return path
 
 

@@ -98,6 +98,8 @@ function use_fixture() {
     echo "secret: ${RANDOM}" > "${SECRET_DIR}/secret2.yml"
     echo -n "secret2: ${RANDOM}" >> "${SECRET_DIR}/secret.yml"
     echo -n "secret2: ${RANDOM}" >> "${SECRET_DIR}/secret2.yml"
+    echo -n '{"secret": "'"${RANDOM}"'"}' > "${SECRET_DIR}/secret.json"
+    echo -n '{"secret": "'"${RANDOM}"'"}' > "${SECRET_DIR}/secret2.json"
     echo ".secrets${ALT}" > "${FIXTURE_DIR}/.gitignore"
     chmod -R o-rwx "${SECRET_DIR}"
     chmod -R g-w "${SECRET_DIR}"

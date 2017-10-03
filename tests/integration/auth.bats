@@ -30,7 +30,17 @@ userpass_auth() {
 # http://www.forumsys.com/tutorials/integration-how-to/ldap/online-ldap-test-server/
 # hey if it works for vault
 ldap_auth() {
-    local L_USER="$1"
+    local L_USER
+    local L_MOUNT
+    if [ $# == 2 ] ; then
+        L_MOUNT="$1"
+        L_USER="$2"
+    elif [ $# == 1 ] ; then
+        L_MOUNT="ldap"
+        L_USER="$1"
+    else
+        return 1
+    fi
     local og_token="$VAULT_TOKEN"
     unset VAULT_TOKEN
     run vault auth -method=ldap "username=riemann" "password=password" -format=json
@@ -51,6 +61,14 @@ ldap_auth() {
     chmod og-rwx "${FIXTURE_DIR}/.secrets/ldap"
     aomi_seed --tags ldap --extra-vars user=riemann --extra-vars group=mathematicians
     ldap_auth riemann
+}
+
+@test "dual wield ldap" {
+    echo 'bindpass: "password"' >> "${FIXTURE_DIR}/.secrets/ldap"
+    chmod og-rwx "${FIXTURE_DIR}/.secrets/ldap"
+    aomi_seed --tags dual_ldap --extra-vars user=riemann --extra-vars group=mathematicians
+    ldap_auth riemann
+    ldap_auth also_ldap riemann    
 }
 
 @test "ldap crud" {

@@ -292,8 +292,8 @@ class LDAP(Auth):
         auth_obj = {
             'url': obj['url']
         }
-        self.mount = 'ldap'
-        self.path = sanitize_mount("auth/ldap/config")
+        self.mount = obj.get('mount', 'ldap')
+        self.path = sanitize_mount("auth/%s/config" % self.mount)
         self.secret = obj.get('secrets')
         map_val(auth_obj, obj, 'starttls', False)
         map_val(auth_obj, obj, 'insecure_tls', False)
@@ -327,9 +327,10 @@ class LDAPGroup(Resource):
         self.group = obj['group']
         self.path = sanitize_mount("auth/%s/groups/%s" %
                                    (obj.get('mount', 'ldap'), self.group))
-        self._obj = {
-            "policies": obj['policies']
-        }
+        if self.present:
+            self._obj = {
+                "policies": obj['policies']
+            }
 
     def fetch(self, vault_client):
         super(LDAPGroup, self).fetch(vault_client)

@@ -21,13 +21,13 @@ import aomi.exceptions
 LOG = logging.getLogger(__name__)
 
 
-def auto_thaw(opt):
+def auto_thaw(vault_client, opt):
     """Will thaw into a temporary location"""
     icefile = opt.thaw_from
     if not os.path.exists(icefile):
         raise aomi.exceptions.IceFile("%s missing" % icefile)
 
-    thaw(icefile, opt)
+    thaw(vault_client, icefile, opt)
     return opt
 
 
@@ -35,7 +35,7 @@ def seed(vault_client, opt):
     """Will provision vault based on the definition within a Secretfile"""
     if opt.thaw_from:
         opt.secrets = tempfile.mkdtemp('aomi-thaw')
-        auto_thaw(opt)
+        auto_thaw(vault_client, opt)
 
     Context.load(get_secretfile(opt), opt) \
            .fetch(vault_client) \
@@ -172,7 +172,7 @@ def diff(vault_client, opt):
     and what is actually live on a Vault instance"""
     if opt.thaw_from:
         opt.secrets = tempfile.mkdtemp('aomi-thaw')
-        auto_thaw(opt)
+        auto_thaw(vault_client, opt)
     ctx = Context.load(get_secretfile(opt), opt) \
                  .fetch(vault_client)
 
