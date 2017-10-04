@@ -96,7 +96,7 @@ def template(client, src, dest, paths, opt):
         response = client.read(path)
         if not response:
             raise aomi.exceptions.VaultData("Unable to retrieve %s" % path)
-        if is_aws(response['data']):
+        if is_aws(response['data']) and 'sts' not in path:
             renew_secret(client, response, opt)
 
         for s_k, s_v in response['data'].items():
@@ -147,7 +147,7 @@ def raw_file(client, src, dest, opt):
                 LOG.debug('decoding base64 entry')
                 secret = portable_b64decode(secret)
 
-            if is_aws(resp['data']):
+            if is_aws(resp['data']) and 'sts' not in path:
                 renew_secret(client, resp, opt)
 
             write_raw_file(secret, dest)
@@ -173,7 +173,7 @@ def env(client, paths, opt):
     for path in paths:
         secrets = client.read(path)
         if secrets and 'data' in secrets:
-            if is_aws(secrets['data']):
+            if is_aws(secrets['data']) and 'sts' not in path:
                 renew_secret(client, secrets, opt)
 
             for s_key, s_val in secrets['data'].items():

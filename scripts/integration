@@ -60,7 +60,7 @@ fi
 # we are running our tests in a virtualenv to try and
 # minimize the amount of drama from heterogenous developer
 # workstations.
-if [ -z "$TRAVIS" ] ; then
+if [ -z "$TRAVIS" ] && [ -z "$VIRTUAL_ENV" ] ; then
     . "${ROOTDIR}/.ci-env/bin/activate"
 fi
 OWD="$PWD"

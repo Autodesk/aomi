@@ -33,10 +33,13 @@ class Resource(object):
         decrypted secret to it's final location"""
         for sfile in self.secrets():
             src_file = "%s/%s" % (tmp_dir, sfile)
+            err_msg = "%s secret missing from icefile" % (self)
             if not os.path.exists(src_file):
-                raise aomi_excep \
-                    .IceFile("%s secret missing from icefile" %
-                             (self))
+                if self.opt.ignore_missing:
+                    LOG.warning(err_msg)
+                    continue
+                else:
+                    raise aomi_excep.IceFile(err_msg)
 
             dest_file = "%s/%s" % (self.opt.secrets, sfile)
             dest_dir = os.path.dirname(dest_file)

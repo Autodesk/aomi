@@ -147,10 +147,14 @@ class AppRoleSecret(Resource):
         try:
             return client.get_role_secret_id(self.role_name,
                                              self.obj()['secret_id'])
-        except hvac.exceptions.InvalidPath:
-            return None
-        except ValueError as vault_excep:
-            if str(vault_excep).startswith('No JSON object'):
+        except hvac.exceptions.InternalServerError as vault_excep:
+            e_msg = vault_excep.message
+            if "role %s does not exist" % self.role_name in e_msg:
+                return None
+
+            raise
+        except ValueError as an_excep:
+            if str(an_excep).startswith('No JSON object'):
                 return None
 
             raise

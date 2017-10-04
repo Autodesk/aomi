@@ -110,18 +110,21 @@ def thaw_decrypt(vault_client, src_file, tmp_dir, opt):
 
     if opt.gpg_pass_path:
         gpg_path_bits = opt.gpg_pass_path.split('/')
-        gpg_path = gpg_path_bits[0:len(gpg_path_bits) - 2]
+        gpg_path = '/'.join(gpg_path_bits[0:len(gpg_path_bits) - 1])
         gpg_field = gpg_path_bits[len(gpg_path_bits) - 1]
         resp = vault_client.read(gpg_path)
         gpg_pass = None
         if resp and 'data' in resp and gpg_field in resp['data']:
-            gpg_pass = resp['data']['gpg_field']
+            gpg_pass = resp['data'][gpg_field]
             if not gpg_pass:
                 raise aomi.exceptions.GPG("Unable to retrieve GPG password")
 
             LOG.debug("Retrieved GPG password from Vault")
             if not decrypt(src_file, zip_file, passphrase=gpg_pass):
                 raise aomi.exceptions.GPG("Unable to gpg")
+
+        else:
+            raise aomi.exceptions.VaultData("Unable to retrieve GPG password")
     else:
         if not decrypt(src_file, zip_file):
             raise aomi.exceptions.GPG("Unable to gpg")
