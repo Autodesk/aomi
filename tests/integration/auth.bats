@@ -6,11 +6,36 @@ load helper
 setup() {
     start_vault
     use_fixture auth
+    export SOME_SECRET="blahblahblah${RANDOM}"
+    echo "$SOME_SECRET" > "${FIXTURE_DIR}/.secrets/foo-test"
+    chmod og-rwx "${FIXTURE_DIR}/.secrets/foo-test"    
 }
 
 teardown() {
     stop_vault
     rm -rf "$FIXTURE_DIR"
+}
+
+approle_auth() {
+    FAIL=""
+    if [ ! -z "$1" ] ; then
+        FAIL="$1"
+    fi
+    ROLE_ID_FILE="${BATS_TMPDIR}/roleid${RANDOM}"
+    LOGIN_FILE="${BATS_TMPDIR}/login${RANDOM}"
+    vault read -format=json auth/approle/role/foo/role-id 2> /dev/null > "$ROLE_ID_FILE"
+    ROLE_ID=$(jq -Mr ".data.role_id" < "$ROLE_ID_FILE" 2> /dev/null)
+    [ ! -z "$ROLE_ID" ]
+    unset VAULT_TOKEN
+    vault write -format=json auth/approle/login "role_id=${ROLE_ID}" "secret_id=${SOME_SECRET}" 2> /dev/null > "$LOGIN_FILE" || true
+    VAULT_TOKEN=$(jq -Mr ".auth.client_token" < "$LOGIN_FILE" 2> /dev/null)
+    if [ "$FAIL" == "no" ] ; then
+        [ -z "$VAULT_TOKEN" ]
+    else
+        [ ! -z "$VAULT_TOKEN" ]
+        export VAULT_TOKEN
+        [ "$(vault token-lookup -format=json | jq -Mr ".data.display_name")" == "approle" ]
+    fi
 }
 
 userpass_auth() {
@@ -54,6 +79,26 @@ ldap_auth() {
 @test "audit file log" {
     aomi_seed --tags logs --extra-vars "log_path=${FIXTURE_DIR}/a.log"
     aomi_seed --tags logs --extra-vars "log_path=${FIXTURE_DIR}/a.log" --extra-vars "state=absent"
+}
+
+@test "basic approle" {
+    OG_VAULT="$VAULT_TOKEN"
+    aomi_seed --verbose
+    vault write auth/approle/role/foo/secret-id/lookup "secret_id=${SOME_SECRET}"
+    approle_auth
+    run vault write secret/foo test=things
+    [ "$status" -eq 0 ]
+    run vault read secret/foo
+    [ "$status" -eq 0 ]
+    if [ "$VAULT_VERSION" != "0.6.2" ] ; then
+        # tokens only good for three uses
+        run vault read secret/foo
+        echo "$output"
+        [ "$status" -eq 1 ]
+    fi
+    # secrets only good for one use
+    export VAULT_TOKEN="$OG_VAULT"    
+    approle_auth no
 }
 
 @test "basic ldap" {

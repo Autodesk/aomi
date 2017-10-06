@@ -169,8 +169,9 @@ def load_var_file(filename, obj):
     elif ext == 'yaml' or ext == 'yml':
         v_obj = yaml.safe_load(rendered)
     else:
-        err_msg = "unrecognized extra vars extension %s" % ext
-        raise aomi_excep.AomiData(err_msg)
+        LOG.warning("assuming yaml for uncognized extension %s",
+                    ext)
+        v_obj = yaml.safe_load(rendered)
 
     return v_obj
 
