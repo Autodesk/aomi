@@ -15,6 +15,26 @@ teardown() {
     rm -rf "$FIXTURE_DIR"
 }
 
+@test "extra var files" {
+    echo "{{name}}-{{secret}}" > "${FIXTURE_DIR}/template"
+    echo 'name: "a_yaml"' > "${FIXTURE_DIR}/test.yml"
+    echo '{"name": "a_json"}' > "${FIXTURE_DIR}/test.json"
+    aomi_run template \
+             --no-merge-path \
+             --extra-vars-file "${FIXTURE_DIR}/test.yml" \
+             "${FIXTURE_DIR}/template" \
+             "${BATS_TMPDIR}/output.yml" \
+             "foo/bar"
+    [ "$(cat "${BATS_TMPDIR}/output.yml")" == "a_yaml-${FILE_SECRET1}" ]
+    aomi_run template \
+             --no-merge-path \
+             --extra-vars-file "${FIXTURE_DIR}/test.json" \
+             "${FIXTURE_DIR}/template" \
+             "${BATS_TMPDIR}/output.yml" \
+             "foo/bar"
+    [ "$(cat "${BATS_TMPDIR}/output.yml")" == "a_json-${FILE_SECRET1}" ]
+}
+
 @test "jinja include" {
     echo "{% include 'real' -%}" > "${BATS_TMPDIR}/tpl"
     echo "{{secret}}" > "${BATS_TMPDIR}/real"

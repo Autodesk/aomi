@@ -1,3 +1,9 @@
+ifndef TRAVIS
+ifndef VIRTUAL_ENV
+CIENV = $(shell pwd)/.ci-env/bin/
+endif
+endif
+
 all: test package
 
 version:
@@ -13,10 +19,14 @@ testenv:
 		(echo "Travis" && pip install -r requirements.txt -r requirements-dev.txt)
 
 test: version testenv
-	coverage erase
-	./scripts/ci
+	$(CIENV)coverage erase
+	$(CIENV)pep8 aomi
+	$(CIENV)pylint --rcfile=/dev/null aomi
+	COVERAGE_FILE="$(pwd)/.coverage" $(CIENV)nose2 -v -C --coverage aomi
+	$(CIENV)bandit -r aomi
+	$(CIENV)vulture aomi
 	./scripts/integration
-	coverage report -m
+	$(CIENV)coverage report -m
 	test -z $(TRAVIS) && coverage erase || true
 
 clean:

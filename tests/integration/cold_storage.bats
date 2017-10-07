@@ -23,6 +23,17 @@ teardown() {
     aomi_run thaw "${BATS_TMPDIR}/cold/${ICEFILE}" --extra-vars "pgp_key=${GPGID}" --verbose
 }
 
+@test "can freeze and thaw with a pw in vault" {
+    aomi_run freeze "${BATS_TMPDIR}/cold" --extra-vars pgp_key="$GPGID" --verbose
+    ICEFILE=$(ls "${BATS_TMPDIR}/cold")
+    vault write "secret/blah" "pass=$(cat "$CRYPTORITO_PASSPHRASE_FILE")"
+    unset CRYPTORITO_PASSPHRASE_FILE
+    aomi_run thaw "${BATS_TMPDIR}/cold/${ICEFILE}" \
+             --extra-vars "pgp_key=${GPGID}" \
+             --verbose \
+             --gpg-password-path "secret/blah/pass"
+}
+
 @test "can freeze a specific icefile" {
     aomi_run freeze "${BATS_TMPDIR}/cold" --icefile-prefix boogaloo --extra-vars pgp_key="$GPGID"
     ICEFILE=$(basename $(ls "${BATS_TMPDIR}/cold/boogaloo"*))

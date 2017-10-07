@@ -8,13 +8,13 @@ import os
 from copy import deepcopy
 from uuid import uuid4
 import logging
-import yaml
 from future.utils import iteritems  # pylint: disable=E0401
 from cryptorito import portable_b64encode
 import aomi.exceptions
 from aomi.model.resource import Secret
 from aomi.helpers import random_word, hard_path, \
     open_maybe_binary
+from aomi.template import load_vars, load_var_file
 from aomi.validation import sanitize_mount, secret_file, check_obj, \
     is_unicode_string
 LOG = logging.getLogger(__name__)
@@ -45,8 +45,8 @@ class VarFile(Generic):
 
     def obj(self):
         filename = hard_path(self.filename, self.opt.secrets)
-        secret_file(filename)
-        return yaml.safe_load(open(filename).read())
+        template_obj = load_vars(self.opt)
+        return load_var_file(filename, template_obj)
 
 
 class Files(Generic):
