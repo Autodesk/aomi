@@ -10,7 +10,7 @@ import yaml
 from jinja2 import Environment, FileSystemLoader, meta
 import jinja2.nodes
 import jinja2.exceptions
-from cryptorito import portable_b64encode, portable_b64decode
+from cryptorito import portable_b64encode, portable_b64decode, polite_string
 from aomi.helpers import merge_dicts, abspath, cli_hash
 import aomi.exceptions as aomi_excep
 # Python 2/3 compat
@@ -91,8 +91,14 @@ def jinja_env(template_path):
                       trim_blocks=True,
                       lstrip_blocks=True)
     env.filters['b64encode'] = portable_b64encode
-    env.filters['b64decode'] = portable_b64decode
+    env.filters['b64decode'] = f_b64decode
     return env
+
+
+def f_b64decode(a_string):
+    """Wrapper that ensures only strings are returned
+    into templates"""
+    return polite_string(portable_b64decode(a_string))
 
 
 def render(filename, obj):

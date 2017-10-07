@@ -1,6 +1,6 @@
 ifndef TRAVIS
 ifndef VIRTUAL_ENV
-	CIENV = $(shell pwd)/.ci-env/bin/
+CIENV = $(shell pwd)/.ci-env/bin/
 endif
 endif
 
