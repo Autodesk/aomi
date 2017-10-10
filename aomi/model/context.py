@@ -9,7 +9,7 @@ from aomi.helpers import normalize_vault_path
 import aomi.exceptions as aomi_excep
 from aomi.model.resource import Resource, Mount, Secret, \
     Auth, AuditLog
-from aomi.model.auth import Policy
+from aomi.model.auth import Policy, UserPass, LDAP
 from aomi.model.backend import LogBackend, AuthBackend, \
     SecretBackend
 LOG = logging.getLogger(__name__)
@@ -25,6 +25,7 @@ def filtered_context(context):
     for resource in context.resources():
         if resource.child:
             continue
+
         if resource.filtered():
             ctx.add(resource)
 
@@ -202,6 +203,22 @@ class Context(object):
         return [x for x in self.resources()
                 if not isinstance(x, Policy)]
 
+    def sync_auth(self, vault_client, resources):
+        """Synchronizes auth mount wrappers. These happen
+        early in the cycle, to ensure that user backends
+        are proper. They may also be used to set mount
+        tuning"""
+        for auth in self.auths():
+            auth.sync(vault_client)
+
+        auth_resources = [x for x in resources
+                          if isinstance(x, (LDAP, UserPass))]
+        for resource in auth_resources:
+            resource.sync(vault_client)
+
+        return [x for x in auth_resources
+                if not isinstance(x, (LDAP, UserPass))]
+
     def sync_mounts(self, active_mounts, policies, vault_client):
         """Synchronizes mount points. Removes things before
         adding new."""
@@ -229,8 +246,6 @@ class Context(object):
         has the effect of updating every resource which is
         in the context and has changes pending."""
         active_mounts = []
-        for auth in self.auths():
-            auth.sync(vault_client)
         for audit_log in self.logs():
             audit_log.sync(vault_client)
 
@@ -238,12 +253,15 @@ class Context(object):
         # to ensure that ACL's are in place prior to actually
         # making any changes.
         not_policies = self.sync_policies(vault_client)
+        # Handle auth wrapper resources on the next path. These
+        # resources basically provide generic mount tuning
+        not_auth = self.sync_auth(vault_client, not_policies)
         # Handle mounts only on the next pass. This allows us to
         # ensure that everything is in order prior to actually
         # provisioning secrets. Note we handle removals before
         # anything else, allowing us to address mount conflicts.
         active_mounts, not_mounts = self.sync_mounts(active_mounts,
-                                                     not_policies,
+                                                     not_auth,
                                                      vault_client)
         # Now handle everything else. If "best practices" are being
         # adhered to then every generic mountpoint should exist by now
@@ -286,7 +304,7 @@ class Context(object):
                     (self.logs, LogBackend)]
         for b_list, b_class in backends:
             for resource in b_list():
-                resource.fetch(getattr(vault_client, b_class.list_fun)())
+                resource.fetch(vault_client, getattr(vault_client, b_class.list_fun)())
 
         for resource in self.resources():
             if issubclass(type(resource), Secret):

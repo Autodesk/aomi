@@ -5,7 +5,8 @@ import logging
 import yaml
 import hvac.exceptions
 from aomi.vault import wrap_hvac as wrap_vault
-from aomi.helpers import is_tagged, hard_path, diff_dict
+from aomi.helpers import is_tagged, hard_path, diff_dict, map_val
+from aomi.model.backend import MOUNT_TUNABLES
 import aomi.exceptions as aomi_excep
 from aomi.validation import check_obj, specific_path_check, is_unicode
 LOG = logging.getLogger(__name__)
@@ -47,7 +48,7 @@ class Resource(object):
                 os.mkdir(dest_dir)
 
             shutil.copy(src_file, dest_file)
-            LOG.info("Thawed %s %s", self, sfile)
+            LOG.debug("Thawed %s %s", self, sfile)
 
     def export_handle(self, directory):
         """Get a filehandle for exporting"""
@@ -85,7 +86,7 @@ class Resource(object):
                 os.mkdir(dest_dir, 0o700)
 
             shutil.copy(src_file, dest_file)
-            LOG.info("Froze %s %s", self, sfile)
+            LOG.debug("Froze %s %s", self, sfile)
 
     def resources(self):
         """List of included resources"""
@@ -137,7 +138,7 @@ class Resource(object):
         self._obj = {}
         self.tags = obj.get('tags', [])
         self.opt = opt
-
+        
     def diff(self, obj=None):
         """Determine if something has changed or not"""
         if not self.present:
@@ -282,6 +283,10 @@ class Mount(Resource):
         super(Mount, self).__init__(obj, opt)
         self.mount = obj['path']
         self.path = self.mount
+        self.tune = dict()
+        if 'tune' in obj:
+            for tunable in MOUNT_TUNABLES:
+                map_val(self.tune, obj, tunable)
 
     def write(self, client):
         return
@@ -301,6 +306,9 @@ class AuditLog(Resource):
 
     def write(self, _vault_client):
         pass
+
+    def diff(self):
+        return NOOP
 
     def __init__(self, log_obj, opt):
         super(AuditLog, self).__init__(log_obj, opt)

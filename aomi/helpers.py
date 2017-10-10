@@ -282,4 +282,5 @@ def map_val(dest, src, key, default=None, src_key=None):
     if src_key in src:
         dest[key] = src[src_key]
     else:
-        dest[key] = default
+        if default is not None:
+            dest[key] = default
