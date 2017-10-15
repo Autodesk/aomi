@@ -128,6 +128,7 @@ def sanitize_mount(mount):
     if sanitized_mount.endswith('/'):
         sanitized_mount = sanitized_mount[:-1]
 
+    sanitized_mount = sanitized_mount.replace('//', '/')
     return sanitized_mount
 
 

@@ -6,16 +6,11 @@ import yaml
 import hvac.exceptions
 from aomi.vault import wrap_hvac as wrap_vault
 from aomi.helpers import is_tagged, hard_path, diff_dict, map_val
-from aomi.model.backend import MOUNT_TUNABLES
+from aomi.model.backend import MOUNT_TUNABLES, NOOP, CHANGED, ADD, \
+    DEL, OVERWRITE
 import aomi.exceptions as aomi_excep
 from aomi.validation import check_obj, specific_path_check, is_unicode
 LOG = logging.getLogger(__name__)
-
-NOOP = 0
-CHANGED = 1
-ADD = 2
-DEL = 3
-OVERWRITE = 4
 
 
 class Resource(object):
@@ -27,6 +22,7 @@ class Resource(object):
     config_key = None
     resource_key = None
     child = False
+    no_resource = False
     secret_format = 'data'
 
     def thaw(self, tmp_dir):
@@ -49,6 +45,13 @@ class Resource(object):
 
             shutil.copy(src_file, dest_file)
             LOG.debug("Thawed %s %s", self, sfile)
+
+    def tunable(self, obj):
+        """A tunable resource maps against a backend..."""
+        self.tune = dict()
+        if 'tune' in obj:
+            for tunable in MOUNT_TUNABLES:
+                map_val(self.tune, obj, tunable)
 
     def export_handle(self, directory):
         """Get a filehandle for exporting"""
@@ -138,9 +141,13 @@ class Resource(object):
         self._obj = {}
         self.tags = obj.get('tags', [])
         self.opt = opt
-        
+        self.tune = None
+
     def diff(self, obj=None):
         """Determine if something has changed or not"""
+        if self.no_resource:
+            return NOOP
+
         if not self.present:
             if self.existing:
                 return DEL
@@ -164,7 +171,7 @@ class Resource(object):
                     is_diff = CHANGED
 
         elif self.present and not self.existing:
-            return ADD
+            is_diff = ADD
 
         return is_diff
 
@@ -233,6 +240,9 @@ class Resource(object):
     @wrap_vault("reading")
     def read(self, client):
         """Read from Vault while handling non surprising errors."""
+        if self.no_resource:
+            return
+
         LOG.debug("Reading from %s", self)
         try:
             return client.read(self.path)
@@ -243,11 +253,17 @@ class Resource(object):
     @wrap_vault("writing")
     def write(self, client):
         """Write to Vault while handling non-surprising errors."""
+        if self.no_resource:
+            return
+
         client.write(self.path, **self.obj())
 
     @wrap_vault("deleting")
     def delete(self, client):
         """Delete from Vault while handling non-surprising errors."""
+        if self.no_resource:
+            return
+
         LOG.debug("Deleting %s", self)
         try:
             client.delete(self.path)
@@ -278,24 +294,14 @@ class Mount(Resource):
     config_key = 'mounts'
     backend = 'generic'
     secret_format = 'mount point'
+    no_resource = True
 
     def __init__(self, obj, opt):
         super(Mount, self).__init__(obj, opt)
         self.mount = obj['path']
         self.path = self.mount
         self.tune = dict()
-        if 'tune' in obj:
-            for tunable in MOUNT_TUNABLES:
-                map_val(self.tune, obj, tunable)
-
-    def write(self, client):
-        return
-
-    def read(self, client):
-        return
-
-    def delete(self, client):
-        return
+        self.tunable(obj)
 
 
 class AuditLog(Resource):
@@ -303,33 +309,30 @@ class AuditLog(Resource):
     Only supports syslog and file backends"""
     required_fields = ['type']
     config_key = 'audit_logs'
-
-    def write(self, _vault_client):
-        pass
-
-    def diff(self):
-        return NOOP
+    no_resource = True
 
     def __init__(self, log_obj, opt):
         super(AuditLog, self).__init__(log_obj, opt)
         self.backend = log_obj['type']
         self.mount = self.backend
-        self.description = None
         self.path = log_obj.get('path', self.backend)
         obj = {
-            'type': log_obj['type']
+            'name': log_obj.get('name', self.backend),
         }
+        obj_opt = dict()
         if self.backend == 'file':
-            obj['file_path'] = log_obj['file_path']
+            obj_opt['file_path'] = log_obj['file_path']
 
         if self.backend == 'syslog':
             if 'tag' in log_obj:
-                obj['tag'] = log_obj['tag']
+                obj_opt['tag'] = log_obj['tag']
 
             if 'facility' in log_obj:
-                obj['facility'] = log_obj['facility']
+                obj_opt['facility'] = log_obj['facility']
 
-        if 'description' in obj:
-            self.description = obj['description']
+        if 'description' in log_obj:
+            obj_opt['description'] = log_obj['description']
 
+        obj['options'] = obj_opt
         self._obj = obj
+        self.tunable(obj)

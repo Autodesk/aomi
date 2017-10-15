@@ -9,6 +9,7 @@ from aomi.helpers import normalize_vault_path
 import aomi.exceptions as aomi_excep
 from aomi.model.resource import Resource, Mount, Secret, \
     Auth, AuditLog
+from aomi.model.aws import AWS
 from aomi.model.auth import Policy, UserPass, LDAP
 from aomi.model.backend import LogBackend, AuthBackend, \
     SecretBackend
@@ -30,6 +31,13 @@ def filtered_context(context):
             ctx.add(resource)
 
     return ctx
+
+
+def childless_first(resource):
+    """Used to sort resources in a way where child resources
+    show at the end. This allows us to ensure that required
+    dependencies are in place, like with approles"""
+    return resource.child
 
 
 def absent_sort(resource):
@@ -117,13 +125,13 @@ class Context(object):
         for config_key in seed_keys:
             if config_key not in config:
                 continue
-            for resource in config[config_key]:
-                mod = find_model(config_key, resource, seed_map)
+            for resource_config in config[config_key]:
+                mod = find_model(config_key, resource_config, seed_map)
                 if not mod:
-                    LOG.warning("unable to find mod for %s", resource)
+                    LOG.warning("unable to find mod for %s", resource_config)
                     continue
 
-                ctx.add(mod(resource, opt))
+                ctx.add(mod(resource_config, opt))
 
         for config_key in config.keys():
             if config_key != 'pgp_keys' and \
@@ -216,29 +224,55 @@ class Context(object):
         for resource in auth_resources:
             resource.sync(vault_client)
 
-        return [x for x in auth_resources
-                if not isinstance(x, (LDAP, UserPass))]
+        return [x for x in resources
+                if not isinstance(x, (LDAP, UserPass, AuditLog))]
 
-    def sync_mounts(self, active_mounts, policies, vault_client):
+    def actually_mount(self, vault_client, resource, active_mounts):
+        """Handle the actual (potential) mounting of a secret backend.
+        This is called in multiple contexts, but the action will always
+        be the same. If we were not aware of the mountpoint at the start
+        and it has not already been mounted, then mount it."""
+        if isinstance(resource, Secret) and resource.mount == 'cubbyhole':
+            return active_mounts
+
+        active_mount = find_backend(resource.mount, active_mounts)
+        if not active_mount:
+            actual_mount = find_backend(resource.mount, self._mounts)
+            active_mounts.append(actual_mount)
+            actual_mount.sync(vault_client)
+
+        return active_mounts
+
+    def sync_mounts(self, active_mounts, resources, vault_client):
         """Synchronizes mount points. Removes things before
         adding new."""
         # Create a resource set that is only explicit mounts
         # and sort so removals are first
-        mounts = [x for x in policies
-                  if isinstance(x, (Secret, Mount))]
+        mounts = [x for x in resources
+                  if isinstance(x, (Mount, AWS))]
+
         s_resources = sorted(mounts, key=absent_sort)
         # Iterate over explicit mounts only
         for resource in s_resources:
-            if resource.mount == 'cubbyhole':
-                continue
+            active_mounts = self.actually_mount(vault_client,
+                                                resource,
+                                                active_mounts)
 
-            active_mount = find_backend(resource.mount, active_mounts)
-            if not active_mount:
-                actual_mount = find_backend(resource.mount, self._mounts)
-                active_mounts.append(actual_mount)
-                actual_mount.sync(vault_client)
+        # OK Now iterate over everything but make sure it is clear
+        # that ad-hoc mountpoints are deprecated as per
+        # https://github.com/Autodesk/aomi/issues/110
+        for resource in [x for x in resources
+                         if isinstance(x, Secret)]:
+            n_mounts = self.actually_mount(vault_client,
+                                           resource,
+                                           active_mounts)
+            if len(n_mounts) != len(active_mounts):
+                LOG.warning("Ad-Hoc mount with %s. Please specify"
+                            "explicit mountpoints.", resource)
 
-        return active_mounts, [x for x in policies
+            active_mounts = n_mounts
+
+        return active_mounts, [x for x in resources
                                if not isinstance(x, (Mount))]
 
     def sync(self, vault_client, opt):
@@ -253,8 +287,9 @@ class Context(object):
         # to ensure that ACL's are in place prior to actually
         # making any changes.
         not_policies = self.sync_policies(vault_client)
-        # Handle auth wrapper resources on the next path. These
-        # resources basically provide generic mount tuning
+        # Handle auth wrapper resources on the next path. The resources
+        # may update a path on their own. They may also provide mount
+        # tuning information.
         not_auth = self.sync_auth(vault_client, not_policies)
         # Handle mounts only on the next pass. This allows us to
         # ensure that everything is in order prior to actually
@@ -264,8 +299,10 @@ class Context(object):
                                                      not_auth,
                                                      vault_client)
         # Now handle everything else. If "best practices" are being
-        # adhered to then every generic mountpoint should exist by now
-        for resource in not_mounts:
+        # adhered to then every generic mountpoint should exist by now.
+        # We handle "child" resources after the first batch
+        sorted_resources = sorted(not_mounts, key=childless_first)
+        for resource in sorted_resources:
             resource.sync(vault_client)
 
         for mount in self.mounts():
@@ -303,8 +340,9 @@ class Context(object):
                     (self.auths, AuthBackend),
                     (self.logs, LogBackend)]
         for b_list, b_class in backends:
-            for resource in b_list():
-                resource.fetch(vault_client, getattr(vault_client, b_class.list_fun)())
+            existing = getattr(vault_client, b_class.list_fun)()
+            for backend in b_list():
+                backend.fetch(vault_client, existing)
 
         for resource in self.resources():
             if issubclass(type(resource), Secret):

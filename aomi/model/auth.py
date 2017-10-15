@@ -13,8 +13,8 @@ import aomi.exceptions
 from aomi.vault import wrap_hvac as wrap_vault
 from aomi.helpers import hard_path, merge_dicts, map_val
 from aomi.template import load_vars, render
-from aomi.model.resource import Auth, Resource, NOOP, ADD
-from aomi.model.backend import MOUNT_TUNABLES
+from aomi.model.resource import Auth, Resource
+from aomi.model.backend import MOUNT_TUNABLES, NOOP, ADD
 from aomi.validation import secret_file, sanitize_mount
 LOG = logging.getLogger(__name__)
 
@@ -71,9 +71,6 @@ class DUO(Auth):
 
     def resources(self):
         return [self, self.access]
-
-    def diff(self, obj=None):
-        return Resource.diff_write_only(self)
 
     def __init__(self, obj, opt):
         super(DUO, self).__init__('userpass', obj, opt)
@@ -179,9 +176,10 @@ class AppRole(Auth):
     def __init__(self, obj, opt):
         super(AppRole, self).__init__('approle', obj, opt)
         self.app_name = obj['name']
-        self.path = "auth/approle/role/%s" % obj['name']
-        self.mount = self.backend
+        self.mount = 'approle'
+        self.path = "%s/role/%s" % (self.mount, self.app_name)
         self.secret_ids = []
+        self.tunable(obj)
         policies = obj['policies']
         # HCV seems to always add this in anyway. Having this implicit
         # at our end makes the diff'ing easier.
@@ -381,30 +379,19 @@ class LDAPUser(Resource):
 
 
 class UserPass(Auth):
-    """UserPass"""
+    """UserPass Authentication Backend"""
     config_key = 'userpass'
+    no_resource = True
 
     def __init__(self, obj, opt):
         super(UserPass, self).__init__('userpass', obj, opt)
         self.mount = obj.get('path', 'userpass')
         self.path = "auth/%s" % self.mount
-        self.tune = dict()
-        if 'tune' in obj:
-            for tunable in MOUNT_TUNABLES:
-                map_val(self.tune, obj, tunable)
-
-    def write(self, client):
-        return
-
-    def read(self, client):
-        return
-
-    def delete(self, client):
-        return
+        self.tunable(obj)
 
 
 class UserPassUser(Auth):
-    """UserPassUser"""
+    """UserPass User Account"""
     required_fields = ['username', 'password_file', 'policies']
     config_key = 'users'
 

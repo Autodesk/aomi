@@ -2,12 +2,22 @@
 import re
 import logging
 import hvac.exceptions
-from aomi.helpers import map_val
+from aomi.helpers import map_val, diff_dict
 from aomi.vault import is_mounted
 import aomi.exceptions as aomi_excep
 from aomi.validation import sanitize_mount
 LOG = logging.getLogger(__name__)
-MOUNT_TUNABLES = ['default_lease_ttl', 'max_lease_ttl']
+MOUNT_TUNABLES = [
+    ('default_lease_ttl', int),
+    ('max_lease_ttl', int),
+    ('force_no_cache', bool)
+]
+NOOP = 0
+CHANGED = 1
+ADD = 2
+DEL = 3
+OVERWRITE = 4
+
 
 class VaultBackend(object):
     """The abstract concept of a Vault backend"""
@@ -27,11 +37,18 @@ class VaultBackend(object):
         self.path = sanitize_mount(resource.mount)
         self.backend = resource.backend
         self.existing = False
+        self.existing_tune = None
         self.present = resource.present
         self.tune = dict()
-        if hasattr(resource, 'tune'):
+        if hasattr(resource, 'tune') and isinstance('tune', dict):
             for tunable in MOUNT_TUNABLES:
-                map_val(self.tune, resource.tune, tunable)
+                tunable_key = tunable[0]
+                tunable_type = tunable[1]
+                if not isinstance(resource.tune[tunable_key], tunable_type):
+                    e_msg = "Tunable must be of type %s" % tunable_type
+                    raise aomi_excep.AomiData(e_msg)
+
+                map_val(self.tune, resource.tune, tunable_key)
 
         self.opt = opt
 
@@ -40,28 +57,50 @@ class VaultBackend(object):
         We only do this if we are specifying anything, and it has been
         explicitly set in the data model"""
 
+    def diff(self):
+        """Determines if changes are needed for the Vault backend"""
+        if not self.present:
+            if self.existing:
+                return DEL
+
+            return NOOP
+
+        is_diff = NOOP
+        if self.present and self.existing:
+            if diff_dict(self.existing_tune, self.tune):
+                is_diff = CHANGED
+
+        elif self.present and not self.existing:
+            is_diff = ADD
+
+        return is_diff
+
     def sync(self, vault_client):
         """Synchronizes the local and remote Vault resources. Has the net
         effect of adding backend if needed"""
         if self.present:
             if not self.existing:
-                self.actually_mount(vault_client)
                 LOG.info("Mounting %s backend on %s",
                          self.backend, self.path)
-            elif self.existing:
+                self.actually_mount(vault_client)
+            else:
                 LOG.info("%s backend already mounted on %s",
                          self.backend, self.path)
 
             self.update_tune()
-        elif self.existing and not self.present:
-            self.unmount(vault_client)
-            LOG.info("Unmounting %s backend on %s",
-                     self.backend, self.path)
-        elif not self.existing and not self.present:
-            LOG.info("%s backend already unmounted on %s",
-                     self.backend, self.path)
+        else:
+            if self.existing:
+                LOG.info("Unmounting %s backend on %s",
+                         self.backend, self.path)
+                self.unmount(vault_client)
+            else:
+                LOG.info("%s backend already unmounted on %s",
+                         self.backend, self.path)
 
-    def sync_tuneables(self, vault_client):
+        if self.present and vault_client.version:
+            self.sync_tunables(vault_client)
+
+    def sync_tunables(self, vault_client):
         """Synchtonizes any tunables we have set"""
         if not self.tune:
             return
@@ -71,32 +110,31 @@ class VaultBackend(object):
             a_prefix = "%s/" % self.tune_prefix
 
         v_path = "sys/mounts/%s%s/tune" % (a_prefix, self.path)
-        t_resp = vault_client.write(v_path, **self.tune())
-        if t_resp['errors']:
-            raise aomi_excep.VaultData("Unable to update tuning info for %s" % self)
+        t_resp = vault_client.write(v_path, **self.tune)
+        if t_resp and 'errors' in t_resp and t_resp['errors']:
+            e_msg = "Unable to update tuning info for %s" % self
+            raise aomi_excep.VaultData(e_msg)
 
     def fetch(self, vault_client, backends):
         """Updates local resource with context on whether this
         backend is actually mounted and available"""
         self.existing = is_mounted(self.backend, self.path, backends)
-        if self.tune_prefix is None:
+        if not self.existing or \
+           self.tune_prefix is None or \
+           vault_client.version is None:
             return
 
         a_prefix = self.tune_prefix
         if self.tune_prefix:
             a_prefix = "%s/" % self.tune_prefix
 
-        try:
-            t_resp = vault_client.read("sys/mounts/%s%s/tune" % (a_prefix, self.path))
-            if 'data' not in t_resp:
-                raise aomi_excep.VaultData("Unable to retrieve tuning info for %s" % self)
-        except hvac.exceptions.InvalidRequest as vault_excep:
-            if 'cannot fetch sysview for path' in vault_excep.errors[0]:
-                return
+        v_path = "sys/mounts/%s%s/tune" % (a_prefix, self.path)
+        t_resp = vault_client.read(v_path)
+        if 'data' not in t_resp:
+            e_msg = "Unable to retrieve tuning info for %s" % self
+            raise aomi_excep.VaultData(e_msg)
 
-            raise
-
-        self.tune = t_resp['data']
+        self.existing_tune = t_resp['data']
 
     def unmount(self, client):
         """Unmounts a backend within Vault"""
@@ -131,6 +169,7 @@ class AuthBackend(VaultBackend):
     unmount_fun = 'disable_auth_backend'
     tune_prefix = '/auth'
 
+
 class LogBackend(VaultBackend):
     """Audit Log backends"""
     list_fun = 'list_audit_backends'
@@ -139,23 +178,11 @@ class LogBackend(VaultBackend):
     tune_prefix = None
 
     def __init__(self, resource, opt):
-        self.description = None
         super(LogBackend, self).__init__(resource, opt)
-        if resource.description:
-            self.description = resource.description
-
         self.obj = resource.obj()
 
     def actually_mount(self, client):
-        if self.description:
-            client.enable_audit_backend(self.backend,
-                                        name=self.backend,
-                                        description=self.description,
-                                        options=self.obj)
-        else:
-            client.enable_audit_backend(self.backend,
-                                        name=self.backend,
-                                        options=self.obj)
+        client.enable_audit_backend(self.backend, **self.obj)
 
     def unmount(self, client):
-        client.disable_audit_backend(self.obj['type'])
+        client.disable_audit_backend(self.backend)

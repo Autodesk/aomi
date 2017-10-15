@@ -72,3 +72,10 @@ class Validation(AomiError):
     """Some kind of validation failed. Invalid string, length,
     who knows. Never trust user input tho."""
     catmsg = 'Validation Error'
+
+
+class VaultProblem(AomiError):
+    """Something is wrong with Vault itself. Network, sealed,
+    but it's at the point where we can't even validate if
+    the data is there"""
+    catmsg = 'Vault Problem'

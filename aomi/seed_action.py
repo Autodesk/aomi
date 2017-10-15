@@ -12,7 +12,8 @@ from aomi.helpers import dict_unicodeize
 from aomi.filez import thaw
 from aomi.model import Context
 from aomi.template import get_secretfile, render_secretfile
-from aomi.model.resource import CHANGED, ADD, DEL, OVERWRITE, NOOP
+from aomi.model.resource import Resource
+from aomi.model.backend import CHANGED, ADD, DEL, OVERWRITE, NOOP
 from aomi.model.auth import Policy
 from aomi.model.aws import AWSRole
 from aomi.validation import is_unicode
@@ -140,6 +141,9 @@ def maybe_details(resource, opt):
     """At the first level of verbosity this will print out detailed
     change information on for the specified Vault resource"""
 
+    if not isinstance(resource, Resource):
+        return
+
     if opt.verbose == 0:
         return
 
@@ -167,28 +171,38 @@ def maybe_details(resource, opt):
         details_dict(resource, opt)
 
 
+def diff_a_thing(thing, opt):
+    """Handle the diff action for a single thing. It may be a Vault backend
+    implementation or it may be a Vault data resource"""
+    changed = thing.diff()
+    if changed == ADD:
+        print("%s %s" % (maybe_colored("+", "green", opt), str(thing)))
+    elif changed == DEL:
+        print("%s %s" % (maybe_colored("-", "red", opt), str(thing)))
+    elif changed == CHANGED:
+        print("%s %s" % (maybe_colored("~", "yellow", opt), str(thing)))
+    elif changed == OVERWRITE:
+        print("%s %s" % (maybe_colored("+", "yellow", opt), str(thing)))
+
+    if changed != OVERWRITE and changed != NOOP:
+        maybe_details(thing, opt)
+
+
 def diff(vault_client, opt):
     """Derive a comparison between what is represented in the Secretfile
     and what is actually live on a Vault instance"""
     if opt.thaw_from:
         opt.secrets = tempfile.mkdtemp('aomi-thaw')
         auto_thaw(vault_client, opt)
+
     ctx = Context.load(get_secretfile(opt), opt) \
                  .fetch(vault_client)
 
-    for resource in ctx.resources():
-        changed = resource.diff()
-        if changed == ADD:
-            print("%s %s" % (maybe_colored("+", "green", opt), str(resource)))
-        elif changed == DEL:
-            print("%s %s" % (maybe_colored("-", "red", opt), str(resource)))
-        elif changed == CHANGED:
-            print("%s %s" % (maybe_colored("~", "yellow", opt), str(resource)))
-        elif changed == OVERWRITE:
-            print("%s %s" % (maybe_colored("+", "yellow", opt), str(resource)))
+    for backend in ctx.mounts():
+        diff_a_thing(backend, opt)
 
-        if changed != OVERWRITE and changed != NOOP:
-            maybe_details(resource, opt)
+    for resource in ctx.resources():
+        diff_a_thing(resource, opt)
 
     if opt.thaw_from:
         rmtree(opt.secrets)

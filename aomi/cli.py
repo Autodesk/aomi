@@ -416,6 +416,7 @@ def action_runner(parser, args):
 
     ux_actions(parser, args)
     client = aomi.vault.Client(args)
+
     if args.operation == 'extract_file':
         aomi.render.raw_file(client.connect(args),
                              args.vault_path, args.destination, args)
