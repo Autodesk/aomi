@@ -32,7 +32,8 @@ class Resource(object):
             src_file = "%s/%s" % (tmp_dir, sfile)
             err_msg = "%s secret missing from icefile" % (self)
             if not os.path.exists(src_file):
-                if self.opt.ignore_missing:
+                if hasattr(self.opt, 'ignore_missing') and \
+                   self.opt.ignore_missing:
                     LOG.warning(err_msg)
                     continue
                 else:
