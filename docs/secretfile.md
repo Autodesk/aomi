@@ -27,6 +27,8 @@ users:
   - 'developer'
 mounts:
 - path: 'secret'
+  tune:
+    default_lease_ttl: '1800s'
 secrets:
 - files:
   - source: 'id_rsa'
@@ -104,7 +106,7 @@ $ aomi seed --extra-vars env=stage
 ```
 
 
-# Mountpoints
+# Generic Mountpoints
 
 You can specify generic secret store mountpoints to be created but not neccesarily provisioned with data. This is helpful when you have one group managing the base Vault instance but another group managing the data within certain mountpoints. The following example will ensure that the default generic backend (`secret)` is always present, along with a new mountpoint named `another_teams_secrets`.
 
@@ -116,6 +118,12 @@ mounts:
 - path: 'secret'
 - path: 'another_teams_secrets'
 ```
+
+Note that with older versions of Vault this was an optional section. If you specified any kind of Generic secret (such as a file or varfile), and the mountpoint didn't exist, then it would be created. This behaviour will eventually be deprecated, but for now just throws a warning. To reiterate; if you are writing to generic mountpoints other than `secret` (which is included as a default) then you _must_ specify them in the `mounts` section.
+
+# Mount Tuning
+
+On resources which are used to create new Vault backends you can specify a `tune` section which allows you to specify the two currently exposed tuning variables. These are `max_lease_ttl` and `default_lease_ttl`. You can set a `tune` section with `mounts`, `aws_file`, `userpass`, `ldap`, and `auditlog`. Note that _adjusting_ existing mountpoints is only supported with Vault versions 0.7.0 and later.
 
 # Secrets
 

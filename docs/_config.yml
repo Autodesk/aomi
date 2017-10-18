@@ -1,8 +1,11 @@
-title: aomi
-description: Opinionlessly Express Opinions on Vault
+---
+title: "aomi"
+description: "Opinionlessly Express Opinions on Vault"
 google_analytics:
 theme: 
 github:
-  repository_url: https://github.com/Autodesk/aomi
-  owner_name: Autodesk
-baseurl: /aomi
+  repository_url: "https://github.com/Autodesk/aomi"
+  owner_name: "Autodesk"
+baseurl: "/aomi"
+exclude:
+  - "README.md"
