@@ -249,11 +249,12 @@ def dict_unicodeize(some_dict):
     return some_dict
 
 
-def diff_dict(dict1, dict2):
+def diff_dict(dict1, dict2, ignore_missing=False):
     """Performs a base type comparison between two dicts"""
     unidict1 = dict_unicodeize(dict1)
     unidict2 = dict_unicodeize(dict2)
-    if len(unidict1) != len(unidict2):
+    if ((not ignore_missing) and (len(unidict1) != len(unidict2))) or \
+       (ignore_missing and (len(unidict1) >= len(unidict2))):
         return True
 
     for comp_k, comp_v in iteritems(unidict1):
@@ -282,4 +283,5 @@ def map_val(dest, src, key, default=None, src_key=None):
     if src_key in src:
         dest[key] = src[src_key]
     else:
-        dest[key] = default
+        if default is not None:
+            dest[key] = default

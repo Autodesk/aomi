@@ -128,6 +128,7 @@ def sanitize_mount(mount):
     if sanitized_mount.endswith('/'):
         sanitized_mount = sanitized_mount[:-1]
 
+    sanitized_mount = sanitized_mount.replace('//', '/')
     return sanitized_mount
 
 
@@ -164,3 +165,9 @@ def is_unicode(string):
         return True
 
     return False
+
+
+def is_vault_time(time_string):
+    """Vaildates that an object is the sort of string that HCVault
+    would be totally OK with for things like TTL's"""
+    return re.match(r'^[0-9]+[sdmh]$', time_string)

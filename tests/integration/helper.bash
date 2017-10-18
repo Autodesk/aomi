@@ -163,7 +163,7 @@ function aomi_run() {
 }
 
 function aomi_seed() {
-    aomi_run seed "$@"
+    aomi_run seed "$@" --verbose
 }
 
 function check_mount() {

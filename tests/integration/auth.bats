@@ -152,12 +152,12 @@ ldap_auth() {
 
 @test "userpass diff" {
     aomi_run diff --monochrome
-    scan_lines "\+ UserPass auth/userpass/users/foo" "${lines[@]}"    
+    scan_lines "\+ UserPass User Account auth/userpass/users/foo" "${lines[@]}"    
     aomi_seed
     aomi_run diff --monochrome
-    scan_lines "\+ UserPass auth/userpass/users/foo" "${lines[@]}"
+    scan_lines "\+ UserPass User Account auth/userpass/users/foo" "${lines[@]}"
     aomi_run diff --monochrome --tags remove    
-    scan_lines "\- UserPass auth/userpass/users/foo" "${lines[@]}"    
+    scan_lines "\- UserPass User Account auth/userpass/users/foo" "${lines[@]}"    
 }
 
 @test "duo userpass" {
