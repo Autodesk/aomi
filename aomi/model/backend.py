@@ -40,12 +40,14 @@ class VaultBackend(object):
         self.existing_tune = None
         self.present = resource.present
         self.tune = dict()
-        if hasattr(resource, 'tune') and isinstance('tune', dict):
+        if hasattr(resource, 'tune') and isinstance(resource.tune, dict):
             for tunable in MOUNT_TUNABLES:
                 tunable_key = tunable[0]
                 tunable_type = tunable[1]
-                if not isinstance(resource.tune[tunable_key], tunable_type):
-                    e_msg = "Tunable must be of type %s" % tunable_type
+                if tunable_key in resource.tune and \
+                   not isinstance(resource.tune[tunable_key], tunable_type):
+                    e_msg = "Mount tunable %s on %s must be of type %s" % \
+                            (tunable_key, self.path, tunable_type)
                     raise aomi_excep.AomiData(e_msg)
 
                 map_val(self.tune, resource.tune, tunable_key)
@@ -67,7 +69,7 @@ class VaultBackend(object):
 
         is_diff = NOOP
         if self.present and self.existing:
-            if diff_dict(self.existing_tune, self.tune):
+            if self.tune and diff_dict(self.tune, self.existing_tune, True):
                 is_diff = CHANGED
 
         elif self.present and not self.existing:

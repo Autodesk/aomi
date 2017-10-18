@@ -385,9 +385,9 @@ class UserPass(Auth):
 
     def __init__(self, obj, opt):
         super(UserPass, self).__init__('userpass', obj, opt)
+        self.tunable(obj)
         self.mount = obj.get('path', 'userpass')
         self.path = "auth/%s" % self.mount
-        self.tunable(obj)
 
 
 class UserPassUser(Auth):

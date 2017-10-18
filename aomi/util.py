@@ -104,3 +104,24 @@ def appid_file():
 def approle_file():
     """The path to an Aomi AppID file"""
     return vault_file('AOMI_APPROLE_FILE', '.aomi-approle')
+
+
+def vault_time_to_s(time_string):
+    """Will convert a time string, as recognized by other Vault
+    tooling, into an integer representation of seconds"""
+    if not time_string or len(time_string) < 2:
+        raise aomi.exceptions \
+                  .AomiData("Invalid timestring %s" % time_string)
+
+    last_char = time_string[len(time_string) - 1]
+    if last_char == 's':
+        return int(time_string[0:len(time_string) - 1])
+    elif last_char == 'h':
+        cur = int(time_string[0:len(time_string) - 1])
+        return cur * 3600
+    elif last_char == 'd':
+        cur = int(time_string[0:len(time_string) - 1])
+        return cur * 86400
+    else:
+        raise aomi.exceptions \
+            .AomiData("Invalid time scale %s" % last_char)

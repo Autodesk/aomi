@@ -165,3 +165,9 @@ def is_unicode(string):
         return True
 
     return False
+
+
+def is_vault_time(time_string):
+    """Vaildates that an object is the sort of string that HCVault
+    would be totally OK with for things like TTL's"""
+    return re.match(r'^[0-9]+[sdmh]$', time_string)

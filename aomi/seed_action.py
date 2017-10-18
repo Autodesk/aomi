@@ -13,7 +13,8 @@ from aomi.filez import thaw
 from aomi.model import Context
 from aomi.template import get_secretfile, render_secretfile
 from aomi.model.resource import Resource
-from aomi.model.backend import CHANGED, ADD, DEL, OVERWRITE, NOOP
+from aomi.model.backend import CHANGED, ADD, DEL, OVERWRITE, NOOP, \
+    VaultBackend
 from aomi.model.auth import Policy
 from aomi.model.aws import AWSRole
 from aomi.validation import is_unicode
@@ -111,27 +112,27 @@ def normalize_val(val):
     return val
 
 
-def details_dict(resource, opt):
+def details_dict(obj, existing, ignore_missing, opt):
     """Output the changes, if any, for a dict"""
-    existing = dict_unicodeize(resource.existing)
-    obj = dict_unicodeize(resource.obj())
+    existing = dict_unicodeize(existing)
+    obj = dict_unicodeize(obj)
     for ex_k, ex_v in iteritems(existing):
         new_value = normalize_val(obj.get(ex_k))
         og_value = normalize_val(ex_v)
         if ex_k in obj and og_value != new_value:
-            print(maybe_colored("%s: %s" % (ex_k, og_value),
+            print(maybe_colored("-- %s: %s" % (ex_k, og_value),
                                 'red', opt))
-            print(maybe_colored("%s: %s" % (ex_k, new_value),
+            print(maybe_colored("++ %s: %s" % (ex_k, new_value),
                                 'green', opt))
 
-        if ex_k not in obj:
-            print(maybe_colored("%s: %s" % (ex_k, og_value),
+        if (not ignore_missing) and (ex_k not in obj):
+            print(maybe_colored("-- %s: %s" % (ex_k, og_value),
                                 'red', opt))
 
     for ob_k, ob_v in iteritems(obj):
         val = normalize_val(ob_v)
         if ob_k not in existing:
-            print(maybe_colored("%s: %s" % (ob_k, val),
+            print(maybe_colored("++ %s: %s" % (ob_k, val),
                                 'green', opt))
 
     return
@@ -141,34 +142,40 @@ def maybe_details(resource, opt):
     """At the first level of verbosity this will print out detailed
     change information on for the specified Vault resource"""
 
-    if not isinstance(resource, Resource):
-        return
-
     if opt.verbose == 0:
         return
 
     if not resource.present:
         return
 
-    obj = resource.obj()
+    obj = None
+    existing = None
+    if isinstance(resource, Resource):
+        obj = resource.obj()
+        existing = resource.existing
+    elif isinstance(resource, VaultBackend):
+        obj = resource.tune
+        existing = resource.existing_tune
+
     if not obj:
         return
 
-    if is_unicode(resource.existing) and is_unicode(obj):
-        a_diff = difflib.unified_diff(resource.existing.splitlines(),
+    if is_unicode(existing) and is_unicode(obj):
+        a_diff = difflib.unified_diff(existing.splitlines(),
                                       obj.splitlines(),
-                                      lineterm="")
+                                      lineterm='')
         for line in a_diff:
             if line.startswith('+++') or line.startswith('---'):
                 continue
             if line[0] == '+':
-                print(maybe_colored(line, 'green', opt))
+                print(maybe_colored("++ %s" % line[1:], 'green', opt))
             elif line[0] == '-':
-                print(maybe_colored(line, 'red', opt))
+                print(maybe_colored("-- %s" % line[1:], 'red', opt))
             else:
                 print(line)
-    elif isinstance(resource.existing, dict):
-        details_dict(resource, opt)
+    elif isinstance(existing, dict):
+        ignore_missing = isinstance(resource, VaultBackend)
+        details_dict(obj, existing, ignore_missing, opt)
 
 
 def diff_a_thing(thing, opt):

@@ -113,6 +113,18 @@ def py_resources():
     return mod_map
 
 
+def resource_sort(seed_key):
+    """A sorting function based on which resources
+    need to be first, in order to ensure that backends
+    are properly created."""
+    if seed_key == 'mounts' or \
+       seed_key == 'userpass' or\
+       seed_key == 'audit_logs':
+        return False
+
+    return True
+
+
 class Context(object):
     """The overall context of an aomi session"""
 
@@ -121,7 +133,7 @@ class Context(object):
         """Loads and returns a full context object based on the Secretfile"""
         ctx = Context(opt)
         seed_map = py_resources()
-        seed_keys = set([m[0] for m in seed_map])
+        seed_keys = sorted(set([m[0] for m in seed_map]), key=resource_sort)
         for config_key in seed_keys:
             if config_key not in config:
                 continue
@@ -232,16 +244,17 @@ class Context(object):
         This is called in multiple contexts, but the action will always
         be the same. If we were not aware of the mountpoint at the start
         and it has not already been mounted, then mount it."""
+        a_mounts = list(active_mounts)
         if isinstance(resource, Secret) and resource.mount == 'cubbyhole':
-            return active_mounts
+            return a_mounts
 
         active_mount = find_backend(resource.mount, active_mounts)
         if not active_mount:
             actual_mount = find_backend(resource.mount, self._mounts)
-            active_mounts.append(actual_mount)
+            a_mounts.append(actual_mount)
             actual_mount.sync(vault_client)
 
-        return active_mounts
+        return a_mounts
 
     def sync_mounts(self, active_mounts, resources, vault_client):
         """Synchronizes mount points. Removes things before
@@ -268,7 +281,7 @@ class Context(object):
                                            active_mounts)
             if len(n_mounts) != len(active_mounts):
                 LOG.warning("Ad-Hoc mount with %s. Please specify"
-                            "explicit mountpoints.", resource)
+                            " explicit mountpoints.", resource)
 
             active_mounts = n_mounts
 

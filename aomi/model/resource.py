@@ -4,12 +4,14 @@ import shutil
 import logging
 import yaml
 import hvac.exceptions
+from aomi.util import vault_time_to_s
 from aomi.vault import wrap_hvac as wrap_vault
 from aomi.helpers import is_tagged, hard_path, diff_dict, map_val
 from aomi.model.backend import MOUNT_TUNABLES, NOOP, CHANGED, ADD, \
     DEL, OVERWRITE
 import aomi.exceptions as aomi_excep
-from aomi.validation import check_obj, specific_path_check, is_unicode
+from aomi.validation import check_obj, specific_path_check, is_unicode, \
+    is_vault_time
 LOG = logging.getLogger(__name__)
 
 
@@ -52,7 +54,12 @@ class Resource(object):
         self.tune = dict()
         if 'tune' in obj:
             for tunable in MOUNT_TUNABLES:
-                map_val(self.tune, obj, tunable)
+                tunable_key = tunable[0]
+                map_val(self.tune, obj['tune'], tunable_key)
+                if tunable_key in self.tune and \
+                   is_vault_time(self.tune[tunable_key]):
+                    vault_time_s = vault_time_to_s(self.tune[tunable_key])
+                    self.tune[tunable_key] = vault_time_s
 
     def export_handle(self, directory):
         """Get a filehandle for exporting"""
@@ -301,7 +308,6 @@ class Mount(Resource):
         super(Mount, self).__init__(obj, opt)
         self.mount = obj['path']
         self.path = self.mount
-        self.tune = dict()
         self.tunable(obj)
 
 
