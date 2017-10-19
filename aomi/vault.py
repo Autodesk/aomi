@@ -159,6 +159,10 @@ class Client(hvac.Client):
         vsn_string = ""
         if self.version:
             vsn_string = ", v%s" % self.version
+        else:
+            LOG.warning("Unable to deterine Vault version. Not all "
+                        "functionality is supported")
+
         LOG.info("Connected to %s as %s%s",
                  self._url,
                  display_name,
