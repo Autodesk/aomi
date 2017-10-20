@@ -146,10 +146,10 @@ class Client(hvac.Client):
     def connect(self, opt):
         """This sets up the tokens we expect to see in a way
         that hvac also expects."""
-        self.version = self.server_version()
         if not self._kwargs['verify']:
             LOG.warning('Skipping SSL Validation!')
 
+        self.version = self.server_version()
         self.token = self.init_token()
         my_token = self.lookup_token()
         if not my_token or 'data' not in my_token:
