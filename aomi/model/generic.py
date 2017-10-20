@@ -45,6 +45,7 @@ class VarFile(Generic):
 
     def obj(self):
         filename = hard_path(self.filename, self.opt.secrets)
+        secret_file(filename)
         template_obj = load_vars(self.opt)
         return load_var_file(filename, template_obj)
 

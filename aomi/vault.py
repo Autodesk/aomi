@@ -104,6 +104,7 @@ class Client(hvac.Client):
     def __init__(self, _url=None, token=None, _cert=None, _verify=True,
                  _timeout=30, _proxies=None, _allow_redirects=True,
                  _session=None):
+        self.version = None
         self.vault_addr = os.environ.get('VAULT_ADDR')
         if not self.vault_addr:
             raise aomi.exceptions.AomiError('VAULT_ADDR is undefined or empty')
@@ -126,14 +127,13 @@ class Client(hvac.Client):
         super(Client, self).__init__(url=self.vault_addr,
                                      verify=ssl_verify,
                                      session=session)
-        self.version = self.server_version(session)
 
-    def server_version(self, session):
+    def server_version(self):
         """Attempts to determine the version of Vault that a
         server is running. Some actions will change on older
         Vault deployments."""
         health_url = "%s/v1/sys/health" % self.vault_addr
-        resp = session.request('get', health_url)
+        resp = self.session.request('get', health_url)
         if resp.status_code == 200 or resp.status_code == 429:
             blob = resp.json()
             if 'version' in blob:
@@ -146,6 +146,7 @@ class Client(hvac.Client):
     def connect(self, opt):
         """This sets up the tokens we expect to see in a way
         that hvac also expects."""
+        self.version = self.server_version()
         if not self._kwargs['verify']:
             LOG.warning('Skipping SSL Validation!')
 
@@ -158,6 +159,10 @@ class Client(hvac.Client):
         vsn_string = ""
         if self.version:
             vsn_string = ", v%s" % self.version
+        else:
+            LOG.warning("Unable to deterine Vault version. Not all "
+                        "functionality is supported")
+
         LOG.info("Connected to %s as %s%s",
                  self._url,
                  display_name,

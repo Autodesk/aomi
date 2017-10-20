@@ -19,6 +19,12 @@ teardown() {
     VAULT_TOKEN="" VAULT_TOKEN_FILE="${BATS_TMPDIR}/token" aomi_seed
 }
 
+@test "do not use insecure files" {
+    chmod -R og+rw ".secrets"
+    aomi_run_rc 1 seed
+    scan_lines "^.+loose permissions$" "${lines[@]}"
+}
+
 @test "builtin template help" {
     aomi_run template --builtin-list
     scan_lines "shenv" "${lines[@]}"
