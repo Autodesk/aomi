@@ -133,7 +133,7 @@ class Client(hvac.Client):
         server is running. Some actions will change on older
         Vault deployments."""
         health_url = "%s/v1/sys/health" % self.vault_addr
-        resp = self.session.request('get', health_url)
+        resp = self.session.request('get', health_url, **self._kwargs)
         if resp.status_code == 200 or resp.status_code == 429:
             blob = resp.json()
             if 'version' in blob:
