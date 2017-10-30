@@ -7,12 +7,13 @@ Authentication Vault Resources
 * Syslog/File Audit Log
 """
 import logging
+from future.utils import iteritems  # pylint: disable=E0401
 import yaml
 import hvac
 import aomi.exceptions
 from aomi.vault import wrap_hvac as wrap_vault
 from aomi.helpers import hard_path, merge_dicts, map_val
-from aomi.template import load_vars, render
+from aomi.template import load_vars, render, load_var_file
 from aomi.model.resource import Auth, Resource
 from aomi.model.backend import MOUNT_TUNABLES, NOOP, ADD
 from aomi.validation import secret_file, sanitize_mount
@@ -311,17 +312,28 @@ class LDAP(Auth):
         map_val(auth_obj, obj, 'groupdn')
         map_val(auth_obj, obj, 'groupattr')
         map_val(auth_obj, obj, 'binddn')
+        map_val(auth_obj, obj, 'tls_max_version')
+        map_val(auth_obj, obj, 'tls_min_version')
         self._obj = auth_obj
         self.tune = dict()
         if 'tune' in obj:
             for tunable in MOUNT_TUNABLES:
                 map_val(self.tune, obj, tunable)
 
+    def secrets(self):
+        if self.secret:
+            return [self.secret]
+
+        return []
+
     def obj(self):
         ldap_obj = self._obj
         if self.secret:
             filename = hard_path(self.secret, self.opt.secrets)
             secret_file(filename)
+            s_obj = load_var_file(filename, load_vars(self.opt))
+            for obj_k, obj_v in iteritems(s_obj):
+                ldap_obj[obj_k] = obj_v
 
         return ldap_obj
 

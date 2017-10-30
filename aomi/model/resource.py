@@ -6,12 +6,13 @@ import yaml
 import hvac.exceptions
 from aomi.util import vault_time_to_s
 from aomi.vault import wrap_hvac as wrap_vault
-from aomi.helpers import is_tagged, hard_path, diff_dict, map_val
+from aomi.helpers import is_tagged, hard_path, diff_dict, map_val, \
+    open_maybe_binary
 from aomi.model.backend import MOUNT_TUNABLES, NOOP, CHANGED, ADD, \
     DEL, OVERWRITE
 import aomi.exceptions as aomi_excep
 from aomi.validation import check_obj, specific_path_check, is_unicode, \
-    is_vault_time
+    is_vault_time, secret_file
 LOG = logging.getLogger(__name__)
 
 
@@ -343,3 +344,25 @@ class AuditLog(Resource):
         obj['options'] = obj_opt
         self._obj = obj
         self.tunable(obj)
+
+
+class Latent(Resource):
+    """Latent Secret
+    A latent secret is tracked only within icefiles. It will never be
+    used as part of interactions with HCVault"""
+    required_fields = []
+    resource_key = 'latent_file'
+    config_key = 'secrets'
+    no_resource = True
+
+    def secrets(self):
+        return [self.secret]
+
+    def __init__(self, obj, opt):
+        super(Latent, self).__init__(obj, opt)
+        self.secret = obj['latent_file']
+
+    def obj(self):
+        filename = hard_path(self.secret, self.opt.secrets)
+        secret_file(filename)
+        return open_maybe_binary(filename)
