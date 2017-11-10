@@ -14,6 +14,24 @@ teardown() {
     rm -rf "$FIXTURE_DIR"
 }
 
+@test "error states are real" {
+    VAULT_TOKEN="no" aomi_run_rc 1 seed
+    scan_lines "^.+permission denied$" "${lines[@]}"
+    VAULT_ADDR="" aomi_run_rc 1 seed
+    scan_lines "VAULT_ADDR is undefined or empty" "${lines[@]}"
+    VAULT_ADDR="no" aomi_run_rc 1 seed
+    scan_lines "VAULT_ADDR must be a URL" "${lines[@]}"    
+    a_token=$(vault token-create -format=json -policy=sample -no-default-policy | jq -Mr ".auth.token")
+    VAULT_TOKEN="$a_token" aomi_run_rc 1 seed
+    scan_lines "^.*[Pp]ermission denied.*$" "${lines[@]}"
+}
+
+@test "skip ssl validation" {
+    # note, this should actually test against a fake ssl server tho
+    export VAULT_SKIP_VERIFY=1
+    aomi_seed
+}
+
 @test "custom vault token file" {
     echo "$VAULT_TOKEN" > "${BATS_TMPDIR}/token"
     VAULT_TOKEN="" VAULT_TOKEN_FILE="${BATS_TMPDIR}/token" aomi_seed

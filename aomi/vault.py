@@ -109,6 +109,9 @@ class Client(hvac.Client):
         if not self.vault_addr:
             raise aomi.exceptions.AomiError('VAULT_ADDR is undefined or empty')
 
+        if not self.vault_addr.startswith("http"):
+            raise aomi.exceptions.AomiError('VAULT_ADDR must be a URL')
+
         ssl_verify = True
         if 'VAULT_SKIP_VERIFY' in os.environ:
             if os.environ['VAULT_SKIP_VERIFY'] == '1':
