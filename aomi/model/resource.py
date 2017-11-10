@@ -62,6 +62,9 @@ class Resource(object):
                     vault_time_s = vault_time_to_s(self.tune[tunable_key])
                     self.tune[tunable_key] = vault_time_s
 
+        if 'description'in obj:
+            self.tune['description'] = obj['description']
+
     def export_handle(self, directory):
         """Get a filehandle for exporting"""
         filename = getattr(self, 'filename')

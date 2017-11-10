@@ -7,7 +7,7 @@ class SSHRole(Secret):
     """SSH Credential Backend"""
     resource_key = 'ssh_creds'
     required_fields = ['name', 'key_type']
-    backend = 'ssh_role'
+    backend = 'ssh'
 
     def __init__(self, obj, opt):
         super(SSHRole, self).__init__(obj, opt)
@@ -21,3 +21,5 @@ class SSHRole(Secret):
 
         if 'default_user' in obj:
             self._obj['default_user'] = obj['default_user']
+
+        self.tunable(obj)

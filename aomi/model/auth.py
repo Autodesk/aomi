@@ -15,7 +15,7 @@ from aomi.vault import wrap_hvac as wrap_vault
 from aomi.helpers import hard_path, merge_dicts, map_val
 from aomi.template import load_vars, render, load_var_file
 from aomi.model.resource import Auth, Resource
-from aomi.model.backend import MOUNT_TUNABLES, NOOP, ADD
+from aomi.model.backend import NOOP, ADD
 from aomi.validation import secret_file, sanitize_mount
 LOG = logging.getLogger(__name__)
 
@@ -74,10 +74,10 @@ class DUO(Auth):
         return [self, self.access]
 
     def __init__(self, obj, opt):
-        super(DUO, self).__init__('userpass', obj, opt)
+        super(DUO, self).__init__(obj['backend'], obj, opt)
         self.path = "auth/%s/mfa_config" % self.backend
         self.host = obj['host']
-        self.mount = 'userpass'
+        self.mount = self.backend
         self._obj = {'type': 'duo'}
         self.access = DUOAccess(self, obj['creds'], opt)
 
@@ -315,10 +315,7 @@ class LDAP(Auth):
         map_val(auth_obj, obj, 'tls_max_version')
         map_val(auth_obj, obj, 'tls_min_version')
         self._obj = auth_obj
-        self.tune = dict()
-        if 'tune' in obj:
-            for tunable in MOUNT_TUNABLES:
-                map_val(self.tune, obj, tunable)
+        self.tunable(obj)
 
     def secrets(self):
         if self.secret:
