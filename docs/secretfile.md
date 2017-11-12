@@ -131,6 +131,15 @@ On resources which are used to create new Vault backends you can specify a `tune
 
 You can also setup [AWS secret]({{site.baseurl}}/aws) backends. Roles may be either externally specified or specified inline.
 
+# Latent Secrets
+
+A latent secret is tracked in the `Secretfile`, and preserved in an Icefile, but will never be written to Vault. A latent secret may be used to simply store something for offline use. Can be helpful with tags or templated setups.
+
+```
+secrets:
+  - latent_file: "test"
+```
+
 # Policies
 
 Policies may be managed [separately]({{site.baseurl}}/policies) or in-line with supporting resources. It is recommended to manage each Vault policies separately as opposed to in-line with other resources.

@@ -1,3 +1,6 @@
 path "foo/*" {
-  policy = "read"
+  capabilities = ["read"]
+}
+path "auth/token/lookup-self" {
+  capabilities = ["read"]
 }

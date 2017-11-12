@@ -1,4 +1,4 @@
-pep8
+pycodestyle
 avakas
 nose2
 shyaml

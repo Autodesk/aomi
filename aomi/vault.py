@@ -9,7 +9,6 @@ from urllib3.util.retry import Retry
 import hvac
 import yaml
 from aomi.helpers import normalize_vault_path
-from aomi.error import output as error_output
 from aomi.util import token_file, appid_file, approle_file
 from aomi.validation import sanitize_mount
 import aomi.error
@@ -85,8 +84,8 @@ def wrap_hvac(msg):
             except (hvac.exceptions.InvalidRequest,
                     hvac.exceptions.Forbidden) as vault_exception:
                 if vault_exception.errors[0] == 'permission denied':
-                    error_output("Permission denied %s from %s" %
-                                 (msg, self.path), self.opt)
+                    emsg = "Permission denied %s from %s" % (msg, self.path)
+                    raise aomi.exceptions.AomiCredentials(emsg)
                 else:
                     raise
 
@@ -108,6 +107,9 @@ class Client(hvac.Client):
         self.vault_addr = os.environ.get('VAULT_ADDR')
         if not self.vault_addr:
             raise aomi.exceptions.AomiError('VAULT_ADDR is undefined or empty')
+
+        if not self.vault_addr.startswith("http"):
+            raise aomi.exceptions.AomiError('VAULT_ADDR must be a URL')
 
         ssl_verify = True
         if 'VAULT_SKIP_VERIFY' in os.environ:
@@ -249,8 +251,8 @@ class Client(hvac.Client):
         except (hvac.exceptions.InvalidRequest,
                 hvac.exceptions.Forbidden) as vault_exception:
             if vault_exception.errors[0] == 'permission denied':
-                error_output("Permission denied creating operational token",
-                             opt)
+                emsg = "Permission denied creating operational token"
+                raise aomi.exceptions.AomiCredentials(emsg)
             else:
                 raise
 

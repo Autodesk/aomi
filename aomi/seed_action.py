@@ -14,7 +14,7 @@ from aomi.model import Context
 from aomi.template import get_secretfile, render_secretfile
 from aomi.model.resource import Resource
 from aomi.model.backend import CHANGED, ADD, DEL, OVERWRITE, NOOP, \
-    VaultBackend
+    CONFLICT, VaultBackend
 from aomi.model.auth import Policy
 from aomi.model.aws import AWSRole
 from aomi.validation import is_unicode
@@ -155,7 +155,7 @@ def maybe_details(resource, opt):
         existing = resource.existing
     elif isinstance(resource, VaultBackend):
         obj = resource.tune
-        existing = resource.existing_tune
+        existing = resource.existing
 
     if not obj:
         return
@@ -190,6 +190,8 @@ def diff_a_thing(thing, opt):
         print("%s %s" % (maybe_colored("~", "yellow", opt), str(thing)))
     elif changed == OVERWRITE:
         print("%s %s" % (maybe_colored("+", "yellow", opt), str(thing)))
+    elif changed == CONFLICT:
+        print("%s %s" % (maybe_colored("!", "red", opt), str(thing)))
 
     if changed != OVERWRITE and changed != NOOP:
         maybe_details(thing, opt)
