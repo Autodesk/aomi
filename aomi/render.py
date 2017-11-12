@@ -10,7 +10,6 @@ from cryptorito import portable_b64decode, is_base64
 from aomi.helpers import merge_dicts, cli_hash, \
     path_pieces, abspath
 from aomi.template import render, load_vars
-from aomi.error import output as error_output
 import aomi.exceptions
 LOG = logging.getLogger(__name__)
 
@@ -201,15 +200,17 @@ def aws(client, path, opt):
     except (hvac.exceptions.InternalServerError) as vault_exception:
         # this is how old vault behaves
         if vault_exception.errors[0].find('unsupported path') > 0:
-            error_output("Invalid AWS path. Did you forget the"
-                         " credential type and role?", opt)
+            emsg = "Invalid AWS path. Did you forget the" \
+                   " credential type and role?"
+            raise aomi.exceptions.AomiFile(emsg)
         else:
             raise
 
     # this is how new vault behaves
     if not creds:
-        error_output("Invalid AWS path. Did you forget the"
-                     " credential type and role?", opt)
+        emsg = "Invalid AWS path. Did you forget the" \
+               " credential type and role?"
+        raise aomi.exceptions.AomiFile(emsg)
 
     renew_secret(client, creds, opt)
 

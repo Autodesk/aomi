@@ -357,18 +357,19 @@ class Context(object):
             for backend in b_list():
                 backend.fetch(vault_client, existing)
 
-        for resource in self.resources():
-            if issubclass(type(resource), Secret):
-                if resource.mount != 'cubbyhole' and \
-                   find_backend(resource.mount, self._mounts).existing:
-                    resource.fetch(vault_client)
-            elif issubclass(type(resource), Auth):
-                if find_backend(resource.mount, self._auths).existing:
-                    resource.fetch(vault_client)
-            elif issubclass(type(resource), Mount):
-                resource.existing = find_backend(resource.mount,
-                                                 self._mounts).existing
+        for rsc in self.resources():
+            if issubclass(type(rsc), Secret):
+                nc_exists = (rsc.mount != 'cubbyhole' and
+                             find_backend(rsc.mount, self._mounts).existing)
+                if nc_exists or rsc.mount == 'cubbyhole':
+                    rsc.fetch(vault_client)
+            elif issubclass(type(rsc), Auth):
+                if find_backend(rsc.mount, self._auths).existing:
+                    rsc.fetch(vault_client)
+            elif issubclass(type(rsc), Mount):
+                rsc.existing = find_backend(rsc.mount,
+                                            self._mounts).existing
             else:
-                resource.fetch(vault_client)
+                rsc.fetch(vault_client)
 
         return self
