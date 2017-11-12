@@ -160,7 +160,9 @@ EXEC_TESTS=()
 for a_test in $TESTS ; do
     EXEC_TESTS=(${EXEC_TESTS[@]} "${ROOTDIR}/tests/integration/${a_test}.bats")
 done
-EXEC_TESTS=(${EXEC_TESTS[@]} "${ROOTDIR}/tests/integration/${GPG_TESTS}.bats")
+if [ -z "$TRAVIS" ] ; then
+    EXEC_TESTS=(${EXEC_TESTS[@]} "${ROOTDIR}/tests/integration/${GPG_TESTS}.bats")
+fi
 
 # If we have Vault credentials we need to check to see if they are legit
 if [ ! -z "$VAULT_TOKEN" ] && \
