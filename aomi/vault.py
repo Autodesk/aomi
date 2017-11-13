@@ -16,6 +16,59 @@ import aomi.exceptions
 LOG = logging.getLogger(__name__)
 
 
+def is_aws(data):
+    """Takes a decent guess as to whether or not we are dealing with
+    an AWS secret blob"""
+    return 'access_key' in data and 'secret_key' in data
+
+
+def grok_seconds(lease):
+    """Ensures that we are returning just seconds"""
+    if lease.endswith('s'):
+        return int(lease[0:-1])
+    elif lease.endswith('m'):
+        return int(lease[0:-1]) * 60
+    elif lease.endswith('h'):
+        return int(lease[0:-1]) * 3600
+
+    return None
+
+
+def renew_secret(client, creds, opt):
+    """Renews a secret. This will occur unless the user has
+    specified on the command line that it is not neccesary"""
+    if opt.reuse_token:
+        return
+
+    seconds = grok_seconds(opt.lease)
+    if not seconds:
+        raise aomi.exceptions.AomiCommand("invalid lease %s" % opt.lease)
+
+    renew = None
+    if client.version:
+        v_bits = client.version.split('.')
+        if int(v_bits[0]) == 0 and \
+           int(v_bits[1]) <= 8 and \
+           int(v_bits[2]) <= 0:
+            r_obj = {
+                'increment': seconds
+            }
+            r_path = "v1/sys/renew/{0}".format(creds['lease_id'])
+            # Pending discussion on https://github.com/ianunruh/hvac/issues/148
+            # pylint: disable=protected-access
+            renew = client._post(r_path, json=r_obj).json()
+
+    if not renew:
+        renew = client.renew_secret(creds['lease_id'], seconds)
+
+    # sometimes it takes a bit for vault to respond
+    # if we are within 5s then we are fine
+    if not renew or (seconds - renew['lease_duration'] >= 5):
+        client.revoke_self_token()
+        e_msg = 'Unable to renew with desired lease'
+        raise aomi.exceptions.VaultConstraint(e_msg)
+
+
 def approle_token(vault_client, role_id, secret_id):
     """Returns a vault token based on the role and seret id"""
     resp = vault_client.auth_approle(role_id, secret_id)
