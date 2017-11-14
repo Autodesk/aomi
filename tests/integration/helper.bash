@@ -180,14 +180,19 @@ function check_mount() {
 
 scan_lines() {
     local STRING="$1"
+    local NEG
+    if [ "${STRING:0:1}" == "!" ] ; then
+        NEG="yes"
+        STRING="${STRING:1}"
+    fi
     shift
     while [ ! -z "$1" ] ; do
         if grep -qE "$STRING" <<< "$1" ; then
-            return 0
+            [ -z "$NEG" ] && return 0 || return 1
         fi
         shift
     done
-    return 1
+    [ -z "$NEG" ] && return 1 || return 0
 }
 
 function aws_creds() {

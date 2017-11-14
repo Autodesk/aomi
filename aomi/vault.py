@@ -111,15 +111,20 @@ def token_meta(opt):
     return meta
 
 
-def is_mounted(backend, path, backends):
-    """Determine whether a backend of a certain type is mounted"""
+def get_backend(backend, path, backends):
+    """Returns mountpoint details for a backend"""
+    m_norm = normalize_vault_path(path)
     for mount_name, values in backends.items():
         b_norm = normalize_vault_path(mount_name)
-        m_norm = normalize_vault_path(path)
         if (m_norm == b_norm) and values['type'] == backend:
-            return True
+            return values
 
-    return False
+    return None
+
+
+def is_mounted(backend, path, backends):
+    """Determine whether a backend of a certain type is mounted"""
+    return get_backend(backend, path, backends) is not None
 
 
 def wrap_hvac(msg):

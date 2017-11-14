@@ -3,7 +3,7 @@ import re
 import logging
 import hvac.exceptions
 from aomi.helpers import map_val, diff_dict, normalize_vault_path
-from aomi.vault import is_mounted
+from aomi.vault import is_mounted, get_backend
 import aomi.exceptions as aomi_excep
 from aomi.validation import sanitize_mount
 LOG = logging.getLogger(__name__)
@@ -66,6 +66,7 @@ class VaultBackend(object):
 
     def diff(self):
         """Determines if changes are needed for the Vault backend"""
+
         if not self.present:
             if self.existing:
                 return DEL
@@ -131,8 +132,15 @@ class VaultBackend(object):
         """Updates local resource with context on whether this
         backend is actually mounted and available"""
         if not is_mounted(self.backend, self.path, backends) or \
-           self.tune_prefix is None or \
-           vault_client.version is None:
+           self.tune_prefix is None:
+            return
+
+        if vault_client.version is None:
+            backend_details = get_backend(self.backend, self.path, backends)
+            self.existing = backend_details['config']
+            if backend_details['description']:
+                self.existing['description'] = backend_details['description']
+
             return
 
         a_prefix = self.tune_prefix
