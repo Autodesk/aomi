@@ -180,14 +180,19 @@ function check_mount() {
 
 scan_lines() {
     local STRING="$1"
+    local NEG
+    if [ "${STRING:0:1}" == "!" ] ; then
+        NEG="yes"
+        STRING="${STRING:1}"
+    fi
     shift
     while [ ! -z "$1" ] ; do
         if grep -qE "$STRING" <<< "$1" ; then
-            return 0
+            [ -z "$NEG" ] && return 0 || return 1
         fi
         shift
     done
-    return 1
+    [ -z "$NEG" ] && return 1 || return 0
 }
 
 function aws_creds() {
@@ -286,4 +291,18 @@ function check_aws {
             OK="ok"
         fi
     done
+}
+
+function test_user() {
+    [ "$#" == "1" ]
+    POLICY="$1"
+    unset VAULT_TOKEN
+    local a_token=$(vault \
+                        token-create \
+                        -policy="$POLICY" \
+                        -display-name=testuser \
+                        -format=json 2> /dev/null | jq -Mr ".auth.client_token")
+    if [ ! -z "$a_token" ] ; then
+        export VAULT_TOKEN="$a_token"
+    fi
 }

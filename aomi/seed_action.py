@@ -154,7 +154,7 @@ def maybe_details(resource, opt):
         obj = resource.obj()
         existing = resource.existing
     elif isinstance(resource, VaultBackend):
-        obj = resource.tune
+        obj = resource.config
         existing = resource.existing
 
     if not obj:
