@@ -292,3 +292,17 @@ function check_aws {
         fi
     done
 }
+
+function test_user() {
+    [ "$#" == "1" ]
+    POLICY="$1"
+    unset VAULT_TOKEN
+    local a_token=$(vault \
+                        token-create \
+                        -policy="$POLICY" \
+                        -display-name=testuser \
+                        -format=json 2> /dev/null | jq -Mr ".auth.client_token")
+    if [ ! -z "$a_token" ] ; then
+        export VAULT_TOKEN="$a_token"
+    fi
+}

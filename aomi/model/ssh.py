@@ -18,7 +18,7 @@ class SSHRole(Secret):
             'key_type': obj['key_type']
         }
         if 'cidr_list' in obj:
-            self._obj['cidr_list'] = obj['cidr_list']
+            self._obj['cidr_list'] = ','.join(obj['cidr_list'])
 
         if 'default_user' in obj:
             self._obj['default_user'] = obj['default_user']
