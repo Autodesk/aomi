@@ -72,3 +72,15 @@ class Validation(AomiError):
     """Some kind of validation failed. Invalid string, length,
     who knows. Never trust user input tho."""
     catmsg = 'Validation Error'
+    source = None
+
+    def __init__(self, message=None, source=None):
+        super(Validation, self).__init__(message=message)
+        self.source = source
+
+
+class VaultProblem(AomiError):
+    """Something is wrong with Vault itself. Network, sealed,
+    but it's at the point where we can't even validate if
+    the data is there"""
+    catmsg = 'Vault Problem'

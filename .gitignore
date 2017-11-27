@@ -12,3 +12,4 @@ aomi/version
 docs/.sass-cache/
 docs/_site
 .coverage
+errata/pipeline/.env

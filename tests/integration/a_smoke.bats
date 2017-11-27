@@ -14,9 +14,14 @@ teardown() {
     rm -rf "$FIXTURE_DIR"
 }
 
+@test "can seed as root and not as root" {
+    aomi_seed
+    test_user foo
+    aomi_seed --tags bar
+}
+
 @test "can seed and extract a file" {
     aomi_seed --tags bar
-    [ "$status" -eq 0 ]    
     aomi_run extract_file \
         foo/bar/baz/secret \
         "${BATS_TMPDIR}/secret.txt" \

@@ -7,13 +7,15 @@ Authentication Vault Resources
 * Syslog/File Audit Log
 """
 import logging
+from future.utils import iteritems  # pylint: disable=E0401
 import yaml
 import hvac
 import aomi.exceptions
 from aomi.vault import wrap_hvac as wrap_vault
 from aomi.helpers import hard_path, merge_dicts, map_val
-from aomi.template import load_vars, render
-from aomi.model.resource import Auth, Resource, NOOP, ADD
+from aomi.template import load_vars, render, load_var_file
+from aomi.model.resource import Auth, Resource
+from aomi.model.backend import NOOP, ADD
 from aomi.validation import secret_file, sanitize_mount
 LOG = logging.getLogger(__name__)
 
@@ -71,14 +73,11 @@ class DUO(Auth):
     def resources(self):
         return [self, self.access]
 
-    def diff(self, obj=None):
-        return Resource.diff_write_only(self)
-
     def __init__(self, obj, opt):
-        super(DUO, self).__init__('userpass', obj, opt)
+        super(DUO, self).__init__(obj['backend'], obj, opt)
         self.path = "auth/%s/mfa_config" % self.backend
         self.host = obj['host']
-        self.mount = 'userpass'
+        self.mount = self.backend
         self._obj = {'type': 'duo'}
         self.access = DUOAccess(self, obj['creds'], opt)
 
@@ -149,8 +148,14 @@ class AppRoleSecret(Resource):
                                              self.obj()['secret_id'])
         except hvac.exceptions.InvalidPath:
             return None
-        except ValueError as vault_excep:
-            if str(vault_excep).startswith('No JSON object'):
+        except hvac.exceptions.InternalServerError as vault_excep:
+            e_msg = vault_excep.errors[0]
+            if "role %s does not exist" % self.role_name in e_msg:
+                return None
+
+            raise
+        except ValueError as an_excep:
+            if str(an_excep).startswith('No JSON object'):
                 return None
 
             raise
@@ -172,9 +177,10 @@ class AppRole(Auth):
     def __init__(self, obj, opt):
         super(AppRole, self).__init__('approle', obj, opt)
         self.app_name = obj['name']
-        self.path = "auth/approle/role/%s" % obj['name']
-        self.mount = self.backend
+        self.mount = 'approle'
+        self.path = "%s/role/%s" % (self.mount, self.app_name)
         self.secret_ids = []
+        self.tunable(obj)
         policies = obj['policies']
         # HCV seems to always add this in anyway. Having this implicit
         # at our end makes the diff'ing easier.
@@ -292,8 +298,8 @@ class LDAP(Auth):
         auth_obj = {
             'url': obj['url']
         }
-        self.mount = 'ldap'
-        self.path = sanitize_mount("auth/ldap/config")
+        self.mount = obj.get('mount', 'ldap')
+        self.path = sanitize_mount("auth/%s/config" % self.mount)
         self.secret = obj.get('secrets')
         map_val(auth_obj, obj, 'starttls', False)
         map_val(auth_obj, obj, 'insecure_tls', False)
@@ -306,13 +312,25 @@ class LDAP(Auth):
         map_val(auth_obj, obj, 'groupdn')
         map_val(auth_obj, obj, 'groupattr')
         map_val(auth_obj, obj, 'binddn')
+        map_val(auth_obj, obj, 'tls_max_version')
+        map_val(auth_obj, obj, 'tls_min_version')
         self._obj = auth_obj
+        self.tunable(obj)
+
+    def secrets(self):
+        if self.secret:
+            return [self.secret]
+
+        return []
 
     def obj(self):
         ldap_obj = self._obj
         if self.secret:
             filename = hard_path(self.secret, self.opt.secrets)
             secret_file(filename)
+            s_obj = load_var_file(filename, load_vars(self.opt))
+            for obj_k, obj_v in iteritems(s_obj):
+                ldap_obj[obj_k] = obj_v
 
         return ldap_obj
 
@@ -327,9 +345,10 @@ class LDAPGroup(Resource):
         self.group = obj['group']
         self.path = sanitize_mount("auth/%s/groups/%s" %
                                    (obj.get('mount', 'ldap'), self.group))
-        self._obj = {
-            "policies": obj['policies']
-        }
+        if self.present:
+            self._obj = {
+                "policies": obj['policies']
+            }
 
     def fetch(self, vault_client):
         super(LDAPGroup, self).fetch(vault_client)
@@ -369,7 +388,19 @@ class LDAPUser(Resource):
 
 
 class UserPass(Auth):
-    """UserPass"""
+    """UserPass Authentication Backend"""
+    config_key = 'userpass'
+    no_resource = True
+
+    def __init__(self, obj, opt):
+        super(UserPass, self).__init__('userpass', obj, opt)
+        self.tunable(obj)
+        self.mount = obj.get('path', 'userpass')
+        self.path = "auth/%s" % self.mount
+
+
+class UserPassUser(Auth):
+    """UserPass User Account"""
     required_fields = ['username', 'password_file', 'policies']
     config_key = 'users'
 
@@ -377,12 +408,16 @@ class UserPass(Auth):
         pass
 
     def __init__(self, obj, opt):
-        super(UserPass, self).__init__('userpass', obj, opt)
+        super(UserPassUser, self).__init__('userpass', obj, opt)
         self.username = obj['username']
         self.mount = 'userpass'
         self.path = sanitize_mount("auth/userpass/users/%s" % self.username)
-        self.policies = obj['policies']
         self.secret = obj['password_file']
+        self._obj = {
+            'policies': obj['policies']
+        }
+        map_val(self._obj, obj, 'ttl')
+        map_val(self._obj, obj, 'max_ttl')
         self.filename = self.secret
 
     def secrets(self):
@@ -395,10 +430,10 @@ class UserPass(Auth):
         filename = hard_path(self.filename, self.opt.secrets)
         secret_file(filename)
         password = open(filename).readline().strip()
-        return {
-            'password': password,
-            'policies': ','.join(sorted(self.policies))
-        }
+        a_obj = self._obj
+        a_obj['password'] = password
+        a_obj['policies'] = ','.join(sorted(a_obj['policies']))
+        return a_obj
 
 
 class Policy(Resource):

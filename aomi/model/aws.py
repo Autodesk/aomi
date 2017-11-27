@@ -1,12 +1,11 @@
 """AWS Secret Backend"""
 import logging
-import yaml
 import aomi.exceptions
 import aomi.model.resource
 from aomi.vault import is_mounted
 from aomi.model.resource import Secret, Resource
 from aomi.helpers import hard_path, merge_dicts
-from aomi.template import load_vars, render
+from aomi.template import load_vars, render, load_var_file
 from aomi.validation import sanitize_mount, secret_file, check_obj
 LOG = logging.getLogger(__name__)
 
@@ -114,7 +113,8 @@ class AWS(Secret):
         _secret, filename, region = self._obj
         actual_filename = hard_path(filename, self.opt.secrets)
         secret_file(actual_filename)
-        aws_obj = yaml.safe_load(open(actual_filename, 'r').read())
+        template_obj = load_vars(self.opt)
+        aws_obj = load_var_file(actual_filename, template_obj)
         check_obj(['access_key_id', 'secret_access_key'],
                   self, aws_obj)
         return {
@@ -146,3 +146,5 @@ class AWS(Secret):
             ttl_obj, _lease_msg = grok_ttl(obj)
             if ttl_obj:
                 self.ttl = AWSTTL(self.mount, ttl_obj, opt)
+
+        self.tunable(obj)

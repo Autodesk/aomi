@@ -21,7 +21,7 @@ VAULTBIN="${VAULTDIR}/vault"
 # Define our test groups. Currently not every test is executed
 # in every single execution context.
 GPG_TESTS="cold_storage"
-TESTS="a_smoke environment exec_context seed template cubbyhole output ux diff auth errors"
+TESTS="a_smoke environment exec_context seed template cubbyhole output ux diff auth errors ssh"
 VAULT_TESTS="aws"
 
 # These are the HCV paths where we can find the secrets used
@@ -31,7 +31,7 @@ export VAULT_SECRET_PATH="secrets/aomi"
 
 # Default to a unreasonably old version of HCV because reasons.
 if [ -z "$VAULT_VERSION" ] ; then
-    VAULT_VERSION="0.6.2"
+    VAULT_VERSION="0.7.3"
 fi
 
 # This way the smoke tests always get executed first when running
@@ -60,7 +60,7 @@ fi
 # we are running our tests in a virtualenv to try and
 # minimize the amount of drama from heterogenous developer
 # workstations.
-if [ -z "$TRAVIS" ] ; then
+if [ -z "$TRAVIS" ] && [ -z "$VIRTUAL_ENV" ] ; then
     . "${ROOTDIR}/.ci-env/bin/activate"
 fi
 OWD="$PWD"

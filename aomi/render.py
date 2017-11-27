@@ -10,46 +10,9 @@ from cryptorito import portable_b64decode, is_base64
 from aomi.helpers import merge_dicts, cli_hash, \
     path_pieces, abspath
 from aomi.template import render, load_vars
-from aomi.error import output as error_output
+from aomi.vault import renew_secret, is_aws
 import aomi.exceptions
 LOG = logging.getLogger(__name__)
-
-
-def grok_seconds(lease):
-    """Ensures that we are returning just seconds"""
-    if lease.endswith('s'):
-        return int(lease[0:-1])
-    elif lease.endswith('m'):
-        return int(lease[0:-1]) * 60
-    elif lease.endswith('h'):
-        return int(lease[0:-1]) * 3600
-
-    return None
-
-
-def is_aws(data):
-    """Takes a decent guess as to whether or not we are dealing with
-    an AWS secret blob"""
-    return 'access_key' in data and 'secret_key' in data
-
-
-def renew_secret(client, creds, opt):
-    """Renews a secret. This will occur unless the user has
-    specified on the command line that it is not neccesary"""
-    if opt.reuse_token:
-        return
-
-    seconds = grok_seconds(opt.lease)
-    if not seconds:
-        raise aomi.exceptions.AomiCommand("invalid lease %s" % opt.lease)
-
-    renew = client.renew_secret(creds['lease_id'], seconds)
-    # sometimes it takes a bit for vault to respond
-    # if we are within 5s then we are fine
-    if seconds - renew['lease_duration'] >= 5:
-        client.revoke_self_token()
-        e_msg = 'Unable to renew with desired lease'
-        raise aomi.exceptions.VaultConstraint(e_msg)
 
 
 def secret_key_name(path, key, opt):
@@ -96,7 +59,7 @@ def template(client, src, dest, paths, opt):
         response = client.read(path)
         if not response:
             raise aomi.exceptions.VaultData("Unable to retrieve %s" % path)
-        if is_aws(response['data']):
+        if is_aws(response['data']) and 'sts' not in path:
             renew_secret(client, response, opt)
 
         for s_k, s_v in response['data'].items():
@@ -147,7 +110,7 @@ def raw_file(client, src, dest, opt):
                 LOG.debug('decoding base64 entry')
                 secret = portable_b64decode(secret)
 
-            if is_aws(resp['data']):
+            if is_aws(resp['data']) and 'sts' not in path:
                 renew_secret(client, resp, opt)
 
             write_raw_file(secret, dest)
@@ -175,7 +138,7 @@ def env(client, paths, opt):
     for path in paths:
         secrets = client.read(path)
         if secrets and 'data' in secrets:
-            if is_aws(secrets['data']):
+            if is_aws(secrets['data']) and 'sts' not in path:
                 renew_secret(client, secrets, opt)
 
             for s_key, s_val in secrets['data'].items():
@@ -203,15 +166,17 @@ def aws(client, path, opt):
     except (hvac.exceptions.InternalServerError) as vault_exception:
         # this is how old vault behaves
         if vault_exception.errors[0].find('unsupported path') > 0:
-            error_output("Invalid AWS path. Did you forget the"
-                         " credential type and role?", opt)
+            emsg = "Invalid AWS path. Did you forget the" \
+                   " credential type and role?"
+            raise aomi.exceptions.AomiFile(emsg)
         else:
             raise
 
     # this is how new vault behaves
     if not creds:
-        error_output("Invalid AWS path. Did you forget the"
-                     " credential type and role?", opt)
+        emsg = "Invalid AWS path. Did you forget the" \
+               " credential type and role?"
+        raise aomi.exceptions.AomiFile(emsg)
 
     renew_secret(client, creds, opt)
 

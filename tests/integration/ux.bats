@@ -14,9 +14,39 @@ teardown() {
     rm -rf "$FIXTURE_DIR"
 }
 
+@test "error states are real" {
+    aomi_seed
+    VAULT_TOKEN="no" aomi_run_rc 1 seed
+    scan_lines "^.+permission denied$" "${lines[@]}"
+    VAULT_ADDR="" aomi_run_rc 1 seed
+    scan_lines "VAULT_ADDR is undefined or empty" "${lines[@]}"
+    VAULT_ADDR="no" aomi_run_rc 1 seed
+    scan_lines "VAULT_ADDR must be a URL" "${lines[@]}"    
+    a_token=$(vault token-create -format=json -policy=foo -no-default-policy 2> /dev/null | jq -Mr ".auth.client_token")
+    [ ! -z "$a_token" ] && [ "$a_token" != "null" ]
+    VAULT_TOKEN="$a_token" aomi_run_rc 1 seed
+    scan_lines "^.*Permission denied.*$" "${lines[@]}"
+    unset VAULT_TOKEN
+    # missing file is the same as the var not being set
+    VAULT_TOKEN_FILE="/tmp/nope${RANDOM}" aomi_run_rc 1 seed
+    scan_lines "^.+credentials.+unknown method$" "${lines[@]}"
+}
+
+@test "skip ssl validation" {
+    # note, this should actually test against a fake ssl server tho
+    export VAULT_SKIP_VERIFY=1
+    aomi_seed
+}
+
 @test "custom vault token file" {
     echo "$VAULT_TOKEN" > "${BATS_TMPDIR}/token"
     VAULT_TOKEN="" VAULT_TOKEN_FILE="${BATS_TMPDIR}/token" aomi_seed
+}
+
+@test "do not use insecure files" {
+    chmod -R og+rw ".secrets"
+    aomi_run_rc 1 seed
+    scan_lines "^.+loose permissions$" "${lines[@]}"
 }
 
 @test "builtin template help" {

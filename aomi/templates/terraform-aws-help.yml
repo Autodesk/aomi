@@ -4,3 +4,4 @@ args:
   aws_region: The AWS region.
   access_key: The AWS access key.
   secret_key: The AWS secret key.
+  session_token: Optional. STS or MFA token.

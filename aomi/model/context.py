@@ -9,7 +9,8 @@ from aomi.helpers import normalize_vault_path
 import aomi.exceptions as aomi_excep
 from aomi.model.resource import Resource, Mount, Secret, \
     Auth, AuditLog
-from aomi.model.auth import Policy
+from aomi.model.aws import AWS
+from aomi.model.auth import Policy, UserPass, LDAP
 from aomi.model.backend import LogBackend, AuthBackend, \
     SecretBackend
 LOG = logging.getLogger(__name__)
@@ -25,10 +26,18 @@ def filtered_context(context):
     for resource in context.resources():
         if resource.child:
             continue
+
         if resource.filtered():
             ctx.add(resource)
 
     return ctx
+
+
+def childless_first(resource):
+    """Used to sort resources in a way where child resources
+    show at the end. This allows us to ensure that required
+    dependencies are in place, like with approles"""
+    return resource.child
 
 
 def absent_sort(resource):
@@ -47,11 +56,11 @@ def find_backend(path, backends):
     return None
 
 
-def ensure_backend(resource, backend, backends, opt):
+def ensure_backend(resource, backend, backends, opt, managed=True):
     """Ensure the backend for a resource is properly in context"""
     existing_mount = find_backend(resource.mount, backends)
     if not existing_mount:
-        new_mount = backend(resource, opt)
+        new_mount = backend(resource, opt, managed=managed)
         backends.append(new_mount)
         return new_mount
 
@@ -104,6 +113,18 @@ def py_resources():
     return mod_map
 
 
+def resource_sort(seed_key):
+    """A sorting function based on which resources
+    need to be first, in order to ensure that backends
+    are properly created."""
+    if seed_key == 'mounts' or \
+       seed_key == 'userpass' or\
+       seed_key == 'audit_logs':
+        return False
+
+    return True
+
+
 class Context(object):
     """The overall context of an aomi session"""
 
@@ -112,17 +133,17 @@ class Context(object):
         """Loads and returns a full context object based on the Secretfile"""
         ctx = Context(opt)
         seed_map = py_resources()
-        seed_keys = set([m[0] for m in seed_map])
+        seed_keys = sorted(set([m[0] for m in seed_map]), key=resource_sort)
         for config_key in seed_keys:
             if config_key not in config:
                 continue
-            for resource in config[config_key]:
-                mod = find_model(config_key, resource, seed_map)
+            for resource_config in config[config_key]:
+                mod = find_model(config_key, resource_config, seed_map)
                 if not mod:
-                    LOG.warning("unable to find mod for %s", resource)
+                    LOG.warning("unable to find mod for %s", resource_config)
                     continue
 
-                ctx.add(mod(resource, opt))
+                ctx.add(mod(resource_config, opt))
 
         for config_key in config.keys():
             if config_key != 'pgp_keys' and \
@@ -173,12 +194,18 @@ class Context(object):
     def add(self, resource):
         """Add a resource to the context"""
         if isinstance(resource, Resource):
-            if isinstance(resource, (Secret, Mount)) and \
+            if isinstance(resource, Secret) and \
                resource.mount != 'cubbyhole':
+                ensure_backend(resource,
+                               SecretBackend,
+                               self._mounts,
+                               self.opt,
+                               False)
+            elif isinstance(resource, Mount):
                 ensure_backend(resource, SecretBackend, self._mounts, self.opt)
-            elif isinstance(resource, (Auth)):
+            elif isinstance(resource, Auth):
                 ensure_backend(resource, AuthBackend, self._auths, self.opt)
-            elif isinstance(resource, (AuditLog)):
+            elif isinstance(resource, AuditLog):
                 ensure_backend(resource, LogBackend, self._logs, self.opt)
 
             self._resources.append(resource)
@@ -202,26 +229,69 @@ class Context(object):
         return [x for x in self.resources()
                 if not isinstance(x, Policy)]
 
-    def sync_mounts(self, active_mounts, policies, vault_client):
+    def sync_auth(self, vault_client, resources):
+        """Synchronizes auth mount wrappers. These happen
+        early in the cycle, to ensure that user backends
+        are proper. They may also be used to set mount
+        tuning"""
+        for auth in self.auths():
+            auth.sync(vault_client)
+
+        auth_resources = [x for x in resources
+                          if isinstance(x, (LDAP, UserPass))]
+        for resource in auth_resources:
+            resource.sync(vault_client)
+
+        return [x for x in resources
+                if not isinstance(x, (LDAP, UserPass, AuditLog))]
+
+    def actually_mount(self, vault_client, resource, active_mounts):
+        """Handle the actual (potential) mounting of a secret backend.
+        This is called in multiple contexts, but the action will always
+        be the same. If we were not aware of the mountpoint at the start
+        and it has not already been mounted, then mount it."""
+        a_mounts = list(active_mounts)
+        if isinstance(resource, Secret) and resource.mount == 'cubbyhole':
+            return a_mounts
+
+        active_mount = find_backend(resource.mount, active_mounts)
+        if not active_mount:
+            actual_mount = find_backend(resource.mount, self._mounts)
+            a_mounts.append(actual_mount)
+            actual_mount.sync(vault_client)
+
+        return a_mounts
+
+    def sync_mounts(self, active_mounts, resources, vault_client):
         """Synchronizes mount points. Removes things before
         adding new."""
         # Create a resource set that is only explicit mounts
         # and sort so removals are first
-        mounts = [x for x in policies
-                  if isinstance(x, (Secret, Mount))]
+        mounts = [x for x in resources
+                  if isinstance(x, (Mount, AWS))]
+
         s_resources = sorted(mounts, key=absent_sort)
         # Iterate over explicit mounts only
         for resource in s_resources:
-            if resource.mount == 'cubbyhole':
-                continue
+            active_mounts = self.actually_mount(vault_client,
+                                                resource,
+                                                active_mounts)
 
-            active_mount = find_backend(resource.mount, active_mounts)
-            if not active_mount:
-                actual_mount = find_backend(resource.mount, self._mounts)
-                active_mounts.append(actual_mount)
-                actual_mount.sync(vault_client)
+        # OK Now iterate over everything but make sure it is clear
+        # that ad-hoc mountpoints are deprecated as per
+        # https://github.com/Autodesk/aomi/issues/110
+        for resource in [x for x in resources
+                         if isinstance(x, Secret)]:
+            n_mounts = self.actually_mount(vault_client,
+                                           resource,
+                                           active_mounts)
+            if len(n_mounts) != len(active_mounts):
+                LOG.warning("Ad-Hoc mount with %s. Please specify"
+                            " explicit mountpoints.", resource)
 
-        return active_mounts, [x for x in policies
+            active_mounts = n_mounts
+
+        return active_mounts, [x for x in resources
                                if not isinstance(x, (Mount))]
 
     def sync(self, vault_client, opt):
@@ -229,8 +299,6 @@ class Context(object):
         has the effect of updating every resource which is
         in the context and has changes pending."""
         active_mounts = []
-        for auth in self.auths():
-            auth.sync(vault_client)
         for audit_log in self.logs():
             audit_log.sync(vault_client)
 
@@ -238,16 +306,22 @@ class Context(object):
         # to ensure that ACL's are in place prior to actually
         # making any changes.
         not_policies = self.sync_policies(vault_client)
+        # Handle auth wrapper resources on the next path. The resources
+        # may update a path on their own. They may also provide mount
+        # tuning information.
+        not_auth = self.sync_auth(vault_client, not_policies)
         # Handle mounts only on the next pass. This allows us to
         # ensure that everything is in order prior to actually
         # provisioning secrets. Note we handle removals before
         # anything else, allowing us to address mount conflicts.
         active_mounts, not_mounts = self.sync_mounts(active_mounts,
-                                                     not_policies,
+                                                     not_auth,
                                                      vault_client)
         # Now handle everything else. If "best practices" are being
-        # adhered to then every generic mountpoint should exist by now
-        for resource in not_mounts:
+        # adhered to then every generic mountpoint should exist by now.
+        # We handle "child" resources after the first batch
+        sorted_resources = sorted(not_mounts, key=childless_first)
+        for resource in sorted_resources:
             resource.sync(vault_client)
 
         for mount in self.mounts():
@@ -285,21 +359,25 @@ class Context(object):
                     (self.auths, AuthBackend),
                     (self.logs, LogBackend)]
         for b_list, b_class in backends:
-            for resource in b_list():
-                resource.fetch(getattr(vault_client, b_class.list_fun)())
+            backend_list = b_list()
+            if backend_list:
+                existing = getattr(vault_client, b_class.list_fun)()
+                for backend in backend_list:
+                    backend.fetch(vault_client, existing)
 
-        for resource in self.resources():
-            if issubclass(type(resource), Secret):
-                if resource.mount != 'cubbyhole' and \
-                   find_backend(resource.mount, self._mounts).existing:
-                    resource.fetch(vault_client)
-            elif issubclass(type(resource), Auth):
-                if find_backend(resource.mount, self._auths).existing:
-                    resource.fetch(vault_client)
-            elif issubclass(type(resource), Mount):
-                resource.existing = find_backend(resource.mount,
-                                                 self._mounts).existing
+        for rsc in self.resources():
+            if issubclass(type(rsc), Secret):
+                nc_exists = (rsc.mount != 'cubbyhole' and
+                             find_backend(rsc.mount, self._mounts).existing)
+                if nc_exists or rsc.mount == 'cubbyhole':
+                    rsc.fetch(vault_client)
+            elif issubclass(type(rsc), Auth):
+                if find_backend(rsc.mount, self._auths).existing:
+                    rsc.fetch(vault_client)
+            elif issubclass(type(rsc), Mount):
+                rsc.existing = find_backend(rsc.mount,
+                                            self._mounts).existing
             else:
-                resource.fetch(vault_client)
+                rsc.fetch(vault_client)
 
         return self

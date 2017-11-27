@@ -99,7 +99,7 @@ def freeze(dest_dir, opt):
     LOG.debug("Generated file is %s", ice_file)
 
 
-def thaw_decrypt(src_file, tmp_dir, opt):
+def thaw_decrypt(vault_client, src_file, tmp_dir, opt):
     """Decrypts the encrypted ice file"""
 
     if not os.path.isdir(opt.secrets):
@@ -108,20 +108,38 @@ def thaw_decrypt(src_file, tmp_dir, opt):
 
     zip_file = "%s/aomi.zip" % tmp_dir
 
-    if not decrypt(src_file, zip_file):
-        raise aomi.exceptions.GPG("Unable to gpg")
+    if opt.gpg_pass_path:
+        gpg_path_bits = opt.gpg_pass_path.split('/')
+        gpg_path = '/'.join(gpg_path_bits[0:len(gpg_path_bits) - 1])
+        gpg_field = gpg_path_bits[len(gpg_path_bits) - 1]
+        resp = vault_client.read(gpg_path)
+        gpg_pass = None
+        if resp and 'data' in resp and gpg_field in resp['data']:
+            gpg_pass = resp['data'][gpg_field]
+            if not gpg_pass:
+                raise aomi.exceptions.GPG("Unable to retrieve GPG password")
+
+            LOG.debug("Retrieved GPG password from Vault")
+            if not decrypt(src_file, zip_file, passphrase=gpg_pass):
+                raise aomi.exceptions.GPG("Unable to gpg")
+
+        else:
+            raise aomi.exceptions.VaultData("Unable to retrieve GPG password")
+    else:
+        if not decrypt(src_file, zip_file):
+            raise aomi.exceptions.GPG("Unable to gpg")
 
     return zip_file
 
 
-def thaw(src_file, opt):
+def thaw(vault_client, src_file, opt):
     """Given the combination of a Secretfile and the output of
     a freeze operation, will restore secrets to usable locations"""
     if not os.path.exists(src_file):
         raise aomi.exceptions.AomiFile("%s does not exist" % src_file)
 
     tmp_dir = ensure_tmpdir()
-    zip_file = thaw_decrypt(src_file, tmp_dir, opt)
+    zip_file = thaw_decrypt(vault_client, src_file, tmp_dir, opt)
     archive = zipfile.ZipFile(zip_file, 'r')
     for archive_file in archive.namelist():
         archive.extract(archive_file, tmp_dir)
