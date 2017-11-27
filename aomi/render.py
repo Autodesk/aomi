@@ -165,7 +165,7 @@ def env(client, paths, opt):
                                      not opt.merge_path)
     if old_prefix:
         LOG.warning("the prefix option is deprecated "
-                    "please use" 
+                    "please use"
                     "--no-merge-path --add-prefix $OLDPREFIX_ instead")
     elif opt.prefix:
         LOG.warning("the prefix option is deprecated"
