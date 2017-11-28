@@ -127,11 +127,13 @@ def env(client, paths, opt):
                                      opt.add_suffix or
                                      not opt.merge_path)
     if old_prefix:
-        LOG.warning("the prefix option is deprecated but being used "
-                    "due to not passing in new options")
+        LOG.warning("the prefix option is deprecated "
+                    "please use"
+                    "--no-merge-path --add-prefix $OLDPREFIX_ instead")
     elif opt.prefix:
-        LOG.warning("the prefix option is deprecated but not being "
-                    "used due to passing in new options")
+        LOG.warning("the prefix option is deprecated"
+                    "please use"
+                    "--no-merge-path --add-prefix $OLDPREFIX_ instead")
     key_map = cli_hash(opt.key_map)
     for path in paths:
         secrets = client.read(path)
