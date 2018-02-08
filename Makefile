@@ -20,9 +20,9 @@ testenv:
 
 test: version testenv
 	$(CIENV)coverage erase
-	$(CIENV)pep8 aomi
+	$(CIENV)pycodestyle aomi
 	$(CIENV)pylint --rcfile=/dev/null aomi
-	COVERAGE_FILE="$(pwd)/.coverage" $(CIENV)nose2 -v -C --coverage aomi
+	COVERAGE_FILE="$(shell pwd)/.coverage" $(CIENV)nose2 -v -C --coverage aomi
 	$(CIENV)bandit -r aomi
 	$(CIENV)vulture aomi
 	./scripts/integration

@@ -49,9 +49,17 @@ if ! which shyaml &> /dev/null ; then
     exit 1
 fi
 
+GPG=gpg2
+if ! which "$GPG" ; then
+    GPG=gpg
+    if ! which "$GPG" ; then
+        echo "either gpg or gpg2 must be installed"
+    fi
+fi
+
 # We only need gpg2 on non-travis hosts as it doesn't
 # work on their docker infrastructure
-if [ -z "$TRAVIS" ] && ! which gpg2 &> /dev/null ; then
+if [ -z "$TRAVIS" ] && ! which "$GPG" &> /dev/null ; then
     echo "gpg2 required"
     exit 1
 fi

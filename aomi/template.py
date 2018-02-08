@@ -5,6 +5,8 @@ import sys
 import logging
 import traceback
 import json
+# Python 2/3 compat
+from future.utils import iteritems  # pylint: disable=E0401
 from pkg_resources import resource_listdir, resource_filename
 import yaml
 from jinja2 import Environment, FileSystemLoader, meta
@@ -13,22 +15,20 @@ import jinja2.exceptions
 from cryptorito import portable_b64encode, portable_b64decode, polite_string
 from aomi.helpers import merge_dicts, abspath, cli_hash
 import aomi.exceptions as aomi_excep
-# Python 2/3 compat
-from future.utils import iteritems  # pylint: disable=E0401
 LOG = logging.getLogger(__name__)
 
 
 def grok_filter_name(element):
     """Extracts the name, which may be embedded, for a Jinja2
     filter node"""
+    e_name = None
     if element.name == 'default':
-        e_name = None
         if isinstance(element.node, jinja2.nodes.Getattr):
             e_name = element.node.node.name
         else:
             e_name = element.node.name
 
-        return e_name
+    return e_name
 
 
 def grok_for_node(element, default_vars):
