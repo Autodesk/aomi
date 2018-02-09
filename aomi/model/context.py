@@ -56,11 +56,11 @@ def find_backend(path, backends):
     return None
 
 
-def ensure_backend(resource, backend, backends, opt):
+def ensure_backend(resource, backend, backends, opt, managed=True):
     """Ensure the backend for a resource is properly in context"""
     existing_mount = find_backend(resource.mount, backends)
     if not existing_mount:
-        new_mount = backend(resource, opt)
+        new_mount = backend(resource, opt, managed=managed)
         backends.append(new_mount)
         return new_mount
 
@@ -194,12 +194,18 @@ class Context(object):
     def add(self, resource):
         """Add a resource to the context"""
         if isinstance(resource, Resource):
-            if isinstance(resource, (Secret, Mount)) and \
+            if isinstance(resource, Secret) and \
                resource.mount != 'cubbyhole':
+                ensure_backend(resource,
+                               SecretBackend,
+                               self._mounts,
+                               self.opt,
+                               False)
+            elif isinstance(resource, Mount):
                 ensure_backend(resource, SecretBackend, self._mounts, self.opt)
-            elif isinstance(resource, (Auth)):
+            elif isinstance(resource, Auth):
                 ensure_backend(resource, AuthBackend, self._auths, self.opt)
-            elif isinstance(resource, (AuditLog)):
+            elif isinstance(resource, AuditLog):
                 ensure_backend(resource, LogBackend, self._logs, self.opt)
 
             self._resources.append(resource)
@@ -353,22 +359,25 @@ class Context(object):
                     (self.auths, AuthBackend),
                     (self.logs, LogBackend)]
         for b_list, b_class in backends:
-            existing = getattr(vault_client, b_class.list_fun)()
-            for backend in b_list():
-                backend.fetch(vault_client, existing)
+            backend_list = b_list()
+            if backend_list:
+                existing = getattr(vault_client, b_class.list_fun)()
+                for backend in backend_list:
+                    backend.fetch(vault_client, existing)
 
-        for resource in self.resources():
-            if issubclass(type(resource), Secret):
-                if resource.mount != 'cubbyhole' and \
-                   find_backend(resource.mount, self._mounts).existing:
-                    resource.fetch(vault_client)
-            elif issubclass(type(resource), Auth):
-                if find_backend(resource.mount, self._auths).existing:
-                    resource.fetch(vault_client)
-            elif issubclass(type(resource), Mount):
-                resource.existing = find_backend(resource.mount,
-                                                 self._mounts).existing
+        for rsc in self.resources():
+            if issubclass(type(rsc), Secret):
+                nc_exists = (rsc.mount != 'cubbyhole' and
+                             find_backend(rsc.mount, self._mounts).existing)
+                if nc_exists or rsc.mount == 'cubbyhole':
+                    rsc.fetch(vault_client)
+            elif issubclass(type(rsc), Auth):
+                if find_backend(rsc.mount, self._auths).existing:
+                    rsc.fetch(vault_client)
+            elif issubclass(type(rsc), Mount):
+                rsc.existing = find_backend(rsc.mount,
+                                            self._mounts).existing
             else:
-                resource.fetch(vault_client)
+                rsc.fetch(vault_client)
 
         return self

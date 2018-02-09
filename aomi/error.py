@@ -10,15 +10,23 @@ def unhandled(exception, opt):
     name = "%s.%s" % (exmod, type(exception).__name__)
     # this is a Vault error
     if exmod == 'aomi.exceptions' or exmod == 'cryptorito':
-        output(exception.message, opt)
+        # This may be set for Validation or similar errors
+        if hasattr(exception, 'source'):
+            output(exception.message, opt, extra=exception.source)
+        else:
+            output(exception.message, opt)
+
     else:
         output("Unexpected error: %s" % name, opt)
 
+    sys.exit(1)
 
-def output(message, opt):
+
+def output(message, opt, extra=None):
     """ Politely display an unexpected error"""
     print(message, file=sys.stderr)
     if opt.verbose:
-        traceback.print_exc(sys.stderr)
+        if extra:
+            print(extra)
 
-    sys.exit(1)
+        traceback.print_exc(sys.stderr)

@@ -116,6 +116,9 @@ def vault_time_to_s(time_string):
     last_char = time_string[len(time_string) - 1]
     if last_char == 's':
         return int(time_string[0:len(time_string) - 1])
+    elif last_char == 'm':
+        cur = int(time_string[0:len(time_string) - 1])
+        return cur * 60
     elif last_char == 'h':
         cur = int(time_string[0:len(time_string) - 1])
         return cur * 3600

@@ -2,4 +2,7 @@ provider "aws" {
   region = "{{aws_region}}"
   access_key = "{{access_key}}"
   secret_key = "{{secret_key}}"
+{% if session_token|default('') != '' %}
+  token = "{{session_token}}"
+{% endif %}
 }

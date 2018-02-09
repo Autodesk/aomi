@@ -9,12 +9,64 @@ from urllib3.util.retry import Retry
 import hvac
 import yaml
 from aomi.helpers import normalize_vault_path
-from aomi.error import output as error_output
 from aomi.util import token_file, appid_file, approle_file
 from aomi.validation import sanitize_mount
 import aomi.error
 import aomi.exceptions
 LOG = logging.getLogger(__name__)
+
+
+def is_aws(data):
+    """Takes a decent guess as to whether or not we are dealing with
+    an AWS secret blob"""
+    return 'access_key' in data and 'secret_key' in data
+
+
+def grok_seconds(lease):
+    """Ensures that we are returning just seconds"""
+    if lease.endswith('s'):
+        return int(lease[0:-1])
+    elif lease.endswith('m'):
+        return int(lease[0:-1]) * 60
+    elif lease.endswith('h'):
+        return int(lease[0:-1]) * 3600
+
+    return None
+
+
+def renew_secret(client, creds, opt):
+    """Renews a secret. This will occur unless the user has
+    specified on the command line that it is not neccesary"""
+    if opt.reuse_token:
+        return
+
+    seconds = grok_seconds(opt.lease)
+    if not seconds:
+        raise aomi.exceptions.AomiCommand("invalid lease %s" % opt.lease)
+
+    renew = None
+    if client.version:
+        v_bits = client.version.split('.')
+        if int(v_bits[0]) == 0 and \
+           int(v_bits[1]) <= 8 and \
+           int(v_bits[2]) <= 0:
+            r_obj = {
+                'increment': seconds
+            }
+            r_path = "v1/sys/renew/{0}".format(creds['lease_id'])
+            # Pending discussion on https://github.com/ianunruh/hvac/issues/148
+            # pylint: disable=protected-access
+            renew = client._post(r_path, json=r_obj).json()
+
+    if not renew:
+        renew = client.renew_secret(creds['lease_id'], seconds)
+
+    # sometimes it takes a bit for vault to respond
+    # if we are within 5s then we are fine
+    if not renew or (seconds - renew['lease_duration'] >= 5):
+        client.revoke_self_token()
+        e_msg = 'Unable to renew with desired lease'
+        raise aomi.exceptions.VaultConstraint(e_msg)
 
 
 def approle_token(vault_client, role_id, secret_id):
@@ -59,15 +111,20 @@ def token_meta(opt):
     return meta
 
 
-def is_mounted(backend, path, backends):
-    """Determine whether a backend of a certain type is mounted"""
+def get_backend(backend, path, backends):
+    """Returns mountpoint details for a backend"""
+    m_norm = normalize_vault_path(path)
     for mount_name, values in backends.items():
         b_norm = normalize_vault_path(mount_name)
-        m_norm = normalize_vault_path(path)
         if (m_norm == b_norm) and values['type'] == backend:
-            return True
+            return values
 
-    return False
+    return None
+
+
+def is_mounted(backend, path, backends):
+    """Determine whether a backend of a certain type is mounted"""
+    return get_backend(backend, path, backends) is not None
 
 
 def wrap_hvac(msg):
@@ -85,8 +142,8 @@ def wrap_hvac(msg):
             except (hvac.exceptions.InvalidRequest,
                     hvac.exceptions.Forbidden) as vault_exception:
                 if vault_exception.errors[0] == 'permission denied':
-                    error_output("Permission denied %s from %s" %
-                                 (msg, self.path), self.opt)
+                    emsg = "Permission denied %s from %s" % (msg, self.path)
+                    raise aomi.exceptions.AomiCredentials(emsg)
                 else:
                     raise
 
@@ -108,6 +165,9 @@ class Client(hvac.Client):
         self.vault_addr = os.environ.get('VAULT_ADDR')
         if not self.vault_addr:
             raise aomi.exceptions.AomiError('VAULT_ADDR is undefined or empty')
+
+        if not self.vault_addr.startswith("http"):
+            raise aomi.exceptions.AomiError('VAULT_ADDR must be a URL')
 
         ssl_verify = True
         if 'VAULT_SKIP_VERIFY' in os.environ:
@@ -248,8 +308,8 @@ class Client(hvac.Client):
         except (hvac.exceptions.InvalidRequest,
                 hvac.exceptions.Forbidden) as vault_exception:
             if vault_exception.errors[0] == 'permission denied':
-                error_output("Permission denied creating operational token",
-                             opt)
+                emsg = "Permission denied creating operational token"
+                raise aomi.exceptions.AomiCredentials(emsg)
             else:
                 raise
 

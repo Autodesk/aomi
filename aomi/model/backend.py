@@ -2,8 +2,8 @@
 import re
 import logging
 import hvac.exceptions
-from aomi.helpers import map_val, diff_dict
-from aomi.vault import is_mounted
+from aomi.helpers import map_val, diff_dict, normalize_vault_path
+from aomi.vault import is_mounted, get_backend
 import aomi.exceptions as aomi_excep
 from aomi.validation import sanitize_mount
 LOG = logging.getLogger(__name__)
@@ -17,6 +17,7 @@ CHANGED = 1
 ADD = 2
 DEL = 3
 OVERWRITE = 4
+CONFLICT = 5
 
 
 class VaultBackend(object):
@@ -26,6 +27,7 @@ class VaultBackend(object):
     mount_fun = None
     unmount_fun = None
     tune_prefix = ""
+    description = None
 
     def __str__(self):
         if self.backend == self.path:
@@ -33,13 +35,13 @@ class VaultBackend(object):
 
         return "%s %s" % (self.backend, self.path)
 
-    def __init__(self, resource, opt):
+    def __init__(self, resource, opt, managed=True):
         self.path = sanitize_mount(resource.mount)
         self.backend = resource.backend
-        self.existing = False
-        self.existing_tune = None
+        self.existing = dict()
         self.present = resource.present
-        self.tune = dict()
+        self.config = dict()
+        self.managed = managed
         if hasattr(resource, 'tune') and isinstance(resource.tune, dict):
             for tunable in MOUNT_TUNABLES:
                 tunable_key = tunable[0]
@@ -50,17 +52,16 @@ class VaultBackend(object):
                             (tunable_key, self.path, tunable_type)
                     raise aomi_excep.AomiData(e_msg)
 
-                map_val(self.tune, resource.tune, tunable_key)
+                map_val(self.config, resource.tune, tunable_key)
+
+            if 'description' in resource.tune:
+                self.config['description'] = resource.tune['description']
 
         self.opt = opt
 
-    def update_tune(self):
-        """Determines if we need to update our tune metadata or not.
-        We only do this if we are specifying anything, and it has been
-        explicitly set in the data model"""
-
     def diff(self):
         """Determines if changes are needed for the Vault backend"""
+
         if not self.present:
             if self.existing:
                 return DEL
@@ -69,8 +70,12 @@ class VaultBackend(object):
 
         is_diff = NOOP
         if self.present and self.existing:
-            if self.tune and diff_dict(self.tune, self.existing_tune, True):
+            a_obj = self.config.copy()
+            if self.config and diff_dict(a_obj, self.existing, True):
                 is_diff = CHANGED
+
+            if self.description != self.existing.get('description'):
+                is_diff = CONFLICT
 
         elif self.present and not self.existing:
             is_diff = ADD
@@ -88,8 +93,6 @@ class VaultBackend(object):
             else:
                 LOG.info("%s backend already mounted on %s",
                          self.backend, self.path)
-
-            self.update_tune()
         else:
             if self.existing:
                 LOG.info("Unmounting %s backend on %s",
@@ -104,7 +107,7 @@ class VaultBackend(object):
 
     def sync_tunables(self, vault_client):
         """Synchtonizes any tunables we have set"""
-        if not self.tune:
+        if not self.config:
             return
 
         a_prefix = self.tune_prefix
@@ -112,7 +115,11 @@ class VaultBackend(object):
             a_prefix = "%s/" % self.tune_prefix
 
         v_path = "sys/mounts/%s%s/tune" % (a_prefix, self.path)
-        t_resp = vault_client.write(v_path, **self.tune)
+        a_obj = self.config.copy()
+        if 'description' in a_obj:
+            del a_obj['description']
+
+        t_resp = vault_client.write(v_path, **a_obj)
         if t_resp and 'errors' in t_resp and t_resp['errors']:
             e_msg = "Unable to update tuning info for %s" % self
             raise aomi_excep.VaultData(e_msg)
@@ -120,10 +127,19 @@ class VaultBackend(object):
     def fetch(self, vault_client, backends):
         """Updates local resource with context on whether this
         backend is actually mounted and available"""
-        self.existing = is_mounted(self.backend, self.path, backends)
-        if not self.existing or \
-           self.tune_prefix is None or \
-           vault_client.version is None:
+        if not is_mounted(self.backend, self.path, backends) or \
+           self.tune_prefix is None:
+            return
+
+        backend_details = get_backend(self.backend, self.path, backends)
+        self.existing = backend_details['config']
+        if backend_details['description']:
+            self.existing['description'] = backend_details['description']
+
+        if vault_client.version is None:
+            return
+
+        if not self.managed:
             return
 
         a_prefix = self.tune_prefix
@@ -136,7 +152,15 @@ class VaultBackend(object):
             e_msg = "Unable to retrieve tuning info for %s" % self
             raise aomi_excep.VaultData(e_msg)
 
-        self.existing_tune = t_resp['data']
+        e_obj = t_resp['data']
+        e_obj['description'] = None
+        n_path = normalize_vault_path(self.path)
+        if n_path in backends:
+            a_mount = backends[n_path]
+            if 'description' in a_mount and a_mount['description']:
+                e_obj['description'] = a_mount['description']
+
+        self.existing = e_obj
 
     def unmount(self, client):
         """Unmounts a backend within Vault"""
@@ -144,9 +168,28 @@ class VaultBackend(object):
 
     def actually_mount(self, client):
         """Actually mount something in Vault"""
+        a_obj = self.config.copy()
+        if 'description' in a_obj:
+            del a_obj['description']
+
         try:
-            getattr(client, self.mount_fun)(self.backend,
-                                            mount_point=self.path)
+            m_fun = getattr(client, self.mount_fun)
+            if self.description and a_obj:
+                m_fun(self.backend,
+                      mount_point=self.path,
+                      description=self.description,
+                      config=a_obj)
+            elif self.description:
+                m_fun(self.backend,
+                      mount_point=self.path,
+                      description=self.description)
+            elif a_obj:
+                m_fun(self.backend,
+                      mount_point=self.path,
+                      config=a_obj)
+            else:
+                m_fun(self.backend,
+                      mount_point=self.path)
         except hvac.exceptions.InvalidRequest as exception:
             match = re.match('existing mount at (?P<path>.+)', str(exception))
             if match:
@@ -171,6 +214,20 @@ class AuthBackend(VaultBackend):
     unmount_fun = 'disable_auth_backend'
     tune_prefix = '/auth'
 
+    def actually_mount(self, client):
+        m_fun = getattr(client, self.mount_fun)
+        if self.description and self.config and 'description' in self.config:
+            m_fun(self.backend,
+                  mount_point=self.path,
+                  description=self.config['description'])
+        elif self.description:
+            m_fun(self.backend,
+                  mount_point=self.path,
+                  description=self.config['description'])
+        else:
+            m_fun(self.backend,
+                  mount_point=self.path)
+
 
 class LogBackend(VaultBackend):
     """Audit Log backends"""
@@ -179,8 +236,8 @@ class LogBackend(VaultBackend):
     unmount_fun = 'disable_audit_backend'
     tune_prefix = None
 
-    def __init__(self, resource, opt):
-        super(LogBackend, self).__init__(resource, opt)
+    def __init__(self, resource, opt, managed=True):
+        super(LogBackend, self).__init__(resource, opt, managed)
         self.obj = resource.obj()
 
     def actually_mount(self, client):

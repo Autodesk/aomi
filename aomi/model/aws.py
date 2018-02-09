@@ -146,3 +146,5 @@ class AWS(Secret):
             ttl_obj, _lease_msg = grok_ttl(obj)
             if ttl_obj:
                 self.ttl = AWSTTL(self.mount, ttl_obj, opt)
+
+        self.tunable(obj)
