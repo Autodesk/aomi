@@ -252,29 +252,34 @@ class Resource(object):
     @wrap_vault("reading")
     def read(self, client):
         """Read from Vault while handling non surprising errors."""
+        val = None
         if self.no_resource:
-            return
+            return val
 
         LOG.debug("Reading from %s", self)
         try:
-            return client.read(self.path)
+            val = client.read(self.path)
         except hvac.exceptions.InvalidRequest as vault_exception:
             if str(vault_exception).startswith('no handler for route'):
-                return None
+                val = None
+
+        return val
 
     @wrap_vault("writing")
     def write(self, client):
         """Write to Vault while handling non-surprising errors."""
-        if self.no_resource:
-            return
+        val = None
+        if not self.no_resource:
+            val = client.write(self.path, **self.obj())
 
-        client.write(self.path, **self.obj())
+        return val
 
     @wrap_vault("deleting")
     def delete(self, client):
         """Delete from Vault while handling non-surprising errors."""
+        val = None
         if self.no_resource:
-            return
+            return val
 
         LOG.debug("Deleting %s", self)
         try:
@@ -283,7 +288,9 @@ class Resource(object):
                 hvac.exceptions.InvalidRequest) \
                 as vault_exception:
             if str(vault_exception).startswith('no handler for route'):
-                return None
+                val = None
+
+        return val
 
 
 class Secret(Resource):

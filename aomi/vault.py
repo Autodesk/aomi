@@ -248,6 +248,7 @@ class Client(hvac.Client):
         app_filename = appid_file()
         token_filename = token_file()
         approle_filename = approle_file()
+        token = None
         if 'VAULT_ROLE_ID' in os.environ and \
            'VAULT_SECRET_ID' in os.environ and \
            os.environ['VAULT_ROLE_ID'] and os.environ['VAULT_SECRET_ID']:
@@ -255,30 +256,27 @@ class Client(hvac.Client):
                                   os.environ['VAULT_ROLE_ID'],
                                   os.environ['VAULT_SECRET_ID'])
             LOG.debug("Token derived from VAULT_ROLE_ID and VAULT_SECRET_ID")
-            return token
         elif 'VAULT_TOKEN' in os.environ and os.environ['VAULT_TOKEN']:
             LOG.debug('Token derived from VAULT_TOKEN environment variable')
-            return os.environ['VAULT_TOKEN'].strip()
+            token = os.environ['VAULT_TOKEN'].strip()
         elif 'VAULT_USER_ID' in os.environ and \
              'VAULT_APP_ID' in os.environ and \
              os.environ['VAULT_USER_ID'] and os.environ['VAULT_APP_ID']:
+            LOG.debug("Token derived from VAULT_APP_ID and VAULT_USER_ID")
             token = app_token(self,
                               os.environ['VAULT_APP_ID'].strip(),
                               os.environ['VAULT_USER_ID'].strip())
-            LOG.debug("Token derived from VAULT_APP_ID and VAULT_USER_ID")
-            return token
         elif approle_filename:
             creds = yaml.safe_load(open(approle_filename).read().strip())
             if 'role_id' in creds and 'secret_id' in creds:
+                LOG.debug("Token derived from approle file")
                 token = approle_token(self,
                                       creds['role_id'],
                                       creds['secret_id'])
-                LOG.debug("Token derived from approle file")
-                return token
         elif token_filename:
             LOG.debug("Token derived from %s", token_filename)
             try:
-                return open(token_filename, 'r').read().strip()
+                token = open(token_filename, 'r').read().strip()
             except IOError as os_exception:
                 if os_exception.errno == 21:
                     raise aomi.exceptions.AomiFile('Bad Vault token file')
@@ -287,13 +285,14 @@ class Client(hvac.Client):
         elif app_filename:
             token = yaml.safe_load(open(app_filename).read().strip())
             if 'app_id' in token and 'user_id' in token:
+                LOG.debug("Token derived from %s", app_filename)
                 token = app_token(self,
                                   token['app_id'],
                                   token['user_id'])
-                LOG.debug("Token derived from %s", app_filename)
-                return token
         else:
             raise aomi.exceptions.AomiCredentials('unknown method')
+
+        return token
 
     def op_token(self, display_name, opt):
         """Return a properly annotated token for our use. This
@@ -333,22 +332,26 @@ class Client(hvac.Client):
         """Wrap the hvac write call, using the right token for
         cubbyhole interactions."""
         path = sanitize_mount(path)
+        val = None
         if path.startswith('cubbyhole'):
             self.token = self.initial_token
             val = super(Client, self).write(path, wrap_ttl=wrap_ttl, **kwargs)
             self.token = self.operational_token
-            return val
         else:
             super(Client, self).write(path, wrap_ttl=wrap_ttl, **kwargs)
+
+        return val
 
     def delete(self, path):
         """Wrap the hvac delete call, using the right token for
         cubbyhole interactions."""
         path = sanitize_mount(path)
+        val = None
         if path.startswith('cubbyhole'):
             self.token = self.initial_token
             val = super(Client, self).delete(path)
             self.token = self.operational_token
-            return val
         else:
             super(Client, self).delete(path)
+
+        return val

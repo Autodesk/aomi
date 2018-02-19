@@ -1,4 +1,4 @@
-Copyright (c) 2016-2017 Autodesk Inc. http://www.autodesk.com
+Copyright (c) 2016-2018 Autodesk Inc. http://www.autodesk.com
 
 The MIT License
 

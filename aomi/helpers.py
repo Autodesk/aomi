@@ -188,7 +188,7 @@ def subdir_path(directory, relative):
     """Returns a file path relative to another path."""
     item_bits = directory.split(os.sep)
     relative_bits = relative.split(os.sep)
-    for i in range(0, len(item_bits)):
+    for i, _item in enumerate(item_bits):
         if i == len(relative_bits) - 1:
             return os.sep.join(item_bits[i:])
         else:

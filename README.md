@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.org/Autodesk/aomi.svg?branch=master)](https://travis-ci.org/Autodesk/aomi)[![PyPI](https://img.shields.io/pypi/v/aomi.svg)](https://pypi.python.org/pypi/aomi)[![Coverage Status](https://coveralls.io/repos/github/Autodesk/aomi/badge.svg?branch=master)](https://coveralls.io/github/Autodesk/aomi?branch=master)[![Maintenance](https://img.shields.io/maintenance/yes/2017.svg)]()
+[![Build Status](https://travis-ci.org/Autodesk/aomi.svg?branch=master)](https://travis-ci.org/Autodesk/aomi)[![PyPI](https://img.shields.io/pypi/v/aomi.svg)](https://pypi.python.org/pypi/aomi)[![Coverage Status](https://coveralls.io/repos/github/Autodesk/aomi/badge.svg?branch=master)](https://coveralls.io/github/Autodesk/aomi?branch=master)[![Maintenance](https://img.shields.io/maintenance/yes/2018.svg)]()
 
 # Aomi: Opinionlessly Express Opinions on Vault
 
