@@ -172,8 +172,6 @@ class Client(hvac.Client):
         ssl_verify = True
         if 'VAULT_SKIP_VERIFY' in os.environ:
             if os.environ['VAULT_SKIP_VERIFY'] == '1':
-                import urllib3
-                urllib3.disable_warnings()
                 ssl_verify = False
 
         self.initial_token = None
@@ -192,8 +190,8 @@ class Client(hvac.Client):
         """Attempts to determine the version of Vault that a
         server is running. Some actions will change on older
         Vault deployments."""
-        health_url = "%s/v1/sys/health" % self.vault_addr
-        resp = self.session.request('get', health_url, **self._kwargs)
+        health_url = "v1/sys/health"
+        resp = self.adapter.get(health_url)
         if resp.status_code == 200 or resp.status_code == 429:
             blob = resp.json()
             if 'version' in blob:
@@ -206,8 +204,6 @@ class Client(hvac.Client):
     def connect(self, opt):
         """This sets up the tokens we expect to see in a way
         that hvac also expects."""
-        if not self._kwargs['verify']:
-            LOG.warning('Skipping SSL Validation!')
 
         self.version = self.server_version()
         self.token = self.init_token()
@@ -224,7 +220,7 @@ class Client(hvac.Client):
                         "functionality is supported")
 
         LOG.info("Connected to %s as %s%s",
-                 self._url,
+                 self.vault_addr,
                  display_name,
                  vsn_string)
 
