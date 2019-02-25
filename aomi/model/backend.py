@@ -42,6 +42,11 @@ class VaultBackend(object):
         self.present = resource.present
         self.config = dict()
         self.managed = managed
+        self.opt = opt
+        self.tune(resource)
+
+    def tune(self, resource):
+        """Updates backend tuning information from underlying resource"""
         if hasattr(resource, 'tune') and isinstance(resource.tune, dict):
             for tunable in MOUNT_TUNABLES:
                 tunable_key = tunable[0]
@@ -56,8 +61,6 @@ class VaultBackend(object):
 
             if 'description' in resource.tune:
                 self.config['description'] = resource.tune['description']
-
-        self.opt = opt
 
     def diff(self):
         """Determines if changes are needed for the Vault backend"""
@@ -164,7 +167,10 @@ class VaultBackend(object):
 
     def unmount(self, client):
         """Unmounts a backend within Vault"""
-        getattr(client, self.unmount_fun)(mount_point=self.path)
+        if not self.managed:
+            return
+
+        getattr(client.sys, self.unmount_fun)(self.path)
 
     def actually_mount(self, client):
         """Actually mount something in Vault"""
@@ -173,23 +179,23 @@ class VaultBackend(object):
             del a_obj['description']
 
         try:
-            m_fun = getattr(client, self.mount_fun)
+            m_fun = getattr(client.sys, self.mount_fun)
             if self.description and a_obj:
                 m_fun(self.backend,
-                      mount_point=self.path,
+                      path=self.path,
                       description=self.description,
                       config=a_obj)
             elif self.description:
                 m_fun(self.backend,
-                      mount_point=self.path,
+                      path=self.path,
                       description=self.description)
             elif a_obj:
                 m_fun(self.backend,
-                      mount_point=self.path,
+                      path=self.path,
                       config=a_obj)
             else:
                 m_fun(self.backend,
-                      mount_point=self.path)
+                      path=self.path)
         except hvac.exceptions.InvalidRequest as exception:
             match = re.match('existing mount at (?P<path>.+)', str(exception))
             if match:
@@ -202,38 +208,38 @@ class VaultBackend(object):
 
 class SecretBackend(VaultBackend):
     """Secret Backends for actual Vault resources"""
-    list_fun = 'list_secret_backends'
-    mount_fun = 'enable_secret_backend'
-    unmount_fun = 'disable_secret_backend'
+    list_fun = 'list_mounted_secrets_engines'
+    mount_fun = 'enable_secrets_engine'
+    unmount_fun = 'disable_secrets_engine'
 
 
 class AuthBackend(VaultBackend):
     """Authentication backends for Vault access"""
-    list_fun = 'list_auth_backends'
-    mount_fun = 'enable_auth_backend'
-    unmount_fun = 'disable_auth_backend'
+    list_fun = 'list_auth_methods'
+    mount_fun = 'enable_auth_method'
+    unmount_fun = 'disable_auth_method'
     tune_prefix = '/auth'
 
     def actually_mount(self, client):
-        m_fun = getattr(client, self.mount_fun)
+        m_fun = getattr(client.sys, self.mount_fun)
         if self.description and self.config and 'description' in self.config:
             m_fun(self.backend,
-                  mount_point=self.path,
+                  path=self.path,
                   description=self.config['description'])
         elif self.description:
             m_fun(self.backend,
-                  mount_point=self.path,
+                  path=self.path,
                   description=self.config['description'])
         else:
             m_fun(self.backend,
-                  mount_point=self.path)
+                  path=self.path)
 
 
 class LogBackend(VaultBackend):
     """Audit Log backends"""
-    list_fun = 'list_audit_backends'
-    mount_fun = 'enable_audit_backend'
-    unmount_fun = 'disable_audit_backend'
+    list_fun = 'list_enabled_audit_devices'
+    mount_fun = 'enable_audit_device'
+    unmount_fun = 'disable_audit_device'
     tune_prefix = None
 
     def __init__(self, resource, opt, managed=True):

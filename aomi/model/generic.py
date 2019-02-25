@@ -8,8 +8,10 @@ import os
 from copy import deepcopy
 from uuid import uuid4
 import logging
+import hvac.exceptions
 from future.utils import iteritems  # pylint: disable=E0401
 from cryptorito import portable_b64encode
+from aomi.vault import wrap_hvac as wrap_vault
 import aomi.exceptions
 from aomi.model.resource import Secret
 from aomi.helpers import random_word, hard_path, \
@@ -22,12 +24,71 @@ LOG = logging.getLogger(__name__)
 
 class Generic(Secret):
     """Generic Secrets"""
-    backend = 'generic'
+    backend = 'kv'
 
     def __init__(self, obj, opt):
         super(Generic, self).__init__(obj, opt)
         self.mount = sanitize_mount(obj['mount'])
-        self.path = "%s/%s" % (self.mount, obj['path'])
+        self.path = obj['path']
+        self.kv_version = None
+
+    def __str__(self):
+        return "%s %s/%s" % (self.name(), self.mount, self.path)
+
+    # There has to be a better way to wrap the cubbyhole token dance?
+    def vault_kv(self, client, functions, *args, **kwargs):
+        """Wrap KV1/2 commands in a way that allows the tooling to
+        magically juggle tokens for the cubbyhole. This is required
+        because while aomi makes use of a short lived operational
+        token, anything written to the cubbyhole must be associated
+        with the initial token"""
+
+        cubbyhole = False
+        kv_api = client.secrets.kv.v2
+        if self.mount == 'cubbyhole':
+            cubbyhole = True
+            client.token = client.initial_token
+
+        if self.kv_version == 1:
+            kv_api = client.secrets.kv.v1
+            kv_fun = functions[0]
+        else:
+            if len(functions) == 1:
+                kv_fun = functions[0]
+            else:
+                kv_fun = functions[1]
+
+        # do something?
+        resp = None
+        try:
+            resp = getattr(kv_api, kv_fun)(self.path, *args, **kwargs)
+        finally:
+            if cubbyhole:
+                client.token = client.operational_token
+
+        return resp
+
+    @wrap_vault("writing")
+    def write(self, client):
+        self.vault_kv(client,
+                      ['create_or_update_secret'],
+                      self.obj(),
+                      mount_point=self.mount)
+
+    @wrap_vault("reading")
+    def read(self, client):
+        try:
+            return self.vault_kv(client,
+                                 ['read_secret', 'read_secret_version'],
+                                 mount_point=self.mount)
+        except hvac.exceptions.InvalidPath:
+            return None
+
+    @wrap_vault("reading")
+    def delete(self, client):
+        self.vault_kv(client,
+                      ['delete_secret', 'delete_latest_version_of_secret'],
+                      mount_point=self.mount)
 
 
 class VarFile(Generic):

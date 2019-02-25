@@ -473,9 +473,9 @@ class Policy(Resource):
 
     @wrap_vault("writing")
     def write(self, client):
-        client.set_policy(self.path, self.obj())
+        client.sys.create_or_update_policy(self.path, self.obj())
 
     @wrap_vault("deleting")
     def delete(self, client):
         LOG.debug("Deleting %s", self)
-        client.delete_policy(self.path)
+        client.sys.delete_policy(self.path)

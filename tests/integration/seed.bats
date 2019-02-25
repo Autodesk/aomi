@@ -37,7 +37,7 @@ validate_defaults() {
 
 @test "remove unknown mounts if requested" {
     aomi_seed
-    run vault mount -path=also_secret generic
+    clean_run vault mount -path=also_secret generic
     [ "$status" == 0 ]
     aomi_seed
     check_mount "true" also_secret
@@ -72,7 +72,7 @@ validate_defaults() {
 @test "can set a policy variable in secretfile" {
     aomi_seed --tags bam-var
     check_policy true bam
-    run vault policies bam
+    clean_run vault policies bam
     scan_lines 'path.+variable.+' "${lines[@]}"
 }
 
@@ -152,14 +152,14 @@ validate_defaults() {
 @test "can include/exclude specific paths" {
     aomi_seed --include foo/var/bar
     check_secret true "foo/var/bar/secret" "$YAML_SECRET1"
-    vault delete foo/var/bar
+    clean_vault delete foo/var/bar
     aomi_seed --exclude foo/var/bar
     check_secret false "foo/var/bar/secret" "$YAML_SECRET1"
 }
 @test "can use a bunch of tags and can seed a bunch of policies" {
     aomi_seed
     aomi_seed --tags baz --tags bam
-    run vault policies
+    clean_run vault policies
     [ "$status" -eq 0 ]
     scan_lines "foo" "${lines[@]}"
     scan_lines "baz" "${lines[@]}"

@@ -141,7 +141,7 @@ function check_secret() {
     if [ $# != 3 ] ; then
         exit 1
     fi
-    local rc=1
+    local rc=2
     if [ "$1" == "true" ] ; then
         rc=0
     fi
@@ -171,15 +171,22 @@ function check_policy() {
 
 function aomi_run_rc() {
     RC="$1"
-    OP="$2"    
+    OP="$2"
     shift 2
-    run coverage run -a --source "${CIDIR}/aomi/" "${CIDIR}/aomi.py" "$OP" --verbose "$@"
-    echo "$output"
+    echo "Executing aomi with ${OP} $*"
+    clean_run coverage run -a --source "${CIDIR}/aomi/" "${CIDIR}/aomi.py" "$OP"  --verbose --verbose --monochrome "$@"
+    echo "Finished execution. RC Expcted ${RC}, Actual ${status}"
     [ "$status" -eq "$RC" ]
 }
 
 function aomi_run() {
     aomi_run_rc 0 "$@"
+}
+
+function clean_run() {
+    run "$@"
+    echo "$output"
+    grep -v 'DeprecationWarning\|deprecated' <<< "$output" &> /dev/null
 }
 
 function aomi_seed() {
@@ -191,7 +198,7 @@ function check_mount() {
     if [ "$1" == "true" ] ; then
         rc=0
     fi
-    run vault mounts
+    clean_run vault mounts
     [ "$status" == "0" ]
     if [ "$rc" == "0" ] ; then
         scan_lines "^${2}.+$" "${lines[@]}"

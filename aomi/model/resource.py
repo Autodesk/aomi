@@ -178,6 +178,7 @@ class Resource(object):
 
                 if diff_dict(current, obj):
                     is_diff = CHANGED
+
             elif is_unicode(self.existing):
                 if self.existing != obj:
                     is_diff = CHANGED
@@ -225,14 +226,15 @@ class Resource(object):
         or exclude via command line options"""
         if not is_tagged(self.tags, self.opt.tags):
             LOG.info("Skipping %s as it does not have requested tags",
-                     self.path)
+                     self)
             return False
 
         if not specific_path_check(self.path, self.opt):
             LOG.info("Skipping %s as it does not match specified paths",
-                     self.path)
+                     self)
             return False
 
+        LOG.debug("Resource %s is in filtered context", self)
         return True
 
     @staticmethod
@@ -307,16 +309,16 @@ class Auth(Resource):
         self.backend = backend
 
 
-class Mount(Resource):
-    """Vault Generic Backend"""
+class KV(Resource):
+    """Vault KV Backend"""
     required_fields = ['path']
     config_key = 'mounts'
-    backend = 'generic'
+    backend = 'kv'
     secret_format = 'mount point'
     no_resource = True
 
     def __init__(self, obj, opt):
-        super(Mount, self).__init__(obj, opt)
+        super(KV, self).__init__(obj, opt)
         self.mount = obj['path']
         self.path = self.mount
         self.tunable(obj)

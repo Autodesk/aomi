@@ -21,9 +21,9 @@ teardown() {
 }
 
 @test "can seed and extract a file" {
-    aomi_seed --tags bar
+    aomi_seed
     aomi_run extract_file \
-        foo/bar/baz/secret \
+        foo/bar/baz2/secret \
         "${BATS_TMPDIR}/secret.txt" \
         --verbose
     diff "${BATS_TMPDIR}/secret.txt" "${FIXTURE_DIR}/.secrets/secret.txt"
@@ -53,16 +53,17 @@ teardown() {
 
 @test "can seed a policy" {
     aomi_seed
-    run vault policies foo
+    clean_run vault policies foo
     [ "$status" -eq 0 ]
 }
 
 @test "respects tags when seeding" {
-    aomi_seed --tags bar
-    run vault read foo/bar/bof
-    [ "$status" -eq 1 ]
-    run vault read foo/bar/baz
+    aomi_seed
+    clean_run vault read foo/bar/baz
+    [ "$status" -eq 2 ]
+    clean_run vault read foo/bar/baz2
     [ "$status" -eq 0 ]
-    run vault read foo/bar/bam
-    [ "$status" -eq 1 ]
+    aomi_seed --tags bar
+    clean_run vault read foo/bar/baz
+    [ "$status" -eq 0 ]
 }

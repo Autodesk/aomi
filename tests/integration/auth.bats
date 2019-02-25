@@ -86,9 +86,9 @@ ldap_auth() {
     aomi_seed --verbose
     vault write auth/approle/role/foo/secret-id/lookup "secret_id=${SOME_SECRET}"
     approle_auth
-    run vault write secret/foo test=things
+    clean_run vault write secret/foo test=things
     [ "$status" -eq 0 ]
-    run vault read secret/foo
+    clean_run vault read secret/foo
     [ "$status" -eq 0 ]
     if [ "$VAULT_VERSION" != "0.6.2" ] ; then
         # tokens only good for three uses

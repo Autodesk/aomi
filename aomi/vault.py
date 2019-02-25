@@ -139,8 +139,8 @@ def wrap_hvac(msg):
         def func_wrapper(self, vault_client):
             try:
                 return func(self, vault_client)
-            except (hvac.exceptions.InvalidRequest,
-                    hvac.exceptions.Forbidden) as vault_exception:
+            except (hvac.exceptions.Forbidden) as vault_exception:
+                LOG.debug("WHAT %s", vault_exception.errors)
                 if vault_exception.errors[0] == 'permission denied':
                     emsg = "Permission denied %s from %s" % (msg, self.path)
                     raise aomi.exceptions.AomiCredentials(emsg)

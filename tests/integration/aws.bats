@@ -16,31 +16,30 @@ teardown() {
 
 @test "can add and remove an aws" {
     aomi_seed
-    vault mounts ; vault list aws/roles
-    echo $output
-    vault list aws/roles | grep inline
+    clean_run vault mounts ; vault list aws/roles
+    clean_run vault list aws/roles | grep inline
     aomi_seed --tags remove_mount
-    ! vault list aws/roles | grep inline
+    ! clean_run vault list aws/roles | grep inline
 }
 
 @test "can add and remove a role" {
     aomi_seed --tags double
-    vault list aws/roles | grep bar
+    clean_run vault list aws/roles | grep bar
     aomi_seed --tags remove
-    ! vault list aws/roles | grep bar
-    vault list aws/roles | grep foo
+    ! clean_run vault list aws/roles | grep bar
+    clean_run vault list aws/roles | grep foo
 }
 
 @test "aws happy path" {
     aomi_seed
     check_aws "inline"
-    run vault mounts
+    clean_run vault mounts
     scan_lines "aws/.+aws.+" "${lines[@]}"
 }
 @test "aws templated role" {
     aomi_seed \
         --extra-vars "effect=Allow" \
         --tags template
-    run vault mounts
+    clean_run vault mounts
     scan_lines "aws/.+aws.+" "${lines[@]}"
 }

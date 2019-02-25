@@ -34,12 +34,12 @@ teardown() {
     aomi_run diff --verbose --monochrome
     scan_lines "\+ Generic File secret/foo" "${lines[@]}"
     scan_lines "\+ Generic VarFile secret/bar" "${lines[@]}"
-    scan_lines "\+ generic also_secret" "${lines[@]}"
+    scan_lines "\+ kv also_secret" "${lines[@]}"
     aomi_seed
     aomi_run diff --verbose --monochrome
     scan_lines "!\+ Generic File secret/foo" "${lines[@]}"
     scan_lines "!\+ Generic VarFile secret/bar" "${lines[@]}"
-    scan_lines "!\+ generic also_secret" "${lines[@]}"    
+    scan_lines "!\+ kv also_secret" "${lines[@]}"    
     aomi_run diff --verbose --monochrome --tags mod
     scan_lines "\~ Generic File secret/foo" "${lines[@]}"
     scan_lines "\-\- txt2: ${FILE_SECRET2}" "${lines[@]}"
@@ -51,10 +51,10 @@ teardown() {
     aomi_run diff --verbose --monochrome --tags remove
     scan_lines "\- Generic File secret/foo" "${lines[@]}"
     scan_lines "\- Generic VarFile secret/bar" "${lines[@]}"    
-    scan_lines "\- generic also_secret" "${lines[@]}"
+    scan_lines "\- kv also_secret" "${lines[@]}"
     aomi_seed --tags remove
     aomi_run diff --verbose --monochrome --tags remove
     scan_lines "!\- Generic File secret/foo" "${lines[@]}"
     scan_lines "!\- Generic VarFile secret/bar" "${lines[@]}"    
-    scan_lines "!\- generic also_secret" "${lines[@]}"
+    scan_lines "!\- kv also_secret" "${lines[@]}"
 }
