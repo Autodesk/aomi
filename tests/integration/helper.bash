@@ -38,22 +38,41 @@ function stop_vault() {
     if ps "$VAULT_PID" &> /dev/null ; then
         kill "$VAULT_PID"
     else
-        echo "vault server went away"
         PID=$(pgrep vault || true)
         if [ ! -z "$PID" ] ; then
             kill "$(pgrep vault)"
+        else
+            echo "vault server went away"
         fi
     fi
     rm -f "$VAULT_LOG"
 }
 
 function gpg_fixture() {
+    if command -v gpg2 &> /dev/null ; then
+        GPG=gpg2
+    else
+        if command -v gpg &> /dev/null ; then
+            GPG=gpg
+        else
+            exit 1
+        fi
+    fi
+    export GPG
     export GNUPGHOME="${FIXTURE_DIR}/.gnupg"
+    "$GPG" --version    
     mkdir -p "$GNUPGHOME"
-    echo "use-agent
+    if [ "$GPG" == "gpg2" ] ; then
+        echo "use-agent
+trust-model always
+verbose
+" > "${GNUPGHOME}/gpg.conf"
+    else
+        echo "use-agent
 always-trust
 verbose
 " > "${GNUPGHOME}/gpg.conf"
+    fi
     PINENTRY="${CIDIR}/scripts/pinentry-dummy.sh"
     echo "pinentry-program ${PINENTRY}" > "${GNUPGHOME}/gpg-agent.conf"
     chmod -R og-rwx "$GNUPGHOME"    
@@ -61,7 +80,8 @@ verbose
     PASS="somegpgpass${RANDOM}"
     export CRYPTORITO_PASSPHRASE_FILE="${FIXTURE_DIR}/pass"
     echo "$PASS" > "$CRYPTORITO_PASSPHRASE_FILE"
-    gpg --gen-key --verbose --batch <<< "
+    ls -l "$GNUPGHOME"
+    "$GPG" --gen-key --verbose --verbose --batch <<< "
 Key-Type: RSA
 Key-Length: 2048
 Subkey-Type: RSA
@@ -71,7 +91,7 @@ Expire-Date: 300
 Passphrase: ${PASS}
 %commit
 "
-    GPGID=$(gpg --list-keys 2>/dev/null | grep -A1 -e 'pub   rsa2048'  | tail -n 1 | sed -e 's! !!g')
+    GPGID=$("$GPG" --list-keys 2>/dev/null | grep -A1 -e 'pub   rsa2048'  | tail -n 1 | sed -e 's! !!g')
     [ ! -z "$GPGID" ]
 }
 
@@ -121,7 +141,7 @@ function check_secret() {
     if [ $# != 3 ] ; then
         exit 1
     fi
-    local rc=1
+    local rc=2
     if [ "$1" == "true" ] ; then
         rc=0
     fi
@@ -151,15 +171,22 @@ function check_policy() {
 
 function aomi_run_rc() {
     RC="$1"
-    OP="$2"    
+    OP="$2"
     shift 2
-    run coverage run -a --source "${CIDIR}/aomi/" "${CIDIR}/aomi.py" "$OP" --verbose "$@"
-    echo "$output"
+    echo "Executing aomi with ${OP} $*"
+    clean_run coverage run -a --source "${CIDIR}/aomi/" "${CIDIR}/aomi.py" "$OP"  --verbose --verbose --monochrome "$@"
+    echo "Finished execution. RC Expcted ${RC}, Actual ${status}"
     [ "$status" -eq "$RC" ]
 }
 
 function aomi_run() {
     aomi_run_rc 0 "$@"
+}
+
+function clean_run() {
+    run "$@"
+    echo "$output"
+    grep -v 'DeprecationWarning\|deprecated' <<< "$output" &> /dev/null
 }
 
 function aomi_seed() {
@@ -171,7 +198,7 @@ function check_mount() {
     if [ "$1" == "true" ] ; then
         rc=0
     fi
-    run vault mounts
+    clean_run vault secrets list
     [ "$status" == "0" ]
     if [ "$rc" == "0" ] ; then
         scan_lines "^${2}.+$" "${lines[@]}"

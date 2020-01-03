@@ -29,9 +29,8 @@ VAULT_TESTS="aws"
 export VAULT_AWS_PATH="aomi/aws/creds/travis"
 export VAULT_SECRET_PATH="secrets/aomi"
 
-# Default to a unreasonably old version of HCV because reasons.
 if [ -z "$VAULT_VERSION" ] ; then
-    VAULT_VERSION="0.7.3"
+    VAULT_VERSION="1.0.1"
 fi
 
 # This way the smoke tests always get executed first when running
@@ -56,6 +55,7 @@ if ! which "$GPG" ; then
         echo "either gpg or gpg2 must be installed"
     fi
 fi
+export "$GPG"
 
 # We only need gpg2 on non-travis hosts as it doesn't
 # work on their docker infrastructure

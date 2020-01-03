@@ -37,7 +37,7 @@ validate_defaults() {
 
 @test "remove unknown mounts if requested" {
     aomi_seed
-    run vault mount -path=also_secret generic
+    clean_run vault mount -path=also_secret generic
     [ "$status" == 0 ]
     aomi_seed
     check_mount "true" also_secret
@@ -48,7 +48,8 @@ validate_defaults() {
 @test "can seed mixed binary/unicode files" {
     OG_BIN="${BATS_TMPDIR}/fixtures/.secrets/secret.bin"
     dd if=/dev/urandom of="$OG_BIN" count=1
-    chmod og-rwx "$OG_BIN"    
+    chmod og-rwx "$OG_BIN"
+    aomi_seed
     aomi_seed --tags binary
     check_secret true "foo/bar/txt" "$FILE_SECRET1"
     aomi_run extract_file foo/bar/bin "${BATS_TMPDIR}/exfile" --verbose
@@ -72,7 +73,7 @@ validate_defaults() {
 @test "can set a policy variable in secretfile" {
     aomi_seed --tags bam-var
     check_policy true bam
-    run vault policies bam
+    clean_run vault policies bam
     scan_lines 'path.+variable.+' "${lines[@]}"
 }
 
@@ -131,6 +132,7 @@ validate_defaults() {
     validate_defaults
 }
 @test "can seed with tags" {
+    aomi_seed --tags foo_mount
     aomi_seed --tags baz
     validate_resources true baz
     validate_resources false bar
@@ -150,16 +152,17 @@ validate_defaults() {
     check_secret true "foo/var/bar/secret2" "$YAML_SECRET1_2"
 }
 @test "can include/exclude specific paths" {
+    aomi_seed --tags foo_mount
     aomi_seed --include foo/var/bar
     check_secret true "foo/var/bar/secret" "$YAML_SECRET1"
-    vault delete foo/var/bar
+    clean_vault delete foo/var/bar
     aomi_seed --exclude foo/var/bar
     check_secret false "foo/var/bar/secret" "$YAML_SECRET1"
 }
 @test "can use a bunch of tags and can seed a bunch of policies" {
     aomi_seed
     aomi_seed --tags baz --tags bam
-    run vault policies
+    clean_run vault policies
     [ "$status" -eq 0 ]
     scan_lines "foo" "${lines[@]}"
     scan_lines "baz" "${lines[@]}"

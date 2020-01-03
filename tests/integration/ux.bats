@@ -15,6 +15,7 @@ teardown() {
 }
 
 @test "error states are real" {
+    # token / env validation
     aomi_seed
     VAULT_TOKEN="no" aomi_run_rc 1 seed
     scan_lines "^.+permission denied$" "${lines[@]}"
@@ -25,7 +26,7 @@ teardown() {
     a_token=$(vault token-create -format=json -policy=foo -no-default-policy 2> /dev/null | jq -Mr ".auth.client_token")
     [ ! -z "$a_token" ] && [ "$a_token" != "null" ]
     VAULT_TOKEN="$a_token" aomi_run_rc 1 seed
-    scan_lines "^.*Permission denied.*$" "${lines[@]}"
+    scan_lines "^.*permission denied.*$" "${lines[@]}"
     unset VAULT_TOKEN
     # missing file is the same as the var not being set
     VAULT_TOKEN_FILE="/tmp/nope${RANDOM}" aomi_run_rc 1 seed
@@ -57,18 +58,19 @@ teardown() {
 }
 
 @test "help if asked" {
-      aomi_run --help
+      run aomi --help
       scan_lines "usage: aomi" "${lines[@]}"
       scan_lines "positional arguments" "${lines[@]}"
-      aomi_run help
+      run aomi help
       scan_lines "usage: aomi" "${lines[@]}"
       scan_lines "positional arguments" "${lines[@]}"      
 }
 
 @test "some help if not asked" {
-      aomi_run --help
+      run aomi --help
       scan_lines "usage: aomi" "${lines[@]}"
-      aomi_run_rc 2 aomi
+      run aomi
+      [ "$status" == 2 ]
       scan_lines "usage: aomi" "${lines[@]}"      
 }
 
