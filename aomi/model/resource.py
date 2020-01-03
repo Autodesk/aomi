@@ -26,7 +26,7 @@ class Resource(object):
     resource_key = None
     child = False
     no_resource = False
-    secret_format = 'data'
+    resource_format = 'data'
 
     def thaw(self, tmp_dir):
         """Will perform some validation and copy a
@@ -204,19 +204,19 @@ class Resource(object):
         """Update remove Vault resource contents if needed"""
         if self.present and not self.existing:
             LOG.info("Writing new %s to %s",
-                     self.secret_format, self)
+                     self.resource_format, self)
             self.write(vault_client)
         elif self.present and self.existing:
             if self.diff() == CHANGED or self.diff() == OVERWRITE:
                 LOG.info("Updating %s in %s",
-                         self.secret_format, self)
+                         self.resource_format, self)
                 self.write(vault_client)
         elif not self.present and not self.existing:
             LOG.info("No %s to remove from %s",
-                     self.secret_format, self)
+                     self.resource_format, self)
         elif not self.present and self.existing:
             LOG.info("Removing %s from %s",
-                     self.secret_format, self)
+                     self.resource_format, self)
             self.delete(vault_client)
 
     def filtered(self):
@@ -314,7 +314,7 @@ class KV(Resource):
     required_fields = ['path']
     config_key = 'mounts'
     backend = 'kv'
-    secret_format = 'mount point'
+    resource_format = 'mount point'
     no_resource = True
 
     def __init__(self, obj, opt):

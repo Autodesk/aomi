@@ -149,7 +149,7 @@ class Files(Generic):
                 s_obj[name] = data
             except aomi.exceptions.Validation:
                 s_obj[name] = portable_b64encode(data)
-                self.secret_format = 'binary'
+                self.resource_format = 'binary'
 
         return s_obj
 

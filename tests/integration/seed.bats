@@ -48,7 +48,8 @@ validate_defaults() {
 @test "can seed mixed binary/unicode files" {
     OG_BIN="${BATS_TMPDIR}/fixtures/.secrets/secret.bin"
     dd if=/dev/urandom of="$OG_BIN" count=1
-    chmod og-rwx "$OG_BIN"    
+    chmod og-rwx "$OG_BIN"
+    aomi_seed
     aomi_seed --tags binary
     check_secret true "foo/bar/txt" "$FILE_SECRET1"
     aomi_run extract_file foo/bar/bin "${BATS_TMPDIR}/exfile" --verbose
@@ -131,6 +132,7 @@ validate_defaults() {
     validate_defaults
 }
 @test "can seed with tags" {
+    aomi_seed --tags foo_mount
     aomi_seed --tags baz
     validate_resources true baz
     validate_resources false bar
@@ -150,6 +152,7 @@ validate_defaults() {
     check_secret true "foo/var/bar/secret2" "$YAML_SECRET1_2"
 }
 @test "can include/exclude specific paths" {
+    aomi_seed --tags foo_mount
     aomi_seed --include foo/var/bar
     check_secret true "foo/var/bar/secret" "$YAML_SECRET1"
     clean_vault delete foo/var/bar

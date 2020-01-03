@@ -198,7 +198,7 @@ function check_mount() {
     if [ "$1" == "true" ] ; then
         rc=0
     fi
-    clean_run vault mounts
+    clean_run vault secrets list
     [ "$status" == "0" ]
     if [ "$rc" == "0" ] ; then
         scan_lines "^${2}.+$" "${lines[@]}"
